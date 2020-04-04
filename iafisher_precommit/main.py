@@ -3,7 +3,7 @@ import stat
 import sys
 from collections import namedtuple
 
-from .lib import run, turn_off_colors
+from .lib import run, turn_off_colors, turn_on_colors
 
 
 def main():
@@ -36,6 +36,7 @@ def main_init(args):
 
 
 def main_fix(args):
+    # TODO(2020-04-03)
     raise NotImplementedError
 
 
@@ -136,7 +137,7 @@ from iafisher_precommit import checks, Precommit
 
 def main():
     precommit = Precommit()
-    
+
     # Generic checks
     precommit.register(checks.NoStagedAndUnstagedChanges())
     precommit.register(checks.NoWhitespaceInFilePath())
@@ -146,10 +147,6 @@ def main():
     precommit.register(checks.PythonStyle())
 
     precommit.run()
-
-
-if __name__ == "__main__":
-    main()
 """
 
 

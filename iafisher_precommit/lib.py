@@ -1,4 +1,3 @@
-import argparse
 import ast
 import re
 import subprocess
@@ -11,7 +10,8 @@ from collections import namedtuple
 class Precommit:
     def __init__(self, *, encoding="utf-8"):
         self.encoding = encoding
-        self.checks = []
+        self.repo_checks = []
+        self.file_checks = []
         self.verbose = False
 
     def set_args(self, args):
@@ -23,7 +23,13 @@ class Precommit:
         `pattern` may be a string or a compiled regular expression object. If it is
         None, then the check will run on all files.
         """
-        self.checks.append((check, pattern))
+        if hasattr(check, "per_file") and check.per_file:
+            check.pattern = pattern
+            self.file_checks.append(check)
+        else:
+            # TODO(2020-04-03): Throw an exception is pattern is not None.
+            self.repo_checks.append(check)
+
         if self.verbose:
             print(f"Registered check: {check.__class__.__name__}")
 
@@ -41,7 +47,9 @@ class Precommit:
                 else:
                     n = _blue(f"{len(fixable_problems)} of them")
 
-                print(f"Fix {n} with '{_blue('precommit fix')}'.", end="", file=sys.stderr)
+                print(
+                    f"Fix {n} with '{_blue('precommit fix')}'.", end="", file=sys.stderr
+                )
             print(file=sys.stderr)
             sys.exit(1)
         else:
@@ -65,12 +73,8 @@ class Precommit:
             try:
                 encoded_staged_files.append(path.decode(self.encoding))
             except UnicodeDecodeError:
-                problems.append(
-                    Problem(
-                        path=path,
-                        message=f"file path is not valid for encoding {encoding!r}",
-                    )
-                )
+                message = f"file path is not valid for encoding {self.encoding!r}"
+                problems.append(Problem(path=path, message=message))
 
         # TODO(2020-04-03): Shouldn't be checking unstaged files, although changing this
         # will make implementing checks that use unstaged_files harder because they
@@ -80,12 +84,8 @@ class Precommit:
             try:
                 encoded_unstaged_files.append(path.decode(self.encoding))
             except UnicodeDecodeError:
-                problems.append(
-                    Problem(
-                        path=path,
-                        message=f"file path is not valid for encoding {encoding!r}",
-                    )
-                )
+                message = f"file path is not valid for encoding {self.encoding!r}"
+                problems.append(Problem(path=path, message=message))
 
         if problems:
             return problems
@@ -93,35 +93,41 @@ class Precommit:
         repo_info = repo_info._replace(
             staged_files=encoded_staged_files, unstaged_files=encoded_unstaged_files
         )
-        for check, pattern in self.checks:
-            if pattern is None and hasattr(check, "pattern"):
-                pattern = check.pattern
 
-            for matching_file in self._filter(repo_info.staged_files, pattern):
-                if self.verbose:
-                    print(f"Running {check.__class__.__name__} on {matching_file}")
+        if not repo_info.staged_files:
+            return []
 
-                check_start = time.monotonic()
-                r = check.check(repo_info, matching_file)
-                check_end = time.monotonic()
+        for check in self.repo_checks:
+            problems.extend(self._run_check(check, start, args=(repo_info,)))
 
-                if self.verbose:
-                    elapsed = check_end - check_start
-                    elapsed_since_start = check_end - start
-                    print(f"Finished in {elapsed:.2f}s. ", end="")
-                    print(f"{elapsed_since_start:.2f}s since start.")
-
-                if r is None:
-                    continue
-                elif isinstance(r, list):
-                    for problem in r:
-                        problem.path = matching_file
-                    problems.extend(r)
-                else:
-                    r.path = matching_file
-                    problems.append(r)
+        for check in self.file_checks:
+            for matching_file in self._filter(repo_info.staged_files, check.pattern):
+                ps = self._run_check(check, start, args=(matching_file,))
+                for p in ps:
+                    p.path = matching_file
 
         return problems
+
+    def _run_check(self, check, start, *, args):
+        if self.verbose:
+            print(f"Running {check.__class__.__name__}")
+
+        check_start = time.monotonic()
+        r = check.check(*args)
+        check_end = time.monotonic()
+
+        if self.verbose:
+            elapsed = check_end - check_start
+            elapsed_since_start = check_end - start
+            print(f"Finished in {elapsed:.2f}s. ", end="")
+            print(f"{elapsed_since_start:.2f}s since start.")
+
+        if r is None:
+            return []
+        elif isinstance(r, list):
+            return r
+        else:
+            return [r]
 
     def _get_repo_info(self):
         cmd = ["git", "diff", "--name-only", "--cached"]
@@ -184,7 +190,11 @@ class GitPath(bytes):
 
 
 def _print_problem(problem):
-    prefix = f"{_red('ERROR')} for {_blue(problem.path)}"
+    if problem.path:
+        prefix = f"{_red('error')} for {_blue(problem.path)}"
+    else:
+        prefix = f"{_red('error')}"
+
     print(f"{prefix}: {problem.message}", file=sys.stderr)
     if problem.verbose_message:
         print(file=sys.stderr)

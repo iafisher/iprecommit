@@ -11,6 +11,6 @@ def main(args):
 
     # Python checks
     precommit.register(checks.PythonFormat())
-    precommit.register(checks.PythonStyle())
+    precommit.register(checks.PythonStyle(args=["--max-line-length=88"]))
 
     precommit.run()
