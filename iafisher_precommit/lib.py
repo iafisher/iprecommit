@@ -4,6 +4,7 @@ import re
 import subprocess
 import sys
 import textwrap
+import time
 from collections import namedtuple
 
 
@@ -11,6 +12,10 @@ class Precommit:
     def __init__(self, *, encoding="utf-8"):
         self.encoding = encoding
         self.checks = []
+        self.verbose = False
+
+    def set_args(self, args):
+        self.verbose = args.flags.get("--verbose", False)
 
     def register(self, check, *, pattern=None):
         """Registers the check to run on files that match the regex `pattern`.
@@ -19,26 +24,10 @@ class Precommit:
         None, then the check will run on all files.
         """
         self.checks.append((check, pattern))
+        if self.verbose:
+            print(f"Registered check: {check.__class__.__name__}")
 
     def run(self):
-        global _NO_COLOR
-
-        parser = argparse.ArgumentParser(description="Run precommit checks.")
-        parser.add_argument(
-            "--no-color", action="store_true", help="Don't emit colored output."
-        )
-        args = parser.parse_args()
-
-        if args.no_color:
-            _NO_COLOR = True
-
-        self.run_checks()
-
-    @staticmethod
-    def pattern_from_file_ext(ext):
-        return r".+\." + re.escape(ext)
-
-    def run_checks(self):
         problems = self._find_problems()
         if problems:
             for problem in problems:
@@ -58,10 +47,16 @@ class Precommit:
         else:
             print(f"{_green('No issues')} detected.", file=sys.stderr)
 
+    @staticmethod
+    def pattern_from_file_ext(ext):
+        return r".+\." + re.escape(ext)
+
     def run_fix(self):
         raise NotImplementedError
 
     def _find_problems(self):
+        start = time.monotonic()
+
         repo_info = self._get_repo_info()
 
         problems = []
@@ -103,7 +98,19 @@ class Precommit:
                 pattern = check.pattern
 
             for matching_file in self._filter(repo_info.staged_files, pattern):
+                if self.verbose:
+                    print(f"Running {check.__class__.__name__} on {matching_file}")
+
+                check_start = time.monotonic()
                 r = check.check(repo_info, matching_file)
+                check_end = time.monotonic()
+
+                if self.verbose:
+                    elapsed = check_end - check_start
+                    elapsed_since_start = check_end - start
+                    print(f"Finished in {elapsed:.2f}s. ", end="")
+                    print(f"{elapsed_since_start:.2f}s since start.")
+
                 if r is None:
                     continue
                 elif isinstance(r, list):

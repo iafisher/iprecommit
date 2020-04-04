@@ -11,16 +11,16 @@ def main():
 
     chdir_to_git_root()
     if args.subcommand == "init":
-        main_init()
+        main_init(args)
     elif args.subcommand == "fix":
-        main_fix()
+        main_fix(args)
     elif args.subcommand == "help":
-        main_help()
+        main_help(args)
     else:
-        main_check()
+        main_check(args)
 
 
-def main_init():
+def main_init(args):
     # TODO: Check that precommit.py doesn't exist first to avoid overwriting it.
     with open("precommit.py", "w", encoding="utf-8") as f:
         f.write(PRECOMMIT)
@@ -35,17 +35,17 @@ def main_init():
     os.chmod(hookpath, st.st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
 
 
-def main_fix():
+def main_fix(args):
     raise NotImplementedError
 
 
-def main_help():
+def main_help(args):
     print(HELP)
 
 
-def main_check():
+def main_check(args):
     user_defined_main = get_user_defined_main()
-    user_defined_main()
+    user_defined_main(args)
 
 
 def chdir_to_git_root():
@@ -56,7 +56,7 @@ def chdir_to_git_root():
 
 
 SUBCOMMANDS = ("init", "fix", "help")
-FLAGS = ("--color", "--no-color", "-h", "--help")
+FLAGS = ("--color", "--no-color", "-h", "--help", "--verbose")
 UnprocessedArgs = namedtuple("UnprocessedArgs", ["positional", "flags"])
 ProcessedArgs = namedtuple("ProcessedArgs", ["subcommand", "flags"])
 
@@ -171,6 +171,7 @@ Subcommands:
 Flags:
     --color         Turn on colorized output, overriding any environment settings.
     --no-color      Turn off colorized output.
+    --verbose       Emit verbose output.
     -h, --help      Display a help message and exit.
 """
 
