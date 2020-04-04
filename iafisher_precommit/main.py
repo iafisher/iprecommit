@@ -23,12 +23,16 @@ def main():
 
 
 def main_init(args):
-    # TODO: Check that precommit.py doesn't exist first to avoid overwriting it.
+    if "--force" not in args.flags and os.path.exists("precommit.py"):
+        error("precommit.py already exists. Re-run with --force to overwrite it.")
+
     with open("precommit.py", "w", encoding="utf-8") as f:
         f.write(PRECOMMIT)
 
-    # TODO: Check that .git/hooks/pre-commit doesn't exist first.
     hookpath = os.path.join(".git", "hooks", "pre-commit")
+    if "--force" not in args.flags and os.path.exists(hookpath):
+        error(f"{hookpath} already exists. Re-run with --force to overwrite it.")
+
     with open(hookpath, "w", encoding="utf-8") as f:
         f.write("#!/bin/sh\n\nprecommit --all\n")
 
@@ -68,13 +72,14 @@ def chdir_to_git_root():
 
 
 SUBCOMMANDS = {"init", "fix", "list", "help", "check"}
-SHORT_FLAGS = {"-h": "--help"}
+SHORT_FLAGS = {"-f": "--force", "-h": "--help"}
 FLAGS = {
     "--color": set(),
     "--no-color": set(),
     "--help": set(),
     "--verbose": {"fix", "check"},
     "--all": {"fix", "check"},
+    "--force": {"init"},
 }
 Args = namedtuple("Args", ["subcommand", "positional", "flags"])
 
