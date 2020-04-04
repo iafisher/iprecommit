@@ -1,0 +1,85 @@
+#!/bin/bash
+
+set -e
+
+
+function status {
+  echo
+  echo -e "\033[94m[test] $1\033[0m"
+}
+
+# Delete the working directory when the script exits.
+function cleanup {
+  if [[ -n "$nocleanup" ]]; then
+    echo
+    echo "Test directory: $working"
+  else
+    rm -rf "$working"
+  fi
+}
+
+# Parse command-line arguments.
+while [[ $# -gt 0 ]]; do
+  key="$1"
+
+  case $key in
+    --no-cleanup)
+      nocleanup=true
+      shift
+      ;;
+    -h|--help)
+      echo "Run the test suite."
+      echo
+      echo "Flags"
+      echo "  --no-cleanup    Don't remove the test directory when finished."
+      echo "  -h, --help      Display this help message and exit."
+      exit 0
+      shift
+      ;;
+    *)
+      echo "Unknown argument: $key"
+      exit 1
+      ;;
+  esac
+done
+
+
+d=$(realpath $(dirname $0))
+working=$(mktemp -d)
+if [[ ! -d "$working" ]]; then
+  echo "Error: unable to create temporary directory with mktemp."
+  exit 1
+fi
+
+trap cleanup EXIT
+
+cp -r test_repo/* "$working"
+cd "$working"
+
+status "Initializing git repository."
+git init
+git add .
+
+status "Creating virtual environment."
+virtualenv --python=python3 .venv
+source .venv/bin/activate
+
+status "Installing development version of iafisher-precommit."
+pip3 install "$d"
+
+status "Running tests"
+precommit init
+
+# Modify a file to fail the "no staged and unstaged changes" check.
+echo -e "\n\n" >> bad_python_format.py
+
+echo "Checking output of 'precommit'"
+precommit --no-color &> precommit_output || true
+git diff --no-index "$d/test_repo_ref/precommit_output" precommit_output
+
+echo "Checking output of 'git commit'"
+NO_COLOR=true git commit -m "Test commit" &> git_precommit_output || true
+git diff --no-index "$d/test_repo_ref/precommit_output" git_precommit_output
+
+echo
+echo -e "\033[92mTests passed!\033[0m"

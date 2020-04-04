@@ -1,0 +1,8 @@
+/.venv
+/todo.txt
+*.pyc
+*.pyo
+__pycache__
+*.egg-info
+*.swp
+*~
