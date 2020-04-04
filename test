@@ -34,7 +34,6 @@ while [[ $# -gt 0 ]]; do
       echo "  --no-cleanup    Don't remove the test directory when finished."
       echo "  -h, --help      Display this help message and exit."
       exit 0
-      shift
       ;;
     *)
       echo "Unknown argument: $key"
@@ -53,18 +52,21 @@ fi
 
 trap cleanup EXIT
 
-cp -r test_repo/* "$working"
-cd "$working"
+if [[ ! -d "test_repo/.venv" ]]; then
+  echo "Error: no virtual environment found in test_repo/.venv"
+  echo "Create one with 'virtualenv --python=python3 test_repo/.venv'"
+  exit 1
+fi
+
+cp -r test_repo "$working"
+cd "$working/test_repo"
 
 status "Initializing git repository."
 git init
 git add .
 
-status "Creating virtual environment."
-virtualenv --python=python3 .venv
-source .venv/bin/activate
-
 status "Installing development version of iafisher-precommit."
+source .venv/bin/activate
 pip3 install "$d"
 
 status "Running tests"
