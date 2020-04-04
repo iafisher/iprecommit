@@ -174,6 +174,11 @@ def error(message):
 
 
 PRECOMMIT = """\
+""\"Pre-commit configuration for git.
+
+This file was created by precommit (https://github.com/iafisher/precommit).
+You are welcome to edit it yourself to customize your pre-commit hook.
+""\"
 from iafisher_precommit import Precommit, checks
 
 
