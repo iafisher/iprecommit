@@ -28,11 +28,12 @@ class Precommit:
                 check.pattern = pattern
             self.file_checks.append(check)
         elif isinstance(check, RepoCheck):
-            # TODO(2020-04-03): Throw an exception if pattern is not None.
+            if pattern is not None:
+                raise UsageError("cannot use pattern with RepoCheck")
+
             self.repo_checks.append(check)
         else:
-            # TODO(2020-04-03): Error
-            pass
+            raise UsageError("check must be a subclass of FileCheck or RepoCheck")
 
     def check(self):
         problems = self.find_problems()
@@ -291,3 +292,7 @@ def colored(text, color):
 def plural(n, word, suffix="s"):
     """Returns the numeral and the proper plural form of the word."""
     return f"{n} {word}" if n == 1 else f"{n} {word}{suffix}"
+
+
+class UsageError(Exception):
+    """Exception for incorrect usage of the precommit API."""
