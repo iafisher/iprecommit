@@ -9,7 +9,11 @@ class NoStagedAndUnstagedChanges:
         both = set(repo_info.staged_files).intersection(set(repo_info.unstaged_files))
         if both:
             message = "\n".join(sorted(both))
-            return Problem("unstaged changes to a staged file", verbose_message=message)
+            return Problem(
+                "unstaged changes to a staged file",
+                verbose_message=message,
+                autofix=["git", "add"] + list(both),
+            )
 
 
 class NoWhitespaceInFilePath:

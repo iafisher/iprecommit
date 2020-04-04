@@ -33,38 +33,50 @@ class Precommit:
         if self.verbose:
             print(f"Registered check: {check.__class__.__name__}")
 
-    def run(self):
+    def check(self):
         problems = self.find_problems()
         if problems:
             for problem in problems:
                 print_problem(problem)
 
             fixable_problems = [problem for problem in problems if problem.autofix]
-            print(
-                f"{red(plural(len(problems), 'issue'))} found. ",
-                end="",
-                file=sys.stderr,
-            )
+            print(f"{red(plural(len(problems), 'issue'))} found. ", end="")
             if fixable_problems:
                 if len(fixable_problems) == len(problems):
                     n = green("all of them")
                 else:
                     n = blue(f"{len(fixable_problems)} of them")
 
-                print(
-                    f"Fix {n} with '{blue('precommit fix')}'.", end="", file=sys.stderr
-                )
-            print(file=sys.stderr)
+                print(f"Fix {n} with '{blue('precommit fix')}'.", end="")
+            print()
             sys.exit(1)
         else:
-            print(f"{green('No issues')} detected.", file=sys.stderr)
+            print(f"{green('No issues')} detected.")
+
+    def fix(self):
+        problems = self.find_problems()
+        repo_info = self.get_repo_info()
+        if problems:
+            fixable_problems = [problem for problem in problems if problem.autofix]
+            for problem in fixable_problems:
+                print(f"{green('Fixing')} {problem.checkname}")
+                run(problem.autofix)
+
+            run(["git", "add"] + repo_info.staged_files)
+
+            print()
+            msg = f"Fixed {len(fixable_problems)} of {plural(len(problems), 'issue')}."
+            if len(fixable_problems) == len(problems):
+                print(green(msg))
+            else:
+                n = len(problems) - len(fixable_problems)
+                print(f"{blue(msg)} {red(plural(n, 'issue'))} left.")
+        else:
+            print(f"{green('No issues')} detected.")
 
     @staticmethod
     def pattern_from_file_ext(ext):
         return r".+\." + re.escape(ext)
-
-    def run_fix(self):
-        raise NotImplementedError
 
     def find_problems(self):
         start = time.monotonic()
@@ -209,11 +221,11 @@ def print_problem(problem):
         builder.append(blue(problem.path))
         builder.append(": ")
     builder.append(problem.message)
-    print("".join(builder), file=sys.stderr)
+    print("".join(builder))
     if problem.verbose_message:
-        print(file=sys.stderr)
-        print(textwrap.indent(problem.verbose_message, "  "), file=sys.stderr)
-        print(file=sys.stderr)
+        print()
+        print(textwrap.indent(problem.verbose_message, "  "))
+        print()
 
 
 class Problem:

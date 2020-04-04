@@ -36,8 +36,10 @@ def main_init(args):
 
 
 def main_fix(args):
-    # TODO(2020-04-03)
-    raise NotImplementedError
+    user_defined_main = get_user_defined_main()
+    precommit = user_defined_main()
+    precommit.set_args(args)
+    precommit.fix()
 
 
 def main_help(args):
@@ -46,7 +48,9 @@ def main_help(args):
 
 def main_check(args):
     user_defined_main = get_user_defined_main()
-    user_defined_main(args)
+    precommit = user_defined_main()
+    precommit.set_args(args)
+    precommit.check()
 
 
 def chdir_to_git_root():

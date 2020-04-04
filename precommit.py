@@ -1,9 +1,8 @@
 from iafisher_precommit import checks, Precommit
 
 
-def main(args):
+def main():
     precommit = Precommit()
-    precommit.set_args(args)
 
     # Generic checks
     precommit.register(checks.NoStagedAndUnstagedChanges())
@@ -12,5 +11,4 @@ def main(args):
     # Python checks
     precommit.register(checks.PythonFormat())
     precommit.register(checks.PythonStyle(args=["--max-line-length=88"]))
-
-    precommit.run()
+    return precommit
