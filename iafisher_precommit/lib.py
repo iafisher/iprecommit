@@ -36,11 +36,9 @@ class Precommit:
             raise UsageError("check must be a subclass of FileCheck or RepoCheck")
 
     def check(self):
-        problems = self.find_problems()
+        """Find problems and print a message for each."""
+        problems = self.find_problems(callback=print_problem)
         if problems:
-            for problem in problems:
-                print_problem(problem)
-
             fixable_problems = [problem for problem in problems if problem.autofix]
             print()
             print(f"{red(plural(len(problems), 'issue'))} found. ", end="")
@@ -76,7 +74,7 @@ class Precommit:
     def pattern_from_ext(ext):
         return r".+\." + re.escape(ext)
 
-    def find_problems(self, *, fixable=False):
+    def find_problems(self, *, fixable=False, callback=None):
         start = time.monotonic()
 
         repo_info = self.get_repo_info()
@@ -88,9 +86,10 @@ class Precommit:
                 encoded_staged_files.append(path.decode(self.encoding))
             except UnicodeDecodeError:
                 message = f"file path is not valid for encoding {self.encoding!r}"
-                problems.append(
-                    Problem(path=path, message=message, checkname="FileEncoding")
-                )
+                p = Problem(path=path, message=message, checkname="FileEncoding")
+                problems.append(p)
+                if callback:
+                    callback(p)
 
         # TODO(2020-04-03): Shouldn't be checking unstaged files, although changing this
         # will make implementing checks that use unstaged_files harder because they
@@ -101,9 +100,10 @@ class Precommit:
                 encoded_unstaged_files.append(path.decode(self.encoding))
             except UnicodeDecodeError:
                 message = f"file path is not valid for encoding {self.encoding!r}"
-                problems.append(
-                    Problem(path=path, message=message, checkname="FileEncoding")
-                )
+                p = Problem(path=path, message=message, checkname="FileEncoding")
+                problems.append(p)
+                if callback:
+                    callback(p)
 
         if problems:
             return problems
@@ -116,7 +116,11 @@ class Precommit:
             if fixable and not check.fixable:
                 continue
 
-            problems.extend(self.run_check(check, start, args=(repo_info,)))
+            ps = self.run_check(check, start, args=(repo_info,))
+            if callback:
+                for p in ps:
+                    callback(p)
+            problems.extend(ps)
 
         for check in self.file_checks:
             if fixable and not check.fixable:
@@ -126,6 +130,9 @@ class Precommit:
                 ps = self.run_check(check, start, args=(matching_file,))
                 for p in ps:
                     p.path = matching_file
+                    if callback:
+                        callback(p)
+                problems.extend(ps)
 
         return problems
 
