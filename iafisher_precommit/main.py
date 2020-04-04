@@ -135,6 +135,11 @@ def get_user_defined_main():
         error(message)
 
 
+def error(message):
+    print(f"Error: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
 PRECOMMIT = """\
 from iafisher_precommit import checks, Precommit
 
@@ -150,14 +155,12 @@ def main():
     precommit.register(checks.PythonFormat())
     precommit.register(checks.PythonStyle())
 
-    precommit.run()
+    return precommit
 """
 
 
 HELP = """\
 precommit: simple git pre-commit hook management.
-
-http://github.com/iafisher/precommit
 
 Usage: precommit [flags] [subcommand]
 
@@ -174,9 +177,6 @@ Flags:
     --no-color      Turn off colorized output.
     --verbose       Emit verbose output.
     -h, --help      Display a help message and exit.
+
+Written by Ian Fisher. http://github.com/iafisher/precommit
 """
-
-
-def error(message):
-    print(f"Error: {message}", file=sys.stderr)
-    sys.exit(1)

@@ -1,9 +1,11 @@
 import sys
-from .lib import Precommit, Problem, run
+from .lib import FileCheck, Precommit, Problem, RepoCheck, pathfilter, run
 
 
-class NoStagedAndUnstagedChanges:
+class NoStagedAndUnstagedChanges(RepoCheck):
     """Checks that the file doesn't also have unstaged changes."""
+
+    fixable = True
 
     def check(self, repo_info):
         both = set(repo_info.staged_files).intersection(set(repo_info.unstaged_files))
@@ -16,23 +18,24 @@ class NoStagedAndUnstagedChanges:
             )
 
 
-class NoWhitespaceInFilePath:
+class NoWhitespaceInFilePath(FileCheck):
     """Checks that the file path contains no whitespace."""
-
-    per_file = True
 
     def check(self, path):
         if any(c.isspace() for c in path):
             return Problem("file path contains whitespace")
 
 
-class PythonFormat:
+class PythonFormat(RepoCheck):
     """Checks the format of Python files using black."""
 
-    pattern = Precommit.pattern_from_file_ext("py")
+    fixable = True
 
     def check(self, repo_info):
-        black = run(["black", "--check"] + repo_info.staged_files)
+        python = pathfilter(repo_info.staged_files, Precommit.pattern_from_ext("py"))
+        if not python:
+            return
+        black = run(["black", "--check"] + python)
         if black.returncode != 0:
             errors = black.stdout.decode(sys.getdefaultencoding()).strip()
             return Problem(
@@ -42,25 +45,43 @@ class PythonFormat:
             )
 
 
-class PythonStyle:
+class PythonStyle(RepoCheck):
     """Lints Python files using flake8."""
-
-    pattern = Precommit.pattern_from_file_ext("py")
 
     def __init__(self, *, args=None):
         self.args = args if args is not None else []
 
     def check(self, repo_info):
-        flake8 = run(["flake8"] + self.args + repo_info.staged_files)
+        python = pathfilter(repo_info.staged_files, Precommit.pattern_from_ext("py"))
+        if not python:
+            return
+        flake8 = run(["flake8"] + self.args + python)
         if flake8.returncode != 0:
             errors = flake8.stdout.decode(sys.getdefaultencoding()).strip()
             return Problem("lint error(s)", verbose_message=errors)
 
 
-class CheckWithCommand:
-    """Checks that invoking `cmd` on the file path results in an exit code of 0."""
+class RepoCommand(RepoCheck):
+    """Checks that invoking `cmd` results in an exit code of 0."""
 
-    per_file = True
+    def __init__(self, cmd):
+        if isinstance(cmd, list):
+            self.cmdname = cmd[0]
+            self.cmd = cmd
+        else:
+            self.cmdname = cmd
+            self.cmd = [self.cmdname]
+
+    def check(self, repo_info):
+        result = run(self.cmd)
+
+        if result.returncode != 0:
+            output = result.stdout.decode(sys.getdefaultencoding()).strip()
+            return Problem(f"command {self.cmdname!r} failed", verbose_message=output)
+
+
+class FileCommand(FileCheck):
+    """Checks that invoking `cmd` on the file path results in an exit code of 0."""
 
     def __init__(self, cmd):
         if isinstance(cmd, list):
@@ -72,5 +93,7 @@ class CheckWithCommand:
 
     def check(self, path):
         result = run(self.cmd + [path])
+
         if result.returncode != 0:
-            return Problem(f"command {self.cmdname!r} failed")
+            output = result.stdout.decode(sys.getdefaultencoding()).strip()
+            return Problem(f"command {self.cmdname!r} failed", verbose_message=output)

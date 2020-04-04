@@ -1,8 +1,16 @@
-ERROR for bad_python_format.py: file has both staged and unstaged changes
-ERROR for bad_python_format.py: bad formatting
-ERROR for bad_python_format.py: lint error(s)
+[NoStagedAndUnstagedChanges] unstaged changes to a staged file
+
+  bad_python_format.py
+
+[PythonFormat] bad formatting
+
+  would reformat bad_python_format.py
+  All done! 💥 💔 💥
+  1 file would be reformatted.
+
+[PythonStyle] lint error(s)
 
   bad_python_format.py:4:1: W391 blank line at end of file
 
 
-3 issues found. Fix 1 of them with 'precommit fix'.
+3 issues found. Fix 2 of them with 'precommit fix'.

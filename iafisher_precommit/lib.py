@@ -23,15 +23,16 @@ class Precommit:
         `pattern` may be a string or a compiled regular expression object. If it is
         None, then the check will run on all files.
         """
-        if hasattr(check, "per_file") and check.per_file:
-            check.pattern = pattern
+        if isinstance(check, FileCheck):
+            if check.pattern is None and pattern is not None:
+                check.pattern = pattern
             self.file_checks.append(check)
-        else:
-            # TODO(2020-04-03): Throw an exception is pattern is not None.
+        elif isinstance(check, RepoCheck):
+            # TODO(2020-04-03): Throw an exception if pattern is not None.
             self.repo_checks.append(check)
-
-        if self.verbose:
-            print(f"Registered check: {check.__class__.__name__}")
+        else:
+            # TODO(2020-04-03): Error
+            pass
 
     def check(self):
         problems = self.find_problems()
@@ -40,6 +41,7 @@ class Precommit:
                 print_problem(problem)
 
             fixable_problems = [problem for problem in problems if problem.autofix]
+            print()
             print(f"{red(plural(len(problems), 'issue'))} found. ", end="")
             if fixable_problems:
                 if len(fixable_problems) == len(problems):
@@ -54,7 +56,7 @@ class Precommit:
             print(f"{green('No issues')} detected.")
 
     def fix(self):
-        problems = self.find_problems()
+        problems = self.find_problems(fixable=True)
         repo_info = self.get_repo_info()
         if problems:
             fixable_problems = [problem for problem in problems if problem.autofix]
@@ -65,20 +67,15 @@ class Precommit:
             run(["git", "add"] + repo_info.staged_files)
 
             print()
-            msg = f"Fixed {len(fixable_problems)} of {plural(len(problems), 'issue')}."
-            if len(fixable_problems) == len(problems):
-                print(green(msg))
-            else:
-                n = len(problems) - len(fixable_problems)
-                print(f"{blue(msg)} {red(plural(n, 'issue'))} left.")
+            print(f"Fixed {green(plural(len(fixable_problems), 'issue'))}.")
         else:
             print(f"{green('No issues')} detected.")
 
     @staticmethod
-    def pattern_from_file_ext(ext):
+    def pattern_from_ext(ext):
         return r".+\." + re.escape(ext)
 
-    def find_problems(self):
+    def find_problems(self, *, fixable=False):
         start = time.monotonic()
 
         repo_info = self.get_repo_info()
@@ -114,14 +111,17 @@ class Precommit:
             staged_files=encoded_staged_files, unstaged_files=encoded_unstaged_files
         )
 
-        if not repo_info.staged_files:
-            return []
-
         for check in self.repo_checks:
+            if fixable and not check.fixable:
+                continue
+
             problems.extend(self.run_check(check, start, args=(repo_info,)))
 
         for check in self.file_checks:
-            for matching_file in self.filter(repo_info.staged_files, check.pattern):
+            if fixable and not check.fixable:
+                continue
+
+            for matching_file in pathfilter(repo_info.staged_files, check.pattern):
                 ps = self.run_check(check, start, args=(matching_file,))
                 for p in ps:
                     p.path = matching_file
@@ -174,12 +174,22 @@ class Precommit:
             unstaged_files=unstaged_files,
         )
 
-    def filter(self, files, pattern):
-        # TODO: Handle the case where `pattern` is a regex object.
-        if pattern is None:
-            return files
-        else:
-            return [f for f in files if re.match(pattern, f)]
+
+class RepoCheck:
+    fixable = False
+
+
+class FileCheck:
+    fixable = False
+    pattern = None
+
+
+def pathfilter(files, pattern):
+    # TODO: Handle the case where `pattern` is a regex object.
+    if pattern is None:
+        return files
+    else:
+        return [f for f in files if re.match(pattern, f)]
 
 
 def run(args, *, merge_output=True):
