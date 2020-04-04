@@ -102,11 +102,11 @@ from iafisher_precommit import FileCheck, Problem
 class UnitTestsUpdated(FileCheck):
     """Checks that a Python file's unit tests are updated."""
 
-    def check(self, repo_info):
-        for path in repo_info.staged_files:
+    def check(self, repository):
+        for path in repository.staged_files:
             if path.endswith(".py") and not path.endswith("_test.py"):
                 testpath = os.path.splitext(path)[0] + "_test.py"
-                if not testpath in repo_info.staged_files:
+                if not testpath in repository.staged_files:
                     return Problem(message="did not update unit tests")
 ```
 

@@ -13,16 +13,30 @@ class Precommit:
         self.repo_checks = []
         self.file_checks = []
         self.verbose = False
+        self.check_all = False
 
     def set_args(self, args):
-        self.verbose = args.flags.get("--verbose", False)
+        if "--verbose" in args.flags:
+            self.verbose = args.flags["--verbose"]
 
-    def register(self, check, *, pattern=None):
-        """Registers the check to run on files that match the regex `pattern`.
+        if "--all" in args.flags:
+            self.check_all = args.flags["--all"]
 
-        `pattern` may be a string or a compiled regular expression object. If it is
-        None, then the check will run on all files.
+    def register(self, check, *, pattern=None, slow=False):
+        """Registers the pre-commit check.
+
+        Args:
+          check: The check object itself.
+          pattern: A regular expression pattern, as a string. If not None, then the
+            check will only run on file paths which match this pattern. This argument
+            is only valid if check is a subclass of FileCheck, since RepoCheck checks
+            don't run on individual files.
+          slow: Whether the check is expected to be slow or not. If True, then the check
+            will not be invoked unless the precommit command is invoked with the --all
+            flag. By default, the pre-commit hook that is installed in git uses the
+            --all flag.
         """
+        check.slow = slow
         if isinstance(check, FileCheck):
             if check.pattern is None and pattern is not None:
                 check.pattern = pattern
@@ -56,7 +70,7 @@ class Precommit:
 
     def fix(self):
         problems = self.find_problems(fixable=True)
-        repo_info = self.get_repo_info()
+        repository = self.get_repository()
         if problems:
             fixable_problems = [problem for problem in problems if problem.autofix]
             for problem in fixable_problems:
@@ -64,7 +78,7 @@ class Precommit:
                 run(problem.autofix)
 
             # TODO(2020-04-03): Isn't staged_files a list of bytes here?
-            run(["git", "add"] + repo_info.staged_files)
+            run(["git", "add"] + repository.staged_files)
 
             print()
             print(f"Fixed {green(plural(len(fixable_problems), 'issue'))}.")
@@ -73,16 +87,17 @@ class Precommit:
 
     @staticmethod
     def pattern_from_ext(ext):
+        """Returns a regular expression pattern that matches string ending in `ext`."""
         return r".+\." + re.escape(ext)
 
     def find_problems(self, *, fixable=False, callback=None):
         start = time.monotonic()
 
-        repo_info = self.get_repo_info()
+        repository = self.get_repository()
 
         problems = []
         encoded_staged_files = []
-        for path in repo_info.staged_files:
+        for path in repository.staged_files:
             try:
                 encoded_staged_files.append(path.decode(self.encoding))
             except UnicodeDecodeError:
@@ -96,7 +111,7 @@ class Precommit:
         # will make implementing checks that use unstaged_files harder because they
         # can't directly compare the path (string) to an unstaged file (bytes).
         encoded_unstaged_files = []
-        for path in repo_info.unstaged_files:
+        for path in repository.unstaged_files:
             try:
                 encoded_unstaged_files.append(path.decode(self.encoding))
             except UnicodeDecodeError:
@@ -109,7 +124,7 @@ class Precommit:
         if problems:
             return problems
 
-        repo_info = repo_info._replace(
+        repository = repository._replace(
             staged_files=encoded_staged_files, unstaged_files=encoded_unstaged_files
         )
 
@@ -117,7 +132,10 @@ class Precommit:
             if fixable and not check.fixable:
                 continue
 
-            ps = self.run_check(check, start, args=(repo_info,))
+            if check.slow and not self.check_all:
+                continue
+
+            ps = self.run_check(check, start, args=(repository,))
             if callback:
                 for p in ps:
                     callback(p)
@@ -127,7 +145,10 @@ class Precommit:
             if fixable and not check.fixable:
                 continue
 
-            for matching_file in pathfilter(repo_info.staged_files, check.pattern):
+            if check.slow and not self.check_all:
+                continue
+
+            for matching_file in pathfilter(repository.staged_files, check.pattern):
                 ps = self.run_check(check, start, args=(matching_file,))
                 for p in ps:
                     p.path = matching_file
@@ -163,7 +184,7 @@ class Precommit:
 
         return problems
 
-    def get_repo_info(self):
+    def get_repository(self):
         cmd = ["git", "diff", "--name-only", "--cached"]
         result = subprocess.run(cmd, stdout=subprocess.PIPE)
         # For file paths that contain non-ASCII bytes or a literal double quote
@@ -177,7 +198,7 @@ class Precommit:
         result = subprocess.run(cmd, stdout=subprocess.PIPE)
         unstaged_files = result.stdout.decode("ascii").splitlines()
         unstaged_files = [GitPath.from_string(p) for p in unstaged_files]
-        return RepoInfo(
+        return Repository(
             encoding=self.encoding,
             staged_files=staged_files,
             unstaged_files=unstaged_files,
@@ -185,6 +206,11 @@ class Precommit:
 
 
 class BaseCheck:
+    """The base class for pre-commit checks.
+
+    Custom checks should inherit from either `FileCheck` or `RepoCheck`.
+    """
+
     fixable = False
 
     def name(self):
@@ -195,19 +221,22 @@ class BaseCheck:
 
 
 class RepoCheck(BaseCheck):
-    pass
+    """A base class for pre-commit checks that run once per repo."""
 
 
 class FileCheck(BaseCheck):
+    """A base class for pre-commit checks that run once per file."""
+
     pattern = None
 
 
-def pathfilter(files, pattern):
+def pathfilter(paths, pattern):
+    """Filters the list of paths using the pattern."""
     # TODO: Handle the case where `pattern` is a regex object.
     if pattern is None:
-        return files
+        return paths
     else:
-        return [f for f in files if re.match(pattern, f)]
+        return [p for p in paths if re.match(pattern, p)]
 
 
 def run(args, *, merge_output=True):
@@ -265,7 +294,7 @@ class Problem:
         self.verbose_message = verbose_message
 
 
-RepoInfo = namedtuple("RepoInfo", ["encoding", "staged_files", "unstaged_files"])
+Repository = namedtuple("Repository", ["encoding", "staged_files", "unstaged_files"])
 
 
 _COLOR_RED = "91"

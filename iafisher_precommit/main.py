@@ -10,14 +10,14 @@ def main():
     args = handle_args(sys.argv[1:])
 
     chdir_to_git_root()
-    if args.subcommand == "init":
+    if args.subcommand == "help" or "--help" in args.flags:
+        main_help(args)
+    elif args.subcommand == "init":
         main_init(args)
     elif args.subcommand == "fix":
         main_fix(args)
     elif args.subcommand == "list":
         main_list(args)
-    elif args.subcommand == "help":
-        main_help(args)
     else:
         main_check(args)
 
@@ -30,7 +30,7 @@ def main_init(args):
     # TODO: Check that .git/hooks/pre-commit doesn't exist first.
     hookpath = os.path.join(".git", "hooks", "pre-commit")
     with open(hookpath, "w", encoding="utf-8") as f:
-        f.write("#!/bin/sh\n\nprecommit\n")
+        f.write("#!/bin/sh\n\nprecommit --all\n")
 
     # Make the hook executable by everyone.
     st = os.stat(hookpath)
@@ -67,10 +67,16 @@ def chdir_to_git_root():
     os.chdir(gitroot.stdout.decode("ascii").strip())
 
 
-SUBCOMMANDS = {"init", "fix", "list", "help"}
-FLAGS = {"--color", "--no-color", "-h", "--help", "--verbose"}
-UnprocessedArgs = namedtuple("UnprocessedArgs", ["positional", "flags"])
-ProcessedArgs = namedtuple("ProcessedArgs", ["subcommand", "flags"])
+SUBCOMMANDS = {"init", "fix", "list", "help", "check"}
+SHORT_FLAGS = {"-h": "--help"}
+FLAGS = {
+    "--color": set(),
+    "--no-color": set(),
+    "--help": set(),
+    "--verbose": {"fix", "check"},
+    "--all": {"fix", "check"},
+}
+Args = namedtuple("Args", ["subcommand", "positional", "flags"])
 
 
 def handle_args(args):
@@ -89,10 +95,7 @@ def handle_args(args):
     elif args.flags.get("--no-color"):
         turn_off_colors()
 
-    subcommand = args.positional[0] if args.positional else None
-    if args.flags.get("-h") or args.flags.get("--help"):
-        subcommand = "help"
-    return ProcessedArgs(subcommand=subcommand, flags=args.flags)
+    return args
 
 
 def parse_args(args):
@@ -104,26 +107,42 @@ def parse_args(args):
             force_positional = True
             continue
         elif not force_positional and arg.startswith("-"):
-            flags[arg] = True
+            if arg in SHORT_FLAGS:
+                flags[SHORT_FLAGS[arg]] = True
+            else:
+                flags[arg] = True
         else:
             positional.append(arg)
 
-    return UnprocessedArgs(flags=flags, positional=positional)
+    if positional:
+        subcommand = positional[0]
+        positional = positional[1:]
+    else:
+        subcommand = "check"
+
+    return Args(subcommand=subcommand, flags=flags, positional=positional)
 
 
 def check_args(args):
-    if len(args.positional) > 1:
-        return "too many positional arguments"
+    if len(args.positional) > 0:
+        return "precommit does not take positional arguments"
 
-    if args.positional and args.positional[0] not in SUBCOMMANDS:
-        return f"unknown subcommand: {args.positional[0]}"
+    if args.subcommand not in SUBCOMMANDS:
+        return f"unknown subcommand: {args.subcommand}"
 
     if "--no-color" in args.flags and "--color" in args.flags:
         return "--color and --no-color are incompatible"
 
     for flag in args.flags:
-        if flag not in FLAGS:
+        try:
+            valid_subcommands = FLAGS[flag]
+        except KeyError:
             return f"unknown flag: {flag}"
+        else:
+            # If `FLAGS[flag]` is the empty set, then it means the flag is valid for
+            # any subcommand.
+            if valid_subcommands and args.subcommand not in valid_subcommands:
+                return f"flag {flag} not valid for {args.subcommand} subcommand"
 
     return None
 
@@ -182,10 +201,10 @@ Subcommands:
     help            Display a help message and exit.
 
 Flags:
+    --all           Run all pre-commit checks, including slow ones.
     --color         Turn on colorized output, overriding any environment settings.
     --no-color      Turn off colorized output.
     --verbose       Emit verbose output.
     -h, --help      Display a help message and exit.
 
-Written by Ian Fisher. http://github.com/iafisher/precommit
-"""
+Written by Ian Fisher. http://github.com/iafisher/precommit"""

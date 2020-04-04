@@ -7,8 +7,8 @@ class NoStagedAndUnstagedChanges(RepoCheck):
 
     fixable = True
 
-    def check(self, repo_info):
-        both = set(repo_info.staged_files).intersection(set(repo_info.unstaged_files))
+    def check(self, repository):
+        both = set(repository.staged_files).intersection(set(repository.unstaged_files))
         if both:
             message = "\n".join(sorted(both))
             return Problem(
@@ -31,8 +31,8 @@ class PythonFormat(RepoCheck):
 
     fixable = True
 
-    def check(self, repo_info):
-        python = pathfilter(repo_info.staged_files, Precommit.pattern_from_ext("py"))
+    def check(self, repository):
+        python = pathfilter(repository.staged_files, Precommit.pattern_from_ext("py"))
         if not python:
             return
         black = run(["black", "--check"] + python)
@@ -41,7 +41,7 @@ class PythonFormat(RepoCheck):
             return Problem(
                 "bad formatting",
                 verbose_message=errors,
-                autofix=["black"] + repo_info.staged_files,
+                autofix=["black"] + repository.staged_files,
             )
 
 
@@ -51,8 +51,8 @@ class PythonStyle(RepoCheck):
     def __init__(self, *, args=None):
         self.args = args if args is not None else []
 
-    def check(self, repo_info):
-        python = pathfilter(repo_info.staged_files, Precommit.pattern_from_ext("py"))
+    def check(self, repository):
+        python = pathfilter(repository.staged_files, Precommit.pattern_from_ext("py"))
         if not python:
             return
         flake8 = run(["flake8"] + self.args + python)
@@ -72,7 +72,7 @@ class RepoCommand(RepoCheck):
             self.cmdname = cmd
             self.cmd = [self.cmdname]
 
-    def check(self, repo_info):
+    def check(self, repository):
         result = run(self.cmd)
 
         if result.returncode != 0:
