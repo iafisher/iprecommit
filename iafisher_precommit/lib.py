@@ -22,7 +22,7 @@ class Precommit:
         if "--all" in args.flags:
             self.check_all = args.flags["--all"]
 
-    def register(self, check, *, pattern=None, slow=False):
+    def register(self, check, *, pattern=None, slow=False, fatal=False):
         """Registers the pre-commit check.
 
         Args:
@@ -35,8 +35,10 @@ class Precommit:
             will not be invoked unless the precommit command is invoked with the --all
             flag. By default, the pre-commit hook that is installed in git uses the
             --all flag.
+          fatal: Whether a check failure should immediately end the pre-commit check.
         """
         check.slow = slow
+        check.fatal = fatal
         if isinstance(check, FileCheck):
             if check.pattern is None and pattern is not None:
                 check.pattern = pattern
@@ -140,6 +142,8 @@ class Precommit:
                 for p in ps:
                     callback(p)
             problems.extend(ps)
+            if ps and check.fatal:
+                return problems
 
         for check in self.file_checks:
             if fixable and not check.fixable:
@@ -155,6 +159,8 @@ class Precommit:
                     if callback:
                         callback(p)
                 problems.extend(ps)
+                if ps and check.fatal:
+                    return problems
 
         return problems
 
