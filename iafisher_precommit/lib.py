@@ -40,7 +40,11 @@ class Precommit:
                 _print_problem(problem)
 
             fixable_problems = [problem for problem in problems if problem.autofix]
-            print(f"{_plural(len(problems), 'issue')} found. ", end="", file=sys.stderr)
+            print(
+                f"{_red(_plural(len(problems), 'issue'))} found. ",
+                end="",
+                file=sys.stderr,
+            )
             if fixable_problems:
                 if len(fixable_problems) == len(problems):
                     n = _green("all of them")
@@ -74,7 +78,9 @@ class Precommit:
                 encoded_staged_files.append(path.decode(self.encoding))
             except UnicodeDecodeError:
                 message = f"file path is not valid for encoding {self.encoding!r}"
-                problems.append(Problem(path=path, message=message))
+                problems.append(
+                    Problem(path=path, message=message, checkname="FileEncoding")
+                )
 
         # TODO(2020-04-03): Shouldn't be checking unstaged files, although changing this
         # will make implementing checks that use unstaged_files harder because they
@@ -85,7 +91,9 @@ class Precommit:
                 encoded_unstaged_files.append(path.decode(self.encoding))
             except UnicodeDecodeError:
                 message = f"file path is not valid for encoding {self.encoding!r}"
-                problems.append(Problem(path=path, message=message))
+                problems.append(
+                    Problem(path=path, message=message, checkname="FileEncoding")
+                )
 
         if problems:
             return problems
@@ -123,11 +131,16 @@ class Precommit:
             print(f"{elapsed_since_start:.2f}s since start.")
 
         if r is None:
-            return []
+            problems = []
         elif isinstance(r, list):
-            return r
+            problems = r
         else:
-            return [r]
+            problems = [r]
+
+        for problem in problems:
+            problem.checkname = check.__class__.__name__
+
+        return problems
 
     def _get_repo_info(self):
         cmd = ["git", "diff", "--name-only", "--cached"]
@@ -190,12 +203,13 @@ class GitPath(bytes):
 
 
 def _print_problem(problem):
+    builder = []
+    builder.append(_red(f"[{problem.checkname}] "))
     if problem.path:
-        prefix = f"{_red('error')} for {_blue(problem.path)}"
-    else:
-        prefix = f"{_red('error')}"
-
-    print(f"{prefix}: {problem.message}", file=sys.stderr)
+        builder.append(_blue(problem.path))
+        builder.append(": ")
+    builder.append(problem.message)
+    print("".join(builder), file=sys.stderr)
     if problem.verbose_message:
         print(file=sys.stderr)
         print(textwrap.indent(problem.verbose_message, "  "), file=sys.stderr)
@@ -203,8 +217,9 @@ def _print_problem(problem):
 
 
 class Problem:
-    def __init__(self, message, *, autofix=None, verbose_message=None):
+    def __init__(self, message, *, checkname=None, autofix=None, verbose_message=None):
         self.path = None
+        self.checkname = checkname
         self.message = message
         self.autofix = autofix
         self.verbose_message = verbose_message

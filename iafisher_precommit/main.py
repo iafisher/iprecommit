@@ -56,8 +56,8 @@ def chdir_to_git_root():
     os.chdir(gitroot.stdout.decode("ascii").strip())
 
 
-SUBCOMMANDS = ("init", "fix", "help")
-FLAGS = ("--color", "--no-color", "-h", "--help", "--verbose")
+SUBCOMMANDS = {"init", "fix", "help"}
+FLAGS = {"--color", "--no-color", "-h", "--help", "--verbose"}
 UnprocessedArgs = namedtuple("UnprocessedArgs", ["positional", "flags"])
 ProcessedArgs = namedtuple("ProcessedArgs", ["subcommand", "flags"])
 
