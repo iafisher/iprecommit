@@ -34,30 +34,30 @@ class Precommit:
             print(f"Registered check: {check.__class__.__name__}")
 
     def run(self):
-        problems = self._find_problems()
+        problems = self.find_problems()
         if problems:
             for problem in problems:
-                _print_problem(problem)
+                print_problem(problem)
 
             fixable_problems = [problem for problem in problems if problem.autofix]
             print(
-                f"{_red(_plural(len(problems), 'issue'))} found. ",
+                f"{red(plural(len(problems), 'issue'))} found. ",
                 end="",
                 file=sys.stderr,
             )
             if fixable_problems:
                 if len(fixable_problems) == len(problems):
-                    n = _green("all of them")
+                    n = green("all of them")
                 else:
-                    n = _blue(f"{len(fixable_problems)} of them")
+                    n = blue(f"{len(fixable_problems)} of them")
 
                 print(
-                    f"Fix {n} with '{_blue('precommit fix')}'.", end="", file=sys.stderr
+                    f"Fix {n} with '{blue('precommit fix')}'.", end="", file=sys.stderr
                 )
             print(file=sys.stderr)
             sys.exit(1)
         else:
-            print(f"{_green('No issues')} detected.", file=sys.stderr)
+            print(f"{green('No issues')} detected.", file=sys.stderr)
 
     @staticmethod
     def pattern_from_file_ext(ext):
@@ -66,10 +66,10 @@ class Precommit:
     def run_fix(self):
         raise NotImplementedError
 
-    def _find_problems(self):
+    def find_problems(self):
         start = time.monotonic()
 
-        repo_info = self._get_repo_info()
+        repo_info = self.get_repo_info()
 
         problems = []
         encoded_staged_files = []
@@ -106,17 +106,17 @@ class Precommit:
             return []
 
         for check in self.repo_checks:
-            problems.extend(self._run_check(check, start, args=(repo_info,)))
+            problems.extend(self.run_check(check, start, args=(repo_info,)))
 
         for check in self.file_checks:
-            for matching_file in self._filter(repo_info.staged_files, check.pattern):
-                ps = self._run_check(check, start, args=(matching_file,))
+            for matching_file in self.filter(repo_info.staged_files, check.pattern):
+                ps = self.run_check(check, start, args=(matching_file,))
                 for p in ps:
                     p.path = matching_file
 
         return problems
 
-    def _run_check(self, check, start, *, args):
+    def run_check(self, check, start, *, args):
         if self.verbose:
             print(f"Running {check.__class__.__name__}")
 
@@ -142,7 +142,7 @@ class Precommit:
 
         return problems
 
-    def _get_repo_info(self):
+    def get_repo_info(self):
         cmd = ["git", "diff", "--name-only", "--cached"]
         result = subprocess.run(cmd, stdout=subprocess.PIPE)
         # For file paths that contain non-ASCII bytes or a literal double quote
@@ -162,7 +162,7 @@ class Precommit:
             unstaged_files=unstaged_files,
         )
 
-    def _filter(self, files, pattern):
+    def filter(self, files, pattern):
         # TODO: Handle the case where `pattern` is a regex object.
         if pattern is None:
             return files
@@ -202,11 +202,11 @@ class GitPath(bytes):
         return repr(self)[1:]
 
 
-def _print_problem(problem):
+def print_problem(problem):
     builder = []
-    builder.append(_red(f"[{problem.checkname}] "))
+    builder.append(red(f"[{problem.checkname}] "))
     if problem.path:
-        builder.append(_blue(problem.path))
+        builder.append(blue(problem.path))
         builder.append(": ")
     builder.append(problem.message)
     print("".join(builder), file=sys.stderr)
@@ -247,25 +247,25 @@ def turn_off_colors():
     _NO_COLOR = True
 
 
-def _red(text):
+def red(text):
     """Returns a string that will display as red using ANSI color codes."""
-    return _colored(text, _COLOR_RED)
+    return colored(text, _COLOR_RED)
 
 
-def _blue(text):
+def blue(text):
     """Returns a string that will display as blue using ANSI color codes."""
-    return _colored(text, _COLOR_BLUE)
+    return colored(text, _COLOR_BLUE)
 
 
-def _green(text):
+def green(text):
     """Returns a string that will display as green using ANSI color codes."""
-    return _colored(text, _COLOR_GREEN)
+    return colored(text, _COLOR_GREEN)
 
 
-def _colored(text, color):
+def colored(text, color):
     return f"\033[{color}m{text}\033[{_COLOR_RESET}m" if not _NO_COLOR else text
 
 
-def _plural(n, word, suffix="s"):
+def plural(n, word, suffix="s"):
     """Returns the numeral and the proper plural form of the word."""
     return f"{n} {word}" if n == 1 else f"{n} {word}{suffix}"
