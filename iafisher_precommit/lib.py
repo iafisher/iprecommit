@@ -10,10 +10,11 @@ from collections import namedtuple
 class Precommit:
     def __init__(self, *, encoding="utf-8"):
         self.encoding = encoding
-        self.repo_checks = []
-        self.file_checks = []
+        self.checks = []
         self.verbose = False
         self.check_all = False
+        # Cached result of self.get_repository()
+        self._repository = None
 
     def set_args(self, args):
         if "--verbose" in args.flags:
@@ -42,18 +43,29 @@ class Precommit:
         if isinstance(check, FileCheck):
             if check.pattern is None and pattern is not None:
                 check.pattern = pattern
-            self.file_checks.append(check)
         elif isinstance(check, RepoCheck):
             if pattern is not None:
                 raise UsageError("cannot use pattern with RepoCheck")
-
-            self.repo_checks.append(check)
         else:
             raise UsageError("check must be a subclass of FileCheck or RepoCheck")
 
+        self.checks.append(check)
+
     def check(self):
         """Find problems and print a message for each."""
-        problems = self.find_problems(callback=print_problem)
+        start = time.monotonic()
+        checks_to_run = self.get_checks()
+        problems = []
+        for check, arg in checks_to_run:
+            print(blue("[" + check.name() + "] "), end="", flush=True)
+            new_problems = self.run_check(check, start, args=(arg,))
+            problems.extend(new_problems)
+            if new_problems:
+                for problem in new_problems:
+                    print_problem(problem)
+            else:
+                print("no issues")
+
         if problems:
             fixable_problems = [problem for problem in problems if problem.autofix]
             print()
@@ -70,99 +82,55 @@ class Precommit:
         else:
             print(f"{green('No issues')} detected.")
 
-    def fix(self):
-        problems = self.find_problems(fixable=True)
-        repository = self.get_repository()
-        if problems:
-            fixable_problems = [problem for problem in problems if problem.autofix]
-            for problem in fixable_problems:
-                print(f"{green('Fixing')} {problem.checkname}")
-                run(problem.autofix)
+    def fix(self, *, dry_run=False):
+        start = time.monotonic()
+        checks_to_run = [(c, a) for (c, a) in self.get_checks() if c.fixable]
+        nissues = 0
+        nfixed = 0
+        for check, arg in checks_to_run:
+            print(blue("[" + check.name() + "] "), end="", flush=True)
+            problems = self.run_check(check, start, args=(arg,))
+            nissues += len(problems)
+            if problems:
+                print(green("fixing"))
+                for problem in problems:
+                    if problem.autofix:
+                        if not dry_run:
+                            run(problem.autofix)
+                        nfixed += 1
+            else:
+                print(green("no issues"))
 
-            # TODO(2020-04-03): Isn't staged_files a list of bytes here?
-            run(["git", "add"] + repository.staged_files)
+        if not dry_run:
+            run(["git", "add"] + self.get_repository().staged_files)
 
-            print()
-            print(f"Fixed {green(plural(len(fixable_problems), 'issue'))}.")
+        print()
+        print("Ran", blue(plural(len(checks_to_run), "check")), end=". ")
+        print("Detected", red(plural(nissues, "issue")), end=". ")
+        if dry_run:
+            print(f"Would have fixed", green(f"{nfixed} of them") + ".")
         else:
-            print(f"{green('No issues')} detected.")
+            print("Fixed", green(f"{nfixed} of them."))
 
     @staticmethod
     def pattern_from_ext(ext):
         """Returns a regular expression pattern that matches string ending in `ext`."""
         return r".+\." + re.escape(ext)
 
-    def find_problems(self, *, fixable=False, callback=None):
-        start = time.monotonic()
-
+    def get_checks(self):
         repository = self.get_repository()
-
-        problems = []
-        encoded_staged_files = []
-        for path in repository.staged_files:
-            try:
-                encoded_staged_files.append(path.decode(self.encoding))
-            except UnicodeDecodeError:
-                message = f"file path is not valid for encoding {self.encoding!r}"
-                p = Problem(path=path, message=message, checkname="FileEncoding")
-                problems.append(p)
-                if callback:
-                    callback(p)
-
-        # TODO(2020-04-03): Shouldn't be checking unstaged files, although changing this
-        # will make implementing checks that use unstaged_files harder because they
-        # can't directly compare the path (string) to an unstaged file (bytes).
-        encoded_unstaged_files = []
-        for path in repository.unstaged_files:
-            try:
-                encoded_unstaged_files.append(path.decode(self.encoding))
-            except UnicodeDecodeError:
-                message = f"file path is not valid for encoding {self.encoding!r}"
-                p = Problem(path=path, message=message, checkname="FileEncoding")
-                problems.append(p)
-                if callback:
-                    callback(p)
-
-        if problems:
-            return problems
-
-        repository = repository._replace(
-            staged_files=encoded_staged_files, unstaged_files=encoded_unstaged_files
-        )
-
-        for check in self.repo_checks:
-            if fixable and not check.fixable:
-                continue
-
+        checks_to_run = []
+        for check in self.checks:
             if check.slow and not self.check_all:
                 continue
 
-            ps = self.run_check(check, start, args=(repository,))
-            if callback:
-                for p in ps:
-                    callback(p)
-            problems.extend(ps)
-            if ps and check.fatal:
-                return problems
+            if isinstance(check, RepoCheck):
+                checks_to_run.append((check, repository))
+            else:
+                for matching_file in pathfilter(repository.staged_files, check.pattern):
+                    checks_to_run.append((check, matching_file))
 
-        for check in self.file_checks:
-            if fixable and not check.fixable:
-                continue
-
-            if check.slow and not self.check_all:
-                continue
-
-            for matching_file in pathfilter(repository.staged_files, check.pattern):
-                ps = self.run_check(check, start, args=(matching_file,))
-                for p in ps:
-                    p.path = matching_file
-                    if callback:
-                        callback(p)
-                problems.extend(ps)
-                if ps and check.fatal:
-                    return problems
-
-        return problems
+        return checks_to_run
 
     def run_check(self, check, start, *, args):
         if self.verbose:
@@ -191,6 +159,9 @@ class Precommit:
         return problems
 
     def get_repository(self):
+        if self._repository is not None:
+            return self._repository
+
         cmd = ["git", "diff", "--name-only", "--cached"]
         result = subprocess.run(cmd, stdout=subprocess.PIPE)
         # For file paths that contain non-ASCII bytes or a literal double quote
@@ -198,17 +169,22 @@ class Precommit:
         # offending character(s), so that the output of git diff is always valid ASCII.
         # We call `_git_path_as_bytes` on each path to get the original file path.
         staged_files = result.stdout.decode("ascii").splitlines()
-        staged_files = [GitPath.from_string(p) for p in staged_files]
+        # TODO(2020-04-04): Handle UnicodeDecodeError here or elsewhere.
+        staged_files = [
+            GitPath.from_string(p).decode(self.encoding) for p in staged_files
+        ]
 
         cmd = ["git", "diff", "--name-only"]
         result = subprocess.run(cmd, stdout=subprocess.PIPE)
         unstaged_files = result.stdout.decode("ascii").splitlines()
-        unstaged_files = [GitPath.from_string(p) for p in unstaged_files]
-        return Repository(
-            encoding=self.encoding,
-            staged_files=staged_files,
-            unstaged_files=unstaged_files,
+        # TODO(2020-04-04): Handle UnicodeDecodeError here or elsewhere.
+        unstaged_files = [
+            GitPath.from_string(p).decode(self.encoding) for p in unstaged_files
+        ]
+        self._repository = Repository(
+            staged_files=staged_files, unstaged_files=unstaged_files
         )
+        return self._repository
 
 
 class BaseCheck:
@@ -279,7 +255,7 @@ class GitPath(bytes):
 
 def print_problem(problem):
     builder = []
-    builder.append(red(f"[{problem.checkname}] "))
+    # builder.append(red(f"[{problem.checkname}] "))
     if problem.path:
         builder.append(blue(problem.path))
         builder.append(": ")
@@ -300,7 +276,7 @@ class Problem:
         self.verbose_message = verbose_message
 
 
-Repository = namedtuple("Repository", ["encoding", "staged_files", "unstaged_files"])
+Repository = namedtuple("Repository", ["staged_files", "unstaged_files"])
 
 
 _COLOR_RED = "91"

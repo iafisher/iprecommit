@@ -43,7 +43,7 @@ def main_init(args):
 
 def main_fix(args):
     precommit = get_precommit(args)
-    precommit.fix()
+    precommit.fix(dry_run=bool("--dry-run" in args.flags))
 
 
 def main_list(args):
@@ -80,6 +80,7 @@ FLAGS = {
     "--verbose": {"fix", "check"},
     "--all": {"fix", "check"},
     "--force": {"init"},
+    "--dry-run": {"fix"},
 }
 Args = namedtuple("Args", ["subcommand", "positional", "flags"])
 

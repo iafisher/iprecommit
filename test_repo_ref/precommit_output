@@ -2,6 +2,8 @@
 
   bad_python_format.py
 
+[NoWhitespaceInFilePath] no issues
+[NoWhitespaceInFilePath] no issues
 [PythonFormat] bad formatting
 
   would reformat bad_python_format.py
