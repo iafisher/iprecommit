@@ -62,7 +62,7 @@ class PythonStyle(RepoCheck):
 
 
 class RepoCommand(RepoCheck):
-    """Checks that invoking `cmd` results in an exit code of 0."""
+    """Checks that `cmd` returns an exit code of 0."""
 
     def __init__(self, cmd):
         if isinstance(cmd, list):
@@ -78,6 +78,12 @@ class RepoCommand(RepoCheck):
         if result.returncode != 0:
             output = result.stdout.decode(sys.getdefaultencoding()).strip()
             return Problem(f"command {self.cmdname!r} failed", verbose_message=output)
+
+    def name(self):
+        return f"RepoCommand({' '.join(self.cmd)!r})"
+
+    def help(self):
+        return f"Checks that {' '.join(self.cmd)!r} returns an exit code of 0."
 
 
 class FileCommand(FileCheck):

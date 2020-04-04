@@ -63,6 +63,7 @@ class Precommit:
                 print(f"{green('Fixing')} {problem.checkname}")
                 run(problem.autofix)
 
+            # TODO(2020-04-03): Isn't staged_files a list of bytes here?
             run(["git", "add"] + repo_info.staged_files)
 
             print()
@@ -138,7 +139,7 @@ class Precommit:
 
     def run_check(self, check, start, *, args):
         if self.verbose:
-            print(f"Running {check.__class__.__name__}")
+            print(f"Running {check.name()}")
 
         check_start = time.monotonic()
         r = check.check(*args)
@@ -158,7 +159,7 @@ class Precommit:
             problems = [r]
 
         for problem in problems:
-            problem.checkname = check.__class__.__name__
+            problem.checkname = check.name()
 
         return problems
 
@@ -183,12 +184,21 @@ class Precommit:
         )
 
 
-class RepoCheck:
+class BaseCheck:
     fixable = False
 
+    def name(self):
+        return self.__class__.__name__
 
-class FileCheck:
-    fixable = False
+    def help(self):
+        return self.__doc__
+
+
+class RepoCheck(BaseCheck):
+    pass
+
+
+class FileCheck(BaseCheck):
     pattern = None
 
 

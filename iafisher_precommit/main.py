@@ -3,7 +3,7 @@ import stat
 import sys
 from collections import namedtuple
 
-from .lib import run, turn_off_colors, turn_on_colors
+from .lib import blue, run, turn_off_colors, turn_on_colors
 
 
 def main():
@@ -14,6 +14,8 @@ def main():
         main_init(args)
     elif args.subcommand == "fix":
         main_fix(args)
+    elif args.subcommand == "list":
+        main_list(args)
     elif args.subcommand == "help":
         main_help(args)
     else:
@@ -36,10 +38,17 @@ def main_init(args):
 
 
 def main_fix(args):
-    user_defined_main = get_user_defined_main()
-    precommit = user_defined_main()
-    precommit.set_args(args)
+    precommit = get_precommit(args)
     precommit.fix()
+
+
+def main_list(args):
+    precommit = get_precommit(args)
+
+    for check in precommit.repo_checks + precommit.file_checks:
+        print(blue("[" + check.name() + "] "), end="")
+        doc = check.help() or "no description available"
+        print(doc)
 
 
 def main_help(args):
@@ -47,9 +56,7 @@ def main_help(args):
 
 
 def main_check(args):
-    user_defined_main = get_user_defined_main()
-    precommit = user_defined_main()
-    precommit.set_args(args)
+    precommit = get_precommit(args)
     precommit.check()
 
 
@@ -60,7 +67,7 @@ def chdir_to_git_root():
     os.chdir(gitroot.stdout.decode("ascii").strip())
 
 
-SUBCOMMANDS = {"init", "fix", "help"}
+SUBCOMMANDS = {"init", "fix", "list", "help"}
 FLAGS = {"--color", "--no-color", "-h", "--help", "--verbose"}
 UnprocessedArgs = namedtuple("UnprocessedArgs", ["positional", "flags"])
 ProcessedArgs = namedtuple("ProcessedArgs", ["subcommand", "flags"])
@@ -121,18 +128,20 @@ def check_args(args):
     return None
 
 
-def get_user_defined_main():
+def get_precommit(args):
     sys.path.append(os.getcwd())
     try:
         from precommit import main
-
-        return main
     except ImportError:
         message = (
             "could not find precommit.py with main function. "
             + "You can create one by running 'precommit init'."
         )
         error(message)
+    else:
+        precommit = main()
+        precommit.set_args(args)
+        return precommit
 
 
 def error(message):
