@@ -150,7 +150,7 @@ def error(message):
 
 
 PRECOMMIT = """\
-from iafisher_precommit import checks, Precommit
+from iafisher_precommit import Precommit, checks
 
 
 def main():

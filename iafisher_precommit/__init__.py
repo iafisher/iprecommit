@@ -1,1 +1,1 @@
-from .lib import Precommit, Problem, RepoInfo
+from .lib import FileCheck, Precommit, Problem, RepoCheck, RepoInfo
