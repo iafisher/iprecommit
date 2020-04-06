@@ -8,20 +8,25 @@ from collections import namedtuple
 
 
 class Precommit:
-    def __init__(self, *, encoding="utf-8"):
-        self.encoding = encoding
+    def __init__(self, *, output, check_all):
+        self.encoding = "utf-8"
+        self.output = output
         self.checks = []
         self.verbose = False
         self.check_all = False
         # Cached result of self.get_repository()
         self._repository = None
 
-    def set_args(self, args):
-        if "--verbose" in args.flags:
-            self.verbose = args.flags["--verbose"]
-
-        if "--all" in args.flags:
-            self.check_all = args.flags["--all"]
+    @classmethod
+    def from_args(cls, args):
+        dry_run = args.flags.get("--dry-run", False)
+        output = (
+            VerboseOutput(dry_run=dry_run)
+            if args.flags.get("--verbose")
+            else NormalOutput(dry_run=dry_run)
+        )
+        check_all = args.flags.get("--all", False)
+        return cls(output=output, check_all=check_all)
 
     def register(self, check, *, pattern=None, slow=False, fatal=False):
         """Registers the pre-commit check.
@@ -53,64 +58,46 @@ class Precommit:
 
     def check(self):
         """Find problems and print a message for each."""
-        start = time.monotonic()
+        self.output.start()
         checks_to_run = self.get_checks()
         problems = []
         for check, arg in checks_to_run:
-            print(blue("[" + check.name() + "] "), end="", flush=True)
-            new_problems = self.run_check(check, start, args=(arg,))
+            self.output.check_name(check)
+            new_problems = self.run_check(check, args=(arg,))
             problems.extend(new_problems)
             if new_problems:
                 for problem in new_problems:
-                    print_problem(problem)
+                    self.output.problem(problem)
             else:
-                print("no issues")
+                self.output.no_problem()
 
+        fixable_problems = [problem for problem in problems if problem.autofix]
+        self.output.summary_for_check(len(fixable_problems), len(problems))
         if problems:
-            fixable_problems = [problem for problem in problems if problem.autofix]
-            print()
-            print(f"{red(plural(len(problems), 'issue'))} found. ", end="")
-            if fixable_problems:
-                if len(fixable_problems) == len(problems):
-                    n = green("all of them")
-                else:
-                    n = blue(f"{len(fixable_problems)} of them")
-
-                print(f"Fix {n} with '{blue('precommit fix')}'.", end="")
-            print()
             sys.exit(1)
-        else:
-            print(f"{green('No issues')} detected.")
 
     def fix(self, *, dry_run=False):
-        start = time.monotonic()
         checks_to_run = [(c, a) for (c, a) in self.get_checks() if c.fixable]
         nissues = 0
         nfixed = 0
         for check, arg in checks_to_run:
-            print(blue("[" + check.name() + "] "), end="", flush=True)
-            problems = self.run_check(check, start, args=(arg,))
+            self.output.check_name(check)
+            problems = self.run_check(check, args=(arg,))
             nissues += len(problems)
             if problems:
-                print(green("fixing"))
+                self.output.fixing()
                 for problem in problems:
                     if problem.autofix:
                         if not dry_run:
                             run(problem.autofix)
                         nfixed += 1
             else:
-                print(green("no issues"))
+                self.output.no_problem()
 
         if not dry_run:
             run(["git", "add"] + self.get_repository().staged_files)
 
-        print()
-        print("Ran", blue(plural(len(checks_to_run), "check")), end=". ")
-        print("Detected", red(plural(nissues, "issue")), end=". ")
-        if dry_run:
-            print(f"Would have fixed", green(f"{nfixed} of them") + ".")
-        else:
-            print("Fixed", green(f"{nfixed} of them."))
+        self.output.summary_for_fix(len(checks_to_run), nissues, nfixed)
 
     @staticmethod
     def pattern_from_ext(ext):
@@ -132,19 +119,10 @@ class Precommit:
 
         return checks_to_run
 
-    def run_check(self, check, start, *, args):
-        if self.verbose:
-            print(f"Running {check.name()}")
-
-        check_start = time.monotonic()
+    def run_check(self, check, *, args):
+        self.output.start_check(check)
         r = check.check(*args)
-        check_end = time.monotonic()
-
-        if self.verbose:
-            elapsed = check_end - check_start
-            elapsed_since_start = check_end - start
-            print(f"Finished in {elapsed:.2f}s. ", end="")
-            print(f"{elapsed_since_start:.2f}s since start.")
+        self.output.end_check()
 
         if r is None:
             problems = []
@@ -253,20 +231,6 @@ class GitPath(bytes):
         return repr(self)[1:]
 
 
-def print_problem(problem):
-    builder = []
-    # builder.append(red(f"[{problem.checkname}] "))
-    if problem.path:
-        builder.append(blue(problem.path))
-        builder.append(": ")
-    builder.append(problem.message)
-    print("".join(builder))
-    if problem.verbose_message:
-        print()
-        print(textwrap.indent(problem.verbose_message, "  "))
-        print()
-
-
 class Problem:
     def __init__(self, message, *, checkname=None, autofix=None, verbose_message=None):
         self.path = None
@@ -274,6 +238,84 @@ class Problem:
         self.message = message
         self.autofix = autofix
         self.verbose_message = verbose_message
+
+
+class NormalOutput:
+    def __init__(self, *, dry_run=False):
+        self.dry_run = dry_run
+
+    def check_name(self, check):
+        print(blue("[" + check.name() + "] "), end="", flush=True)
+
+    def problem(self, problem):
+        builder = []
+        # builder.append(red(f"[{problem.checkname}] "))
+        if problem.path:
+            builder.append(blue(problem.path))
+            builder.append(": ")
+        builder.append(problem.message)
+        print("".join(builder))
+        if problem.verbose_message:
+            print()
+            print(textwrap.indent(problem.verbose_message, "  "))
+            print()
+
+    def no_problem(self):
+        print("no issues")
+
+    def summary_for_check(self, nfixable, ntotal):
+        if ntotal > 0:
+            print()
+            print(f"{red(plural(ntotal, 'issue'))} found. ", end="")
+
+            if nfixable > 0:
+                if nfixable == ntotal:
+                    n = green("all of them")
+                else:
+                    n = blue(f"{nfixable} of them")
+
+                print(f"Fix {n} with '{blue('precommit fix')}'.", end="")
+
+            print()
+        else:
+            print(f"{green('No issues')} detected.")
+
+    def fixing(self):
+        print(green("fixing"))
+
+    def summary_for_fix(self, nchecks, nissues, nfixed):
+        print()
+        print("Ran", blue(plural(nchecks, "check")), end=". ")
+        print("Detected", red(plural(nissues, "issue")), end=". ")
+        if self.dry_run:
+            print(f"Would have fixed", green(f"{nfixed} of them") + ".")
+        else:
+            print("Fixed", green(f"{nfixed} of them."))
+
+    def start(self):
+        pass
+
+    def start_check(self, check):
+        pass
+
+    def end_check(self):
+        pass
+
+
+class VerboseOutput(NormalOutput):
+    def start(self):
+        self.start = time.monotonic()
+
+    def start_check(self, check):
+        print(f"Running {check.name()}")
+        self.check_start = time.monotonic()
+
+    def end_check(self):
+        check_end = time.monotonic()
+        elapsed = check_end - self.check_start
+        elapsed_since_start = check_end - self.start
+        print(f"Finished in {elapsed:.2f}s. ", end="")
+        print(f"{elapsed_since_start:.2f}s since start.")
 
 
 Repository = namedtuple("Repository", ["staged_files", "unstaged_files"])

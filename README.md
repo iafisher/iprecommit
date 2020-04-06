@@ -31,12 +31,10 @@ precommit fix
 The `precommit.py` file that `precommit` generates will look something like this:
 
 ```python
-from iafisher_precommit import Precommit, checks
+from iafisher_precommit import checks
 
 
-def main():
-    precommit = Precommit()
-
+def init(precommit):
     # Generic checks
     precommit.register(checks.NoStagedAndUnstagedChanges())
     precommit.register(checks.NoWhitespaceInFilePath())
@@ -44,11 +42,9 @@ def main():
     # Python checks
     precommit.register(checks.PythonFormat())
     precommit.register(checks.PythonStyle())
-
-    return precommit
 ```
 
-The file must define a function called `main` that returns a `Precommit` object. You are not intended to run `precommit.py` directly. You should always invoke it using the `precommit` command.
+The file must define a function called `init` that accepts a `Precommit` object as a parameter. You are not intended to run `precommit.py` directly. You should always invoke it using the `precommit` command.
 
 `Precommit.register` registers a pre-commit check. Checks are run in the order they are registered. The built-in checks know what kind of files they should be invoked on, so `checks.PythonFormat` will only run on Python files, and likewise for `checks.PythonStyle`. If you want to limit a check to a certain set of files, `Precommit.register` accepts a `pattern` parameter which should be a regular expression string that matches the files that the check should run on:
 

@@ -3,7 +3,7 @@ import stat
 import sys
 from collections import namedtuple
 
-from .lib import blue, run, turn_off_colors, turn_on_colors
+from .lib import Precommit, blue, run, turn_off_colors, turn_on_colors
 
 
 def main():
@@ -156,16 +156,16 @@ def check_args(args):
 def get_precommit(args):
     sys.path.append(os.getcwd())
     try:
-        from precommit import main
+        from precommit import init
     except ImportError:
         message = (
-            "could not find precommit.py with main function. "
+            "could not find precommit.py with init function. "
             + "You can create one by running 'precommit init'."
         )
         error(message)
     else:
-        precommit = main()
-        precommit.set_args(args)
+        precommit = Precommit.from_args(args)
+        init(precommit)
         return precommit
 
 
@@ -180,12 +180,10 @@ PRECOMMIT = """\
 This file was created by precommit (https://github.com/iafisher/precommit).
 You are welcome to edit it yourself to customize your pre-commit hook.
 ""\"
-from iafisher_precommit import Precommit, checks
+from iafisher_precommit import checks
 
 
-def main():
-    precommit = Precommit()
-
+def init(precommit):
     # Generic checks
     precommit.register(checks.NoStagedAndUnstagedChanges())
     precommit.register(checks.NoWhitespaceInFilePath())
@@ -193,8 +191,6 @@ def main():
     # Python checks
     precommit.register(checks.PythonFormat())
     precommit.register(checks.PythonStyle())
-
-    return precommit
 """
 
 

@@ -1,9 +1,7 @@
-from iafisher_precommit import Precommit, checks
+from iafisher_precommit import checks
 
 
-def main():
-    precommit = Precommit()
-
+def init(precommit):
     # Generic checks
     precommit.register(checks.NoStagedAndUnstagedChanges())
     precommit.register(checks.NoWhitespaceInFilePath())
@@ -14,5 +12,3 @@ def main():
 
     # Test suite
     precommit.register(checks.RepoCommand("./test"), slow=True)
-
-    return precommit
