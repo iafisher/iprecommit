@@ -1,5 +1,5 @@
 import sys
-from .lib import FileCheck, Precommit, Problem, RepoCheck, pathfilter, run
+from .lib import FileCheck, Problem, RepoCheck, pattern_from_ext, run
 
 
 class NoStagedAndUnstagedChanges(RepoCheck):
@@ -30,12 +30,13 @@ class PythonFormat(RepoCheck):
     """Checks the format of Python files using black."""
 
     fixable = True
+    pattern = pattern_from_ext("py")
+
+    def __init__(self, *, args=None):
+        self.args = args if args is not None else []
 
     def check(self, repository):
-        python = pathfilter(repository.staged_files, Precommit.pattern_from_ext("py"))
-        if not python:
-            return
-        black = run(["black", "--check"] + python)
+        black = run(["black", "--check"] + self.args + repository.filtered)
         if black.returncode != 0:
             errors = black.stdout.decode(sys.getdefaultencoding()).strip()
             return Problem(
@@ -48,14 +49,13 @@ class PythonFormat(RepoCheck):
 class PythonStyle(RepoCheck):
     """Lints Python files using flake8."""
 
+    pattern = pattern_from_ext("py")
+
     def __init__(self, *, args=None):
         self.args = args if args is not None else []
 
     def check(self, repository):
-        python = pathfilter(repository.staged_files, Precommit.pattern_from_ext("py"))
-        if not python:
-            return
-        flake8 = run(["flake8"] + self.args + python)
+        flake8 = run(["flake8"] + self.args + repository.filtered)
         if flake8.returncode != 0:
             errors = flake8.stdout.decode(sys.getdefaultencoding()).strip()
             return Problem("lint error(s)", verbose_message=errors)

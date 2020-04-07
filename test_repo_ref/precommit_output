@@ -1,18 +1,19 @@
-[NoStagedAndUnstagedChanges] unstaged changes to a staged file
+[NoStagedAndUnstagedChanges] error: unstaged changes to a staged file
 
   bad_python_format.py
 
-[NoWhitespaceInFilePath] no issues
-[NoWhitespaceInFilePath] no issues
-[PythonFormat] bad formatting
+[NoWhitespaceInFilePath] passed!
+[PythonFormat] error: bad formatting
 
   would reformat bad_python_format.py
   All done! 💥 💔 💥
   1 file would be reformatted.
 
-[PythonStyle] lint error(s)
+[PythonStyle] error: lint error(s)
 
+  bad_python_format.py:1:7: E201 whitespace after '('
+  bad_python_format.py:1:17: E202 whitespace before ')'
   bad_python_format.py:4:1: W391 blank line at end of file
 
 
-3 issues found. Fix 2 of them with 'precommit fix'.
+Ran 4 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.

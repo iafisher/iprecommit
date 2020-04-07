@@ -3,14 +3,22 @@ import stat
 import sys
 from collections import namedtuple
 
-from .lib import Precommit, blue, run, turn_off_colors, turn_on_colors
+from .lib import (
+    Precommit,
+    Output,
+    VerboseOutput,
+    blue,
+    run,
+    turn_off_colors,
+    turn_on_colors,
+)
 
 
 def main():
     args = handle_args(sys.argv[1:])
 
     chdir_to_git_root()
-    if args.subcommand == "help" or "--help" in args.flags:
+    if args.subcommand == "help" or args.flags["--help"]:
         main_help(args)
     elif args.subcommand == "init":
         main_init(args)
@@ -23,14 +31,14 @@ def main():
 
 
 def main_init(args):
-    if "--force" not in args.flags and os.path.exists("precommit.py"):
+    if not args.flags["--force"] and os.path.exists("precommit.py"):
         error("precommit.py already exists. Re-run with --force to overwrite it.")
 
     with open("precommit.py", "w", encoding="utf-8") as f:
         f.write(PRECOMMIT)
 
     hookpath = os.path.join(".git", "hooks", "pre-commit")
-    if "--force" not in args.flags and os.path.exists(hookpath):
+    if not args.flags["--force"] and os.path.exists(hookpath):
         error(f"{hookpath} already exists. Re-run with --force to overwrite it.")
 
     with open(hookpath, "w", encoding="utf-8") as f:
@@ -43,7 +51,7 @@ def main_init(args):
 
 def main_fix(args):
     precommit = get_precommit(args)
-    precommit.fix(dry_run=bool("--dry-run" in args.flags))
+    precommit.fix()
 
 
 def main_list(args):
@@ -86,9 +94,10 @@ Args = namedtuple("Args", ["subcommand", "positional", "flags"])
 
 
 def handle_args(args):
-    # Check for the NO_COLOR environment variable because handling command-line
-    # arguments so that it can be overridden by explicitly specifying --color.
-    if "NO_COLOR" in os.environ:
+    # Check for the NO_COLOR environment variable and for a non-terminal standard output
+    # before handling command-line arguments so that it can be overridden by explicitly
+    # specifying --color.
+    if "NO_COLOR" in os.environ and not sys.stdout.isatty():
         turn_off_colors()
 
     args = parse_args(args)
@@ -96,9 +105,13 @@ def handle_args(args):
     if errormsg:
         error(errormsg)
 
-    if args.flags.get("--color"):
+    for flag in FLAGS:
+        if flag not in args.flags:
+            args.flags[flag] = False
+
+    if args.flags["--color"]:
         turn_on_colors()
-    elif args.flags.get("--no-color"):
+    elif args.flags["--no-color"]:
         turn_off_colors()
 
     return args
@@ -164,7 +177,8 @@ def get_precommit(args):
         )
         error(message)
     else:
-        precommit = Precommit.from_args(args)
+        output = (VerboseOutput if args.flags["--verbose"] else Output).from_args(args)
+        precommit = Precommit.from_args(output, args)
         init(precommit)
         return precommit
 
@@ -180,7 +194,7 @@ PRECOMMIT = """\
 This file was created by precommit (https://github.com/iafisher/precommit).
 You are welcome to edit it yourself to customize your pre-commit hook.
 ""\"
-from iafisher_precommit import checks
+from precommitlib import checks
 
 
 def init(precommit):

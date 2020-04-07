@@ -27,11 +27,11 @@ precommit fix
 - It's a standalone tool with no dependencies besides Python and git.
 
 
-## Writing your own pre-commit checks
+## User guide
 The `precommit.py` file that `precommit` generates will look something like this:
 
 ```python
-from iafisher_precommit import checks
+from precommitlib import checks
 
 
 def init(precommit):
@@ -51,9 +51,11 @@ The file must define a function called `init` that accepts a `Precommit` object 
 ```python
 # Only disallow whitespace in file path in the src/ directory.
 precommit.register(checks.NoWhiteSpaceInFilePath(), pattern=r"^src/.+$")
+# You can also exclude patterns.
+precommit.register(checks.PythonFormat(), exclude=r"setup\.py")
 ```
 
-As you can see, the `iafisher_precommit` library comes with some useful checks out of the box, but sometimes you need to write your own checks. Doing so is straightforward.
+`precommitlib` comes with some useful checks out of the box, but sometimes you need to write your own checks. Doing so is straightforward.
 
 If you just need to run a shell command and check that its exit status is zero, you can use the built-in `checks.RepoCommand` class:
 
@@ -69,12 +71,12 @@ precommit.register(checks.FileCommand(["check_file"]))
 
 For each staged file, `FileCommand` will invoke the command with the arguments you passed in its constructor plus the file path at the end. For example, if `a.txt` and `b.txt` were the staged files, then the `FileCommand` check registered above would run `check_file a.txt` and `check_file b.txt`.
 
-If you need to write custom logic in Python, you should define a class that inherits from either `iafisher_precommit.FileCheck` or `iafisher_precommit.RepoCheck`. The former is for checks that run on every staged file (or every staged file matching a certain pattern) and the latter is for checks that run once for the whole repository.
+If you need to write custom logic in Python, you should define a class that inherits from either `precommitlib.FileCheck` or `precommitlib.RepoCheck`. The former is for checks that run on every staged file (or every staged file matching a certain pattern) and the latter is for checks that run once for the whole repository.
 
 Here's an example of a custom file check:
 
 ```python
-from iafisher_precommit import FileCheck, Problem
+from precommitlib import FileCheck, Problem
 
 class NoBadCharactersInPath(FileCheck):
     """Checks that the file path contains no bad characters."""
@@ -93,17 +95,25 @@ And here's an example of a custom repository check:
 
 ```python
 import os
-from iafisher_precommit import FileCheck, Problem
+from precommitlib import FileCheck, Problem
 
 class UnitTestsUpdated(FileCheck):
     """Checks that a Python file's unit tests are updated."""
 
     def check(self, repository):
-        for path in repository.staged_files:
+        for path in repository.filtered:
             if path.endswith(".py") and not path.endswith("_test.py"):
                 testpath = os.path.splitext(path)[0] + "_test.py"
                 if not testpath in repository.staged_files:
                     return Problem(message="did not update unit tests")
 ```
 
-Usually, you'll define these custom checks in `precommit.py`.
+In most cases, the only attribute of `repository` you should look at is `filtered`, which lists the file paths that the check should apply to, respecting any custom patterns or exclusions that the user set. The `repository` object also has `staged_files` and `unstaged_files` attributes which list all the staged and unstaged files in the git repository.
+
+Repository checks are less common than file checks. One use case is for commands that can optionally accept a list of file paths instead of just one, like the `flake8` linter for Python. You could write a file check that invokes `flake8` once for each file path, but it's more efficient to invoke it once for the entire repository.
+
+Checks can have class-level `pattern` and `exclude` attributes with the same function as the parameters of `Precommit.register`. This is useful, for example, for checks that should only run on files with certain extensions, like language-specific linters and formatters. Arguments to `Precommit.register` take precedence over the value of class-level attributes.
+
+
+## API reference
+TODO

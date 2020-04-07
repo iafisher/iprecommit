@@ -16,7 +16,7 @@ setup(
     license="MIT",
     author="Ian Fisher",
     author_email="iafisher@protonmail.com",
-    entry_points={"console_scripts": ["precommit = iafisher_precommit.main:main"]},
+    entry_points={"console_scripts": ["precommit = precommitlib.main:main"]},
     packages=find_packages(exclude=["tests"]),
     project_urls={"Source": "https://github.com/iafisher/precommit"},
 )

@@ -1,4 +1,4 @@
-from iafisher_precommit import checks
+from precommitlib import checks
 
 
 def init(precommit):
@@ -7,8 +7,10 @@ def init(precommit):
     precommit.register(checks.NoWhitespaceInFilePath())
 
     # Python checks
-    precommit.register(checks.PythonFormat())
-    precommit.register(checks.PythonStyle(args=["--max-line-length=88"]))
+    precommit.register(checks.PythonFormat(), exclude="test_repo")
+    precommit.register(
+        checks.PythonStyle(args=["--max-line-length=88"]), exclude="test_repo"
+    )
 
     # Test suite
     precommit.register(checks.RepoCommand("./test"), slow=True)
