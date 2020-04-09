@@ -39,12 +39,15 @@ def init(precommit):
     precommit.check(checks.NoStagedAndUnstagedChanges())
     precommit.check(checks.NoWhitespaceInFilePath())
 
-    # Python checks
+    # Language-specific checks
     precommit.check(checks.PythonFormat())
     precommit.check(checks.PythonStyle())
+    precommit.check(checks.JavaScriptStyle())
 ```
 
 The file must define a function called `init` that accepts a `Precommit` object as a parameter. You are not intended to run `precommit.py` directly. You should always invoke it using the `precommit` command.
+
+The default `precommit.py` file has checks for a number of languages. If a language isn't used in your project, the check for that language will never be run, so there's no overhead to keeping the check in the file.
 
 `Precommit.check` registers a pre-commit check. Checks are run in the order they are registered. The built-in checks know what kind of files they should be invoked on, so `checks.PythonFormat` will only run on Python files, and likewise for `checks.PythonStyle`. If you want to limit a check to a certain set of files, `Precommit.check` accepts a `pattern` parameter which should be a regular expression string that matches the files that the check should run on:
 
@@ -56,6 +59,8 @@ precommit.check(checks.PythonFormat(), exclude=r"setup\.py")
 ```
 
 Since `precommit.py` is a Python file, you can disable checks simply by commenting them out.
+
+Some pre-commit checks require other programs to be installed on the computer, e.g. `PythonFormat` requires the `black` code formatter. `precommit init` will **not** install these automatically. You have to install them yourself.
 
 ### Writing your own checks
 `precommitlib` comes with some useful checks out of the box, but sometimes you need to write your own checks. Doing so is straightforward.

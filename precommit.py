@@ -7,7 +7,7 @@ def init(precommit):
     precommit.check(checks.NoWhitespaceInFilePath())
     precommit.check(checks.DoNotSubmit())
 
-    # Python checks
+    # Language-specific checks
     precommit.check(checks.PythonFormat(), exclude="test_repo")
     precommit.check(
         checks.PythonStyle(args=["--max-line-length=88"]), exclude="test_repo"

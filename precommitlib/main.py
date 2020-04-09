@@ -203,9 +203,10 @@ def init(precommit):
     precommit.check(checks.NoWhitespaceInFilePath())
     precommit.check(checks.DoNotSubmit())
 
-    # Python checks
+    # Language-specific checks
     precommit.check(checks.PythonFormat())
     precommit.check(checks.PythonStyle())
+    precommit.check(checks.JavaScriptStyle())
 """
 
 

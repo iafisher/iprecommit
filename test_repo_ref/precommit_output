@@ -10,7 +10,7 @@
   All done! 💥 💔 💥
   1 file would be reformatted.
 
-[PythonStyle] error: lint error(s)
+[PythonStyle] error: Python lint error(s)
 
   bad_python_format.py:1:7: E201 whitespace after '('
   bad_python_format.py:1:17: E202 whitespace before ')'

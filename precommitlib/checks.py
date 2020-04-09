@@ -71,7 +71,27 @@ class PythonStyle(RepoCheck):
         flake8 = run(["flake8"] + self.args + repository.filtered)
         if flake8.returncode != 0:
             errors = flake8.stdout.decode(sys.getdefaultencoding()).strip()
-            return Problem("lint error(s)", verbose_message=errors)
+            return Problem("Python lint error(s)", verbose_message=errors)
+
+
+class JavaScriptStyle(RepoCheck):
+    """Lints JavaScript files using ESLint."""
+
+    fixable = True
+    pattern = pattern_from_ext("js")
+
+    def __init__(self, *, args=None):
+        self.args = args if args is not None else []
+
+    def check(self, repository):
+        eslint = run(["npx", "eslint"] + self.args + repository.filtered)
+        if eslint.returncode != 0:
+            errors = eslint.stdout.decode(sys.getdefaultencoding()).strip()
+            return Problem(
+                "JavaScript lint error(s)",
+                verbose_message=errors,
+                autofix=["npx", "eslint", "--fix"] + repository.filtered,
+            )
 
 
 class RepoCommand(RepoCheck):
