@@ -1,6 +1,6 @@
 A simple tool to manage pre-commit hooks for git.
 
-I wrote it to standardize and automate the repetitive steps of setting up and maintaining pre-commit hooks for git. It's tailored to my personal workflow, but if you'd like to try it yourself you can install it like this:
+I wrote it to standardize and automate the repetitive steps of setting up and maintaining pre-commit hooks for git. It's tailored to my personal workflow, but if you'd like to try it yourself you can install it like this (**warning**: the tool is under active development and I may make breaking changes to the API without prior notice):
 
 ```shell
 pip3 install git+https://github.com/iafisher/precommit.git
