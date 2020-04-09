@@ -55,6 +55,9 @@ precommit.register(checks.NoWhiteSpaceInFilePath(), pattern=r"^src/.+$")
 precommit.register(checks.PythonFormat(), exclude=r"setup\.py")
 ```
 
+Since `precommit.py` is a Python file, you can disable checks simply by commenting them out.
+
+### Writing your own checks
 `precommitlib` comes with some useful checks out of the box, but sometimes you need to write your own checks. Doing so is straightforward.
 
 If you just need to run a shell command and check that its exit status is zero, you can use the built-in `checks.RepoCommand` class:

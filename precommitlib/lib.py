@@ -228,6 +228,7 @@ class Output:
         self.dry_run = dry_run
         self.nchecks = 0
         self.problems = []
+        self.printed_anything_yet = False
 
     @classmethod
     def from_args(cls, args):
@@ -238,7 +239,7 @@ class Output:
 
     def pre_check(self, check):
         self.nchecks += 1
-        print(blue("[" + check.name() + "] "), end="", flush=True)
+        self._print(blue("[" + check.name() + "] "), end="", flush=True)
 
     def post_check(self):
         pass
@@ -249,18 +250,18 @@ class Output:
             for i, problem in enumerate(problems):
                 self._problem(problem, with_checkname=bool(i > 0))
         else:
-            print(green("passed!"))
+            self._print(green("passed!"))
 
     def post_check_for_fix_subcommand(self, problems):
         self.problems.extend(problems)
         if problems:
-            print(green("fixing"))
+            self._print(green("fixing"))
             if not self.dry_run:
                 for problem in problems:
                     if problem.autofix:
                         self.run(problem.autofix)
         else:
-            print(green("passed!"))
+            self._print(green("passed!"))
 
     def stage_files(self, staged_files):
         if not self.dry_run:
@@ -269,10 +270,11 @@ class Output:
     def summary_for_check(self):
         fixable = sum(1 for p in self.problems if p.autofix)
         total = len(self.problems)
-        print()
-        print("Ran", blue(plural(self.nchecks, "check")), end=". ")
+        if self.printed_anything_yet:
+            self._print()
+        self._print("Ran", blue(plural(self.nchecks, "check")), end=". ")
         if total > 0:
-            print(f"Detected {red(plural(total, 'issue'))}", end=". ")
+            self._print(f"Detected {red(plural(total, 'issue'))}", end=". ")
 
             if fixable > 0:
                 if fixable == total:
@@ -280,26 +282,31 @@ class Output:
                 else:
                     n = blue(f"{fixable} of them")
 
-                print(f"Fix {n} with '{blue('precommit fix')}'.", end="")
+                self._print(f"Fix {n} with '{blue('precommit fix')}'.", end="")
 
-            print()
+            self._print()
             sys.exit(1)
         else:
-            print(f"{green('No issues')} detected.")
+            self._print(f"{green('No issues')} detected.")
 
     def summary_for_fix(self):
         fixable = sum(1 for p in self.problems if p.autofix)
         total = len(self.problems)
-        print()
-        print("Ran", blue(plural(self.nchecks, "check")), end=". ")
-        print("Detected", red(plural(total, "issue")), end=". ")
+        if self.printed_anything_yet:
+            self._print()
+        self._print("Ran", blue(plural(self.nchecks, "check")), end=". ")
+        self._print("Detected", red(plural(total, "issue")), end=". ")
         if self.dry_run:
-            print(f"Would have fixed", green(f"{fixable} of them") + ".")
+            self._print(f"Would have fixed", green(f"{fixable} of them") + ".")
         else:
-            print("Fixed", green(f"{fixable} of them."))
+            self._print("Fixed", green(f"{fixable} of them."))
 
     def run(self, cmd):
         run(cmd)
+
+    def _print(self, *args, **kwargs):
+        self.printed_anything_yet = True
+        print(*args, **kwargs)
 
     def _problem(self, problem, *, with_checkname=False):
         builder = []
@@ -308,11 +315,11 @@ class Output:
         builder.append(red("error"))
         builder.append(": ")
         builder.append(problem.message)
-        print("".join(builder))
+        self._print("".join(builder))
         if problem.verbose_message:
-            print()
-            print(textwrap.indent(problem.verbose_message, "  "))
-            print()
+            self._print()
+            self._print(textwrap.indent(problem.verbose_message, "  "))
+            self._print()
 
 
 class VerboseOutput(Output):
@@ -320,7 +327,7 @@ class VerboseOutput(Output):
         self.start = time.monotonic()
 
     def pre_check(self, check):
-        print(f"Running {check.name()}")
+        self._print(f"Running {check.name()}")
         self.check_start = time.monotonic()
         super().pre_check(check)
 
@@ -331,15 +338,15 @@ class VerboseOutput(Output):
         super().post_check_for_check_subcommand(*args, **kwargs)
         elapsed = self.check_end - self.check_start
         elapsed_since_start = self.check_end - self.start
-        print(f"Finished in {elapsed:.2f}s. ", end="")
-        print(f"{elapsed_since_start:.2f}s since start.")
+        self._print(f"Finished in {elapsed:.2f}s. ", end="")
+        self._print(f"{elapsed_since_start:.2f}s since start.")
 
     def post_check_for_fix_subcommand(self, *args, **kwargs):
         super().post_check_for_check_subcommand(*args, **kwargs)
         elapsed = self.check_end - self.check_start
         elapsed_since_start = self.check_end - self.start
-        print(f"Finished in {elapsed:.2f}s. ", end="")
-        print(f"{elapsed_since_start:.2f}s since start.")
+        self._print(f"Finished in {elapsed:.2f}s. ", end="")
+        self._print(f"{elapsed_since_start:.2f}s since start.")
 
 
 class Repository:
