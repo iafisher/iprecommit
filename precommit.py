@@ -5,6 +5,7 @@ def init(precommit):
     # Generic checks
     precommit.register(checks.NoStagedAndUnstagedChanges())
     precommit.register(checks.NoWhitespaceInFilePath())
+    precommit.register(checks.DoNotSubmit())
 
     # Python checks
     precommit.register(checks.PythonFormat(), exclude="test_repo")

@@ -18,6 +18,19 @@ class NoStagedAndUnstagedChanges(RepoCheck):
             )
 
 
+# We construct it like this so the string literal doesn't trigger the check itself.
+DO_NOT_SUBMIT = "DO NOT " + "SUBMIT"
+
+
+class DoNotSubmit(FileCheck):
+    f"""Checks that the file does not contain the string '{DO_NOT_SUBMIT}'."""
+
+    def check(self, path):
+        with open(path, "r") as f:
+            if DO_NOT_SUBMIT in f.read().upper():
+                return Problem(f"file contains '{DO_NOT_SUBMIT}'")
+
+
 class NoWhitespaceInFilePath(FileCheck):
     """Checks that the file path contains no whitespace."""
 
