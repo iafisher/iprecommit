@@ -3,6 +3,7 @@
   bad_python_format.py
 
 [NoWhitespaceInFilePath] passed!
+[DoNotSubmit] passed!
 [PythonFormat] error: bad formatting
 
   would reformat bad_python_format.py
@@ -16,4 +17,4 @@
   bad_python_format.py:4:1: W391 blank line at end of file
 
 
-Ran 4 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.
+Ran 5 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.
