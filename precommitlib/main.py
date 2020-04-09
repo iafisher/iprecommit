@@ -34,12 +34,12 @@ def main_init(args):
     if not args.flags["--force"] and os.path.exists("precommit.py"):
         error("precommit.py already exists. Re-run with --force to overwrite it.")
 
-    with open("precommit.py", "w", encoding="utf-8") as f:
-        f.write(PRECOMMIT)
-
     hookpath = os.path.join(".git", "hooks", "pre-commit")
     if not args.flags["--force"] and os.path.exists(hookpath):
         error(f"{hookpath} already exists. Re-run with --force to overwrite it.")
+
+    with open("precommit.py", "w", encoding="utf-8") as f:
+        f.write(PRECOMMIT)
 
     with open(hookpath, "w", encoding="utf-8") as f:
         f.write("#!/bin/sh\n\nprecommit --all\n")
