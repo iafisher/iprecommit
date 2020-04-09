@@ -12,7 +12,7 @@ class Precommit:
         self.encoding = "utf-8"
         self.output = output
         self.checks = []
-        self.check_all = False
+        self.check_all = check_all
 
     @classmethod
     def from_args(cls, output, args):
