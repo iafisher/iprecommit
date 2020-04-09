@@ -164,7 +164,10 @@ class FileCheck(BaseCheck):
     def check_wrapper(self, filtered):
         problems = []
         for path in filtered:
-            problems.extend(self._normalize_result(self.check(path)))
+            results = self._normalize_result(self.check(path))
+            for result in results:
+                result.path = path
+                problems.append(result)
         return problems
 
 
@@ -314,6 +317,9 @@ class Output:
             builder.append(blue(f"[{problem.checkname}] "))
         builder.append(red("error"))
         builder.append(": ")
+        if problem.path:
+            builder.append(problem.path)
+            builder.append(": ")
         builder.append(problem.message)
         self._print("".join(builder))
         if problem.verbose_message:
