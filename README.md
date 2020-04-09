@@ -36,23 +36,23 @@ from precommitlib import checks
 
 def init(precommit):
     # Generic checks
-    precommit.register(checks.NoStagedAndUnstagedChanges())
-    precommit.register(checks.NoWhitespaceInFilePath())
+    precommit.check(checks.NoStagedAndUnstagedChanges())
+    precommit.check(checks.NoWhitespaceInFilePath())
 
     # Python checks
-    precommit.register(checks.PythonFormat())
-    precommit.register(checks.PythonStyle())
+    precommit.check(checks.PythonFormat())
+    precommit.check(checks.PythonStyle())
 ```
 
 The file must define a function called `init` that accepts a `Precommit` object as a parameter. You are not intended to run `precommit.py` directly. You should always invoke it using the `precommit` command.
 
-`Precommit.register` registers a pre-commit check. Checks are run in the order they are registered. The built-in checks know what kind of files they should be invoked on, so `checks.PythonFormat` will only run on Python files, and likewise for `checks.PythonStyle`. If you want to limit a check to a certain set of files, `Precommit.register` accepts a `pattern` parameter which should be a regular expression string that matches the files that the check should run on:
+`Precommit.check` registers a pre-commit check. Checks are run in the order they are registered. The built-in checks know what kind of files they should be invoked on, so `checks.PythonFormat` will only run on Python files, and likewise for `checks.PythonStyle`. If you want to limit a check to a certain set of files, `Precommit.check` accepts a `pattern` parameter which should be a regular expression string that matches the files that the check should run on:
 
 ```python
 # Only disallow whitespace in file path in the src/ directory.
-precommit.register(checks.NoWhiteSpaceInFilePath(), pattern=r"^src/.+$")
+precommit.check(checks.NoWhiteSpaceInFilePath(), pattern=r"^src/.+$")
 # You can also exclude patterns.
-precommit.register(checks.PythonFormat(), exclude=r"setup\.py")
+precommit.check(checks.PythonFormat(), exclude=r"setup\.py")
 ```
 
 Since `precommit.py` is a Python file, you can disable checks simply by commenting them out.
@@ -63,13 +63,13 @@ Since `precommit.py` is a Python file, you can disable checks simply by commenti
 If you just need to run a shell command and check that its exit status is zero, you can use the built-in `checks.RepoCommand` class:
 
 ```python
-precommit.register(checks.RepoCommand(["./test"]))
+precommit.check(checks.RepoCommand(["./test"]))
 ```
 
 `RepoCommand` will run the exact command you give it once for the whole repository. If you need to run a command for every staged file, use `FileCommand` instead:
 
 ```python
-precommit.register(checks.FileCommand(["check_file"]))
+precommit.check(checks.FileCommand(["check_file"]))
 ```
 
 For each staged file, `FileCommand` will invoke the command with the arguments you passed in its constructor plus the file path at the end. For example, if `a.txt` and `b.txt` were the staged files, then the `FileCommand` check registered above would run `check_file a.txt` and `check_file b.txt`.
@@ -115,7 +115,7 @@ In most cases, the only attribute of `repository` you should look at is `filtere
 
 Repository checks are less common than file checks. One use case is for commands that can optionally accept a list of file paths instead of just one, like the `flake8` linter for Python. You could write a file check that invokes `flake8` once for each file path, but it's more efficient to invoke it once for the entire repository.
 
-Checks can have class-level `pattern` and `exclude` attributes with the same function as the parameters of `Precommit.register`. This is useful, for example, for checks that should only run on files with certain extensions, like language-specific linters and formatters. Arguments to `Precommit.register` take precedence over the value of class-level attributes.
+Checks can have class-level `pattern` and `exclude` attributes with the same function as the parameters of `Precommit.check`. This is useful, for example, for checks that should only run on files with certain extensions, like language-specific linters and formatters. Arguments to `Precommit.check` take precedence over the value of class-level attributes.
 
 
 ## API reference

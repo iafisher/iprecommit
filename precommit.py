@@ -3,15 +3,15 @@ from precommitlib import checks
 
 def init(precommit):
     # Generic checks
-    precommit.register(checks.NoStagedAndUnstagedChanges())
-    precommit.register(checks.NoWhitespaceInFilePath())
-    precommit.register(checks.DoNotSubmit())
+    precommit.check(checks.NoStagedAndUnstagedChanges())
+    precommit.check(checks.NoWhitespaceInFilePath())
+    precommit.check(checks.DoNotSubmit())
 
     # Python checks
-    precommit.register(checks.PythonFormat(), exclude="test_repo")
-    precommit.register(
+    precommit.check(checks.PythonFormat(), exclude="test_repo")
+    precommit.check(
         checks.PythonStyle(args=["--max-line-length=88"]), exclude="test_repo"
     )
 
     # Test suite
-    precommit.register(checks.RepoCommand("./test"), slow=True)
+    precommit.check(checks.RepoCommand("./test"), slow=True)

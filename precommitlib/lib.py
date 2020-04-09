@@ -19,7 +19,7 @@ class Precommit:
         check_all = args.flags["--all"]
         return cls(output=output, check_all=check_all)
 
-    def register(self, check, *, pattern=None, exclude=None, slow=False, fatal=False):
+    def check(self, check, *, pattern=None, exclude=None, slow=False, fatal=False):
         """Registers the pre-commit check.
 
         Args:
@@ -46,7 +46,7 @@ class Precommit:
 
         self.checks.append(check)
 
-    def check(self):
+    def do_check(self):
         """Find problems and print a message for each."""
         self.output.start()
         repository = self.get_repository()
@@ -56,7 +56,7 @@ class Precommit:
             self.output.post_check_for_check_subcommand(problems)
         self.output.summary_for_check()
 
-    def fix(self):
+    def do_fix(self):
         """Find problems and fix the ones that can be fixed automatically."""
         self.output.start()
         repository = self.get_repository()

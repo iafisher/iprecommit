@@ -51,7 +51,7 @@ def main_init(args):
 
 def main_fix(args):
     precommit = get_precommit(args)
-    precommit.fix()
+    precommit.do_fix()
 
 
 def main_list(args):
@@ -69,7 +69,7 @@ def main_help(args):
 
 def main_check(args):
     precommit = get_precommit(args)
-    precommit.check()
+    precommit.do_check()
 
 
 def chdir_to_git_root():
@@ -199,13 +199,13 @@ from precommitlib import checks
 
 def init(precommit):
     # Generic checks
-    precommit.register(checks.NoStagedAndUnstagedChanges())
-    precommit.register(checks.NoWhitespaceInFilePath())
-    precommit.register(checks.DoNotSubmit())
+    precommit.check(checks.NoStagedAndUnstagedChanges())
+    precommit.check(checks.NoWhitespaceInFilePath())
+    precommit.check(checks.DoNotSubmit())
 
     # Python checks
-    precommit.register(checks.PythonFormat())
-    precommit.register(checks.PythonStyle())
+    precommit.check(checks.PythonFormat())
+    precommit.check(checks.PythonStyle())
 """
 
 

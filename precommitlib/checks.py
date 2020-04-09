@@ -55,7 +55,7 @@ class PythonFormat(RepoCheck):
             return Problem(
                 "bad formatting",
                 verbose_message=errors,
-                autofix=["black"] + repository.staged_files,
+                autofix=["black"] + repository.filtered,
             )
 
 
