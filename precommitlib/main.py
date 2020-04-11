@@ -167,7 +167,7 @@ def check_args(args):
 
 
 def get_precommit(args):
-    sys.path.append(os.getcwd())
+    sys.path = [os.getcwd()] + sys.path
     try:
         from precommit import init
     except ImportError:
