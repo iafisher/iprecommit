@@ -9,9 +9,7 @@ def init(precommit):
 
     # Language-specific checks
     precommit.check(checks.PythonFormat(), exclude="test_repo")
-    precommit.check(
-        checks.PythonStyle(args=["--max-line-length=88"]), exclude="test_repo"
-    )
+    precommit.check(checks.PythonStyle(), exclude="test_repo")
 
     # Test suite
-    precommit.check(checks.RepoCommand("./test"), slow=True)
+    precommit.check(checks.Command("./test"), slow=True)

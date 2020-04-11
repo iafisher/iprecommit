@@ -65,20 +65,27 @@ Some pre-commit checks require other programs to be installed on the computer, e
 ### Writing your own checks
 `precommitlib` comes with some useful checks out of the box, but sometimes you need to write your own checks. Doing so is straightforward.
 
-If you just need to run a shell command and check that its exit status is zero, you can use the built-in `checks.RepoCommand` class:
+If you just need to run a shell command and check that its exit status is zero, you can use the built-in `checks.Command` check:
 
 ```python
-precommit.check(checks.RepoCommand(["./test"]))
+precommit.check(checks.Command("./test"))
 ```
 
-`RepoCommand` will run the exact command you give it once for the whole repository. If you need to run a command for every staged file, use `FileCommand` instead:
+If you need the command to run once per file, use `per_file=True`:
 
 ```python
-precommit.check(checks.FileCommand(["check_file"]))
+precommit.check(checks.Command("check_file", per_file=True))
 ```
 
-For each staged file, `FileCommand` will invoke the command with the arguments you passed in its constructor plus the file path at the end. For example, if `a.txt` and `b.txt` were the staged files, then the `FileCommand` check registered above would run `check_file a.txt` and `check_file b.txt`.
+If `per_file` is True, then for each staged file `Command` will invoke the command with the arguments you passed in its constructor plus the file path at the end. For example, if `a.txt` and `b.txt` were the staged files, then the `Command` check registered above would run `check_file a.txt` and `check_file b.txt`.
 
+If you only want to run the command once, but you still want it to receive the list of file paths as command-line arguments, then use `per_file=False` and `pass_files=True`:
+
+```python
+precommit.check(checks.Command("check_file", per_file=False, pass_files=True))
+```
+
+#### Writing custom checks in Python
 If you need to write custom logic in Python, you should define a class that inherits from either `precommitlib.FileCheck` or `precommitlib.RepoCheck`. The former is for checks that run on every staged file (or every staged file matching a certain pattern) and the latter is for checks that run once for the whole repository.
 
 Here's an example of a custom file check:

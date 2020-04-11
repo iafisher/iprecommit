@@ -297,7 +297,7 @@ class Output:
         total = len(self.problems)
         if self.printed_anything_yet:
             self._print()
-        self._print("Ran", blue(plural(self.nchecks, "check")), end=". ")
+        self._print("Ran", blue(plural(self.nchecks, "fixable check")), end=". ")
         self._print("Detected", red(plural(total, "issue")), end=". ")
         if self.dry_run:
             self._print(f"Would have fixed", green(f"{fixable} of them") + ".")

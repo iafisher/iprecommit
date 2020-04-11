@@ -39,84 +39,51 @@ class NoWhitespaceInFilePath(FileCheck):
             return Problem("file path contains whitespace")
 
 
-class PythonFormat(RepoCheck):
-    """Checks the format of Python files using black."""
-
-    fixable = True
-    pattern = pattern_from_ext("py")
-
-    def __init__(self, *, args=None):
-        self.args = args if args is not None else []
-
-    def check(self, repository):
-        black = run(["black", "--check"] + self.args + repository.filtered)
-        if black.returncode != 0:
-            errors = black.stdout.decode(sys.getdefaultencoding()).strip()
-            return Problem(
-                "bad formatting",
-                verbose_message=errors,
-                autofix=["black"] + repository.filtered,
-            )
-
-
-class PythonStyle(RepoCheck):
-    """Lints Python files using flake8."""
-
-    pattern = pattern_from_ext("py")
-
-    def __init__(self, *, args=None):
-        self.args = args if args is not None else []
-
-    def check(self, repository):
-        flake8 = run(["flake8"] + self.args + repository.filtered)
-        if flake8.returncode != 0:
-            errors = flake8.stdout.decode(sys.getdefaultencoding()).strip()
-            return Problem("Python lint error(s)", verbose_message=errors)
-
-
-class JavaScriptStyle(RepoCheck):
-    """Lints JavaScript files using ESLint."""
-
-    fixable = True
-    pattern = pattern_from_ext("js")
-
-    def __init__(self, *, args=None):
-        self.args = args if args is not None else []
-
-    def check(self, repository):
-        eslint = run(["npx", "eslint"] + self.args + repository.filtered)
-        if eslint.returncode != 0:
-            errors = eslint.stdout.decode(sys.getdefaultencoding()).strip()
-            return Problem(
-                "JavaScript lint error(s)",
-                verbose_message=errors,
-                autofix=["npx", "eslint", "--fix"] + repository.filtered,
-            )
+def Command(*args, per_file=False, **kwargs):
+    if per_file:
+        return FileCommand(*args, **kwargs)
+    else:
+        return RepoCommand(*args, **kwargs)
 
 
 class RepoCommand(RepoCheck):
-    """Checks that `cmd` returns an exit code of 0."""
+    """Checks that the command returns an exit code of 0."""
 
-    def __init__(self, cmd):
+    def __init__(self, cmd, *, args=None, pass_files=False):
+        self.pass_files = pass_files
         if isinstance(cmd, list):
-            self.cmdname = cmd[0]
-            self.cmd = cmd
+            self.cmd = cmd[0]
+            self.args = cmd[1:] + (args if args is not None else [])
         else:
-            self.cmdname = cmd
-            self.cmd = [self.cmdname]
+            self.cmd = cmd
+            self.args = args if args is not None else []
 
     def check(self, repository):
-        result = run(self.cmd)
+        if self.pass_files:
+            cmdline = [self.cmd] + self.args + repository.filtered
+        else:
+            cmdline = [self.cmd] + self.args
 
+        result = run(cmdline)
         if result.returncode != 0:
             output = result.stdout.decode(sys.getdefaultencoding()).strip()
-            return Problem(f"command {self.cmdname!r} failed", verbose_message=output)
+            return Problem(
+                self.get_failure_message(),
+                verbose_message=output,
+                autofix=self.get_autofix(repository),
+            )
 
     def name(self):
-        return f"RepoCommand({' '.join(self.cmd)!r})"
+        if type(self) is RepoCommand:
+            return f"RepoCommand({self.cmd!r})"
+        else:
+            return super().name()
 
-    def help(self):
-        return f"Checks that {' '.join(self.cmd)!r} returns an exit code of 0."
+    def get_failure_message(self):
+        return f"command {self.cmd!r} failed"
+
+    def get_autofix(self, repository):
+        return None
 
 
 class FileCommand(FileCheck):
@@ -124,15 +91,62 @@ class FileCommand(FileCheck):
 
     def __init__(self, cmd):
         if isinstance(cmd, list):
-            self.cmdname = cmd[0]
-            self.cmd = cmd
+            self.cmd = cmd[0]
+            self.args = cmd[1:]
         else:
-            self.cmdname = cmd
-            self.cmd = [self.cmdname]
+            self.cmd = cmd
+            self.args = []
 
     def check(self, path):
-        result = run(self.cmd + [path])
+        result = run([self.cmd] + self.args + [path])
 
         if result.returncode != 0:
             output = result.stdout.decode(sys.getdefaultencoding()).strip()
-            return Problem(f"command {self.cmdname!r} failed", verbose_message=output)
+            return Problem(f"command {self.cmd!r} failed", verbose_message=output)
+
+
+class PythonFormat(RepoCommand):
+    """Checks the format of Python files using black."""
+
+    fixable = True
+    pattern = pattern_from_ext("py")
+
+    def __init__(self, **kwargs):
+        super().__init__(["black", "--check"], pass_files=True, **kwargs)
+
+    def get_failure_message(self):
+        return "bad formatting"
+
+    def get_autofix(self, repository):
+        return ["black"] + repository.filtered
+
+
+class PythonStyle(RepoCommand):
+    """Lints Python files using flake8."""
+
+    pattern = pattern_from_ext("py")
+
+    def __init__(self, *, args=None, **kwargs):
+        args = args or []
+        if not any(a.startswith("--max-line-length") for a in args):
+            args = (args or []) + ["--max-line-length=88"]
+        super().__init__("flake8", pass_files=True, args=args, **kwargs)
+
+    def get_failure_message(self):
+        return "Python lint error(s)"
+
+
+class JavaScriptStyle(RepoCommand):
+    """Lints JavaScript files using ESLint."""
+
+    fixable = True
+    pattern = pattern_from_ext("js")
+
+    def __init__(self, **kwargs):
+        super().__init__(["npx", "eslint"], **kwargs)
+
+    def get_failure_message(self):
+        return "JavaScript lint error(s)"
+
+    def get_autofix(self, repository):
+        return ["npx", "eslint", "--fix"] + repository.filtered
