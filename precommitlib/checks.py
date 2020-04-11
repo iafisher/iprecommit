@@ -68,7 +68,7 @@ class RepoCommand(RepoCheck):
         if result.returncode != 0:
             output = result.stdout.decode(sys.getdefaultencoding()).strip()
             return Problem(
-                self.get_failure_message(),
+                self.get_failure_message(cmdline),
                 verbose_message=output,
                 autofix=self.get_autofix(repository),
             )
@@ -79,8 +79,8 @@ class RepoCommand(RepoCheck):
         else:
             return super().name()
 
-    def get_failure_message(self):
-        return f"command {self.cmd!r} failed"
+    def get_failure_message(self, cmdline):
+        return f"command {' '.join(cmdline)!r} failed"
 
     def get_autofix(self, repository):
         return None
@@ -114,7 +114,7 @@ class PythonFormat(RepoCommand):
     def __init__(self, **kwargs):
         super().__init__(["black", "--check"], pass_files=True, **kwargs)
 
-    def get_failure_message(self):
+    def get_failure_message(self, cmdline):
         return "bad formatting"
 
     def get_autofix(self, repository):
@@ -132,7 +132,7 @@ class PythonStyle(RepoCommand):
             args = (args or []) + ["--max-line-length=88"]
         super().__init__("flake8", pass_files=True, args=args, **kwargs)
 
-    def get_failure_message(self):
+    def get_failure_message(self, cmdline):
         return "Python lint error(s)"
 
 
@@ -145,7 +145,7 @@ class JavaScriptStyle(RepoCommand):
     def __init__(self, **kwargs):
         super().__init__(["npx", "eslint"], **kwargs)
 
-    def get_failure_message(self):
+    def get_failure_message(self, cmdline):
         return "JavaScript lint error(s)"
 
     def get_autofix(self, repository):
