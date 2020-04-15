@@ -4,6 +4,11 @@ I wrote it to standardize and automate the repetitive steps of setting up and ma
 
 ```shell
 pip3 install git+https://github.com/iafisher/precommit.git
+```
+
+Then, you can initialize a pre-commit check in a git repository like this:
+
+```shell
 cd path/to/some/git/repo
 precommit init
 ```
@@ -18,7 +23,7 @@ precommit fix
 
 [pre-commit](https://pre-commit.com/) seems to be the most widely-used tool for pre-commit hook management. It's a mature and robust tool that can do many things that my tool can't. The main advantages of my tool are:
 
-- It can automatically fix some pre-commit errors. This is the main reason I wrote it.
+- It clearly distinguishes between checking for errors and fixing them.
 
 - It's simple to configure. You just edit a self-explanatory Python file, rather than a YAML file whose schema you have to look up. Defining your pre-commit checks in Python is easy.
 
@@ -110,9 +115,9 @@ And here's an example of a custom repository check:
 
 ```python
 import os
-from precommitlib import FileCheck, Problem
+from precommitlib import RepoCheck, Problem
 
-class UnitTestsUpdated(FileCheck):
+class UnitTestsUpdated(RepoCheck):
     """Checks that a Python file's unit tests are updated."""
 
     def check(self, repository):
