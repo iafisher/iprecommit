@@ -124,11 +124,11 @@ class UnitTestsUpdated(RepoCheck):
         for path in repository.filtered:
             if path.endswith(".py") and not path.endswith("_test.py"):
                 testpath = os.path.splitext(path)[0] + "_test.py"
-                if not testpath in repository.staged_files:
+                if not testpath in repository.staged:
                     return Problem(message="did not update unit tests")
 ```
 
-In most cases, the only attribute of `repository` you should look at is `filtered`, which lists the file paths that the check should apply to, respecting any custom patterns or exclusions that the user set. The `repository` object also has `staged_files` and `unstaged_files` attributes which list all the staged and unstaged files in the git repository.
+In most cases, the only attribute of `repository` you should look at is `filtered`, which lists the file paths that the check should apply to, respecting any custom patterns or exclusions that the user set. The `repository` object also has `staged`, `staged_deleted`, and `unstaged` attributes which list all the staged (added or modified), staged (deleted) and unstaged files in the git repository, respectively.
 
 Repository checks are less common than file checks. One use case is for commands that can optionally accept a list of file paths instead of just one, like the `flake8` linter for Python. You could write a file check that invokes `flake8` once for each file path, but it's more efficient to invoke it once for the entire repository.
 

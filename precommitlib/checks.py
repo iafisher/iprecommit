@@ -8,7 +8,7 @@ class NoStagedAndUnstagedChanges(RepoCheck):
     fixable = True
 
     def check(self, repository):
-        both = set(repository.staged_files).intersection(set(repository.unstaged_files))
+        both = set(repository.staged).intersection(set(repository.unstaged))
         if both:
             message = "\n".join(sorted(both))
             return Problem(

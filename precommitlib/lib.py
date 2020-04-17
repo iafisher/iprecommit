@@ -9,7 +9,6 @@ import time
 
 class Precommit:
     def __init__(self, *, output, check_all):
-        self.encoding = "utf-8"
         self.output = output
         self.checks = []
         self.check_all = check_all
@@ -64,7 +63,7 @@ class Precommit:
         for check, arg in checks_to_run:
             problems = self.run_check(check, arg)
             self.output.post_check_for_fix_subcommand(problems)
-        self.output.stage_files(self.get_repository().staged_files)
+        self.output.stage_files(repository.staged)
         self.output.summary_for_fix()
 
     def get_checks(self, repository):
@@ -73,7 +72,7 @@ class Precommit:
             if check.slow and not self.check_all:
                 continue
 
-            filtered = pathfilter(repository.staged_files, check.pattern, check.exclude)
+            filtered = pathfilter(repository.staged, check.pattern, check.exclude)
             if filtered:
                 if isinstance(check, RepoCheck):
                     repository = copy.copy(repository)
@@ -95,26 +94,26 @@ class Precommit:
         return problems
 
     def get_repository(self):
-        cmd = ["git", "diff", "--name-only", "--cached"]
+        cmd = ["git", "diff", "--name-only", "--cached", "--diff-filter=d"]
         result = subprocess.run(cmd, stdout=subprocess.PIPE)
-        # For file paths that contain non-ASCII bytes or a literal double quote
-        # character, Git encloses the path in double quotes and backslash-escapes the
-        # offending character(s), so that the output of git diff is always valid ASCII.
-        # We call `_git_path_as_bytes` on each path to get the original file path.
-        staged_files = result.stdout.decode("ascii").splitlines()
-        # TODO(2020-04-04): Handle UnicodeDecodeError here or elsewhere.
-        staged_files = [
-            GitPath.from_string(p).decode(self.encoding) for p in staged_files
+        staged = [
+            _decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()
+        ]
+
+        cmd = ["git", "diff", "--name-only", "--cached", "--diff-filter=D"]
+        result = subprocess.run(cmd, stdout=subprocess.PIPE)
+        staged_deleted = [
+            _decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()
         ]
 
         cmd = ["git", "diff", "--name-only"]
         result = subprocess.run(cmd, stdout=subprocess.PIPE)
-        unstaged_files = result.stdout.decode("ascii").splitlines()
-        # TODO(2020-04-04): Handle UnicodeDecodeError here or elsewhere.
-        unstaged_files = [
-            GitPath.from_string(p).decode(self.encoding) for p in unstaged_files
+        unstaged = [
+            _decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()
         ]
-        return Repository(staged_files=staged_files, unstaged_files=unstaged_files)
+        return Repository(
+            staged=staged, staged_deleted=staged_deleted, unstaged=unstaged
+        )
 
 
 def pattern_from_ext(ext):
@@ -186,35 +185,23 @@ def pathfilter(paths, pattern, exclude):
 
 
 def run(args, *, merge_output=True):
-    # args = [a.as_shell_arg() if isinstance(a, GitPath) else a for a in args]
     stderr = subprocess.STDOUT if merge_output else subprocess.PIPE
     return subprocess.run(args, stdout=subprocess.PIPE, stderr=stderr)
 
 
-class GitPath(bytes):
-    @classmethod
-    def from_string(cls, path):
-        """Converts a path string as Git displays it to the original bytes of the path.
+def _decode_git_path(path):
+    """Converts a path string as Git displays it to a UTF-8 encoded string.
 
-        If the file path contains a non-ASCII character or a literal double quote, Git
-        backslash-escapes the offending character and encloses the whole path in double
-        quotes. This function reverses that transformation to get the original bytes.
-        """
-        if path.startswith('"') and path.endswith('"'):
-            return cls(ast.literal_eval("b" + path))
-        else:
-            return cls(path.encode("ascii"))
-
-    def as_string(self):
-        """Converts the path to a string for display."""
-        try:
-            return self.decode("utf-8")
-        except UnicodeDecodeError:
-            return repr(self)[1:]
-
-    def as_shell_arg(self):
-        """Converts the path to a string suitable to be passed to a shell command."""
-        return repr(self)[1:]
+    If the file path contains a non-ASCII character or a literal double quote, Git
+    backslash-escapes the offending character and encloses the whole path in double
+    quotes. This function reverses that transformation and decodes the resulting bytes
+    as UTF-8.
+    """
+    if path.startswith('"') and path.endswith('"'):
+        # TODO(2020-04-16): Do I need to add "b" and then decode, or can I just eval?
+        return ast.literal_eval("b" + path).decode("utf-8")
+    else:
+        return path
 
 
 class Problem:
@@ -356,9 +343,10 @@ class VerboseOutput(Output):
 
 
 class Repository:
-    def __init__(self, staged_files, unstaged_files):
-        self.staged_files = staged_files
-        self.unstaged_files = unstaged_files
+    def __init__(self, staged, staged_deleted, unstaged):
+        self.staged = staged
+        self.staged_deleted = staged_deleted
+        self.unstaged = unstaged
 
 
 _COLOR_RED = "91"

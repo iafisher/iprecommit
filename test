@@ -63,7 +63,8 @@ cd "$working/test_repo"
 
 status "Initializing git repository."
 git init
-git add .
+git add bad_python_format.py to_be_removed.txt
+git commit -m "Initial commit"
 
 status "Installing development version of iafisher-precommit."
 source .venv/bin/activate
@@ -74,6 +75,12 @@ precommit init
 
 # Modify a file to fail the "no staged and unstaged changes" check.
 echo -e "\n\n" >> bad_python_format.py
+git add bad_python_format.py
+echo -e "\n\n" >> bad_python_format.py
+
+# Remove a file (regression test for #23)
+rm to_be_removed.txt
+git add to_be_removed.txt
 
 echo "Checking output of 'precommit'"
 precommit --no-color &> precommit_output || true

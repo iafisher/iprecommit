@@ -14,7 +14,7 @@
 
   bad_python_format.py:1:7: E201 whitespace after '('
   bad_python_format.py:1:17: E202 whitespace before ')'
-  bad_python_format.py:4:1: W391 blank line at end of file
+  bad_python_format.py:7:1: W391 blank line at end of file
 
 
 Ran 5 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.
