@@ -137,3 +137,9 @@ Checks can have class-level `pattern` and `exclude` attributes with the same fun
 
 ## API reference
 TODO
+
+
+## Missing features
+You can see features that I've considered but ultimately rejected by looking at [the GitHub issues marked 'wontfix'](https://github.com/iafisher/precommit/issues?q=is%3Aissue+label%3Awontfix). Some notable ones include:
+
+- Support for file paths not in UTF-8
