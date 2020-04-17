@@ -26,8 +26,8 @@ class DoNotSubmit(FileCheck):
     f"""Checks that the file does not contain the string '{DO_NOT_SUBMIT}'."""
 
     def check(self, path):
-        with open(path, "r") as f:
-            if DO_NOT_SUBMIT in f.read().upper():
+        with open(path, "rb") as f:
+            if DO_NOT_SUBMIT.encode("ascii") in f.read().upper():
                 return Problem(f"file contains '{DO_NOT_SUBMIT}'")
 
 
