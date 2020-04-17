@@ -50,11 +50,11 @@ def init(precommit):
     precommit.check(checks.JavaScriptStyle())
 ```
 
-The file must define a function called `init` that accepts a `Precommit` object as a parameter. You are not intended to run `precommit.py` directly. You should always invoke it using the `precommit` command.
+The file must define a function called `init` that accepts a `Checklist` object as a parameter. You are not intended to run `precommit.py` directly. You should always invoke it using the `precommit` command.
 
 The default `precommit.py` file has checks for a number of languages. If a language isn't used in your project, the check for that language will never be run, so there's no overhead to keeping the check in the file.
 
-`Precommit.check` registers a pre-commit check. Checks are run in the order they are registered. The built-in checks know what kind of files they should be invoked on, so `checks.PythonFormat` will only run on Python files, and likewise for `checks.PythonStyle`. If you want to limit a check to a certain set of files, `Precommit.check` accepts a `pattern` parameter which should be a regular expression string that matches the files that the check should run on:
+`Checklist.check` registers a pre-commit check. Checks are run in the order they are registered. The built-in checks know what kind of files they should be invoked on, so `checks.PythonFormat` will only run on Python files, and likewise for `checks.PythonStyle`. If you want to limit a check to a certain set of files, `Checklist.check` accepts a `pattern` parameter which should be a regular expression string that matches the files that the check should run on:
 
 ```python
 # Only disallow whitespace in file path in the src/ directory.
@@ -132,7 +132,7 @@ In most cases, the only attribute of `repository` you should look at is `filtere
 
 Repository checks are less common than file checks. One use case is for commands that can optionally accept a list of file paths instead of just one, like the `flake8` linter for Python. You could write a file check that invokes `flake8` once for each file path, but it's more efficient to invoke it once for the entire repository.
 
-Checks can have class-level `pattern` and `exclude` attributes with the same function as the parameters of `Precommit.check`. This is useful, for example, for checks that should only run on files with certain extensions, like language-specific linters and formatters. Arguments to `Precommit.check` take precedence over the value of class-level attributes.
+Checks can have class-level `pattern` and `exclude` attributes with the same function as the parameters of `Checklist.check`. This is useful, for example, for checks that should only run on files with certain extensions, like language-specific linters and formatters. Arguments to `Checklist.check` take precedence over the value of class-level attributes.
 
 
 ## API reference

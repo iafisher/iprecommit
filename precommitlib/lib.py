@@ -8,15 +8,101 @@ import time
 
 
 class Precommit:
-    def __init__(self, *, output, check_all):
-        self.output = output
-        self.checks = []
+    def __init__(self, checks, *, console, fs, check_all, dry_run):
+        """
+        Parameters:
+          checks: The list of checks to run.
+          console: The interface to the console (for showing output).
+          fs: The interface to the file system (for running commands).
+          check_all: Whether to run all checks.
+          dry_run: Whether to actually run fix commands or just pretend to.
+        """
+        self.console = console
+        self.fs = fs
+        self.checks = checks
         self.check_all = check_all
+        self.dry_run = dry_run
 
     @classmethod
-    def from_args(cls, output, args):
-        check_all = args.flags["--all"]
-        return cls(output=output, check_all=check_all)
+    def from_args(cls, checks, args):
+        console_cls = VerboseConsole if args.flags["--verbose"] else Console
+        console = console_cls.from_args(args)
+        fs = Filesystem()
+        return cls(
+            checks,
+            console=console,
+            fs=fs,
+            check_all=args.flags["--all"],
+            dry_run=args.flags["--dry-run"],
+        )
+
+    def check(self):
+        """Find problems and print a message for each."""
+        self.console.start()
+        repository = self.get_repository()
+        checks_to_run = self.get_checks(repository)
+        for check, arg in checks_to_run:
+            problems = self.execute_check(check, arg)
+            self.console.post_check_for_check_subcommand(problems)
+        self.console.summary_for_check()
+
+    def fix(self):
+        """Find problems and fix the ones that can be fixed automatically."""
+        self.console.start()
+        repository = self.get_repository()
+        checks_to_run = [(c, a) for (c, a) in self.get_checks(repository) if c.fixable]
+        for check, arg in checks_to_run:
+            problems = self.execute_check(check, arg)
+            self.console.post_check_for_fix_subcommand(problems)
+            if not self.dry_run:
+                for problem in problems:
+                    if problem.autofix:
+                        self.fs.run(problem.autofix)
+
+        if not self.dry_run:
+            self.fs.run(["git", "add"] + repository.staged)
+
+        self.console.summary_for_fix()
+
+    def get_checks(self, repository):
+        checks_to_run = []
+        for check in self.checks:
+            if check.slow and not self.check_all:
+                continue
+
+            filtered = pathfilter(repository.staged, check.pattern, check.exclude)
+            if filtered:
+                if isinstance(check, RepoCheck):
+                    repository = copy.copy(repository)
+                    repository.filtered = filtered
+                    checks_to_run.append((check, repository))
+                else:
+                    checks_to_run.append((check, filtered))
+
+        return checks_to_run
+
+    def execute_check(self, check, arg):
+        self.console.pre_check(check)
+        problems = check.check_wrapper(arg)
+        self.console.post_check()
+
+        for problem in problems:
+            problem.checkname = check.name()
+
+        return problems
+
+    def get_repository(self):
+        staged = self.fs.get_staged_files()
+        staged_deleted = self.fs.get_staged_for_deletion_files()
+        unstaged = self.fs.get_unstaged_files()
+        return Repository(
+            staged=staged, staged_deleted=staged_deleted, unstaged=unstaged
+        )
+
+
+class Checklist:
+    def __init__(self):
+        self.checks = []
 
     def check(self, check, *, pattern=None, exclude=None, slow=False, fatal=False):
         """Registers the pre-commit check.
@@ -44,76 +130,6 @@ class Precommit:
             check.exclude = exclude
 
         self.checks.append(check)
-
-    def do_check(self):
-        """Find problems and print a message for each."""
-        self.output.start()
-        repository = self.get_repository()
-        checks_to_run = self.get_checks(repository)
-        for check, arg in checks_to_run:
-            problems = self.run_check(check, arg)
-            self.output.post_check_for_check_subcommand(problems)
-        self.output.summary_for_check()
-
-    def do_fix(self):
-        """Find problems and fix the ones that can be fixed automatically."""
-        self.output.start()
-        repository = self.get_repository()
-        checks_to_run = [(c, a) for (c, a) in self.get_checks(repository) if c.fixable]
-        for check, arg in checks_to_run:
-            problems = self.run_check(check, arg)
-            self.output.post_check_for_fix_subcommand(problems)
-        self.output.stage_files(repository.staged)
-        self.output.summary_for_fix()
-
-    def get_checks(self, repository):
-        checks_to_run = []
-        for check in self.checks:
-            if check.slow and not self.check_all:
-                continue
-
-            filtered = pathfilter(repository.staged, check.pattern, check.exclude)
-            if filtered:
-                if isinstance(check, RepoCheck):
-                    repository = copy.copy(repository)
-                    repository.filtered = filtered
-                    checks_to_run.append((check, repository))
-                else:
-                    checks_to_run.append((check, filtered))
-
-        return checks_to_run
-
-    def run_check(self, check, arg):
-        self.output.pre_check(check)
-        problems = check.check_wrapper(arg)
-        self.output.post_check()
-
-        for problem in problems:
-            problem.checkname = check.name()
-
-        return problems
-
-    def get_repository(self):
-        cmd = ["git", "diff", "--name-only", "--cached", "--diff-filter=d"]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE)
-        staged = [
-            _decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()
-        ]
-
-        cmd = ["git", "diff", "--name-only", "--cached", "--diff-filter=D"]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE)
-        staged_deleted = [
-            _decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()
-        ]
-
-        cmd = ["git", "diff", "--name-only"]
-        result = subprocess.run(cmd, stdout=subprocess.PIPE)
-        unstaged = [
-            _decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()
-        ]
-        return Repository(
-            staged=staged, staged_deleted=staged_deleted, unstaged=unstaged
-        )
 
 
 def pattern_from_ext(ext):
@@ -189,7 +205,7 @@ def run(args, *, merge_output=True):
     return subprocess.run(args, stdout=subprocess.PIPE, stderr=stderr)
 
 
-def _decode_git_path(path):
+def decode_git_path(path):
     """Converts a path string as Git displays it to a UTF-8 encoded string.
 
     If the file path contains a non-ASCII character or a literal double quote, Git
@@ -213,7 +229,28 @@ class Problem:
         self.verbose_message = verbose_message
 
 
-class Output:
+class Filesystem:
+    def stage_files(self, files):
+        self.run(["git", "add"] + files)
+
+    def get_staged_files(self):
+        return self._read_files_from_git(["--cached", "--diff-filter=d"])
+
+    def get_staged_for_deletion_files(self):
+        return self._read_files_from_git(["--cached", "--diff-filter=D"])
+
+    def get_unstaged_files(self):
+        return self._read_files_from_git([])
+
+    def run(self, cmd):
+        return run(cmd)
+
+    def _read_files_from_git(self, args):
+        result = self.run(["git", "diff", "--name-only"] + args)
+        return [decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()]
+
+
+class Console:
     def __init__(self, *, dry_run=False):
         self.dry_run = dry_run
         self.nchecks = 0
@@ -246,16 +283,8 @@ class Output:
         self.problems.extend(problems)
         if problems:
             self._print(green("fixing"))
-            if not self.dry_run:
-                for problem in problems:
-                    if problem.autofix:
-                        self.run(problem.autofix)
         else:
             self._print(green("passed!"))
-
-    def stage_files(self, staged_files):
-        if not self.dry_run:
-            self.run(["git", "add"] + staged_files)
 
     def summary_for_check(self):
         fixable = sum(1 for p in self.problems if p.autofix)
@@ -291,9 +320,6 @@ class Output:
         else:
             self._print("Fixed", green(f"{fixable} of them."))
 
-    def run(self, cmd):
-        run(cmd)
-
     def _print(self, *args, **kwargs):
         self.printed_anything_yet = True
         print(*args, **kwargs)
@@ -315,7 +341,7 @@ class Output:
             self._print()
 
 
-class VerboseOutput(Output):
+class VerboseConsole(Console):
     def start(self):
         self.start = time.monotonic()
 

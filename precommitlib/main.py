@@ -3,15 +3,7 @@ import stat
 import sys
 from collections import namedtuple
 
-from .lib import (
-    Precommit,
-    Output,
-    VerboseOutput,
-    blue,
-    run,
-    turn_off_colors,
-    turn_on_colors,
-)
+from .lib import Checklist, Precommit, blue, run, turn_off_colors, turn_on_colors
 
 
 def main():
@@ -51,7 +43,7 @@ def main_init(args):
 
 def main_fix(args):
     precommit = get_precommit(args)
-    precommit.do_fix()
+    precommit.fix()
 
 
 def main_list(args):
@@ -69,7 +61,7 @@ def main_help(args):
 
 def main_check(args):
     precommit = get_precommit(args)
-    precommit.do_check()
+    precommit.check()
 
 
 def chdir_to_git_root():
@@ -177,9 +169,9 @@ def get_precommit(args):
         )
         error(message)
     else:
-        output = (VerboseOutput if args.flags["--verbose"] else Output).from_args(args)
-        precommit = Precommit.from_args(output, args)
-        init(precommit)
+        checklist = Checklist()
+        init(checklist)
+        precommit = Precommit.from_args(checklist.checks, args)
         return precommit
 
 
