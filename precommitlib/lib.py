@@ -40,20 +40,23 @@ class Precommit:
         """Find problems and print a message for each."""
         self.console.start()
         repository = self.get_repository()
-        checks_to_run = self.get_checks(repository)
-        for check, arg in checks_to_run:
-            problems = self.execute_check(check, arg)
-            self.console.post_check_for_check_subcommand(problems)
-        self.console.summary_for_check()
+        for check in self.checks:
+            if not self.should_run(check):
+                continue
+
+            self.execute_check("check", check, repository)
+
+        self.console.summary("check")
 
     def fix(self):
         """Find problems and fix the ones that can be fixed automatically."""
         self.console.start()
         repository = self.get_repository()
-        checks_to_run = [(c, a) for (c, a) in self.get_checks(repository) if c.fixable]
-        for check, arg in checks_to_run:
-            problems = self.execute_check(check, arg)
-            self.console.post_check_for_fix_subcommand(problems)
+        for check in self.checks:
+            if not self.should_run(check) or not check.fixable:
+                continue
+
+            problems = self.execute_check("fix", check, repository)
             if not self.dry_run:
                 for problem in problems:
                     if problem.autofix:
@@ -62,34 +65,31 @@ class Precommit:
         if not self.dry_run:
             self.fs.run(["git", "add"] + repository.staged)
 
-        self.console.summary_for_fix()
+        self.console.summary("fix")
 
-    def get_checks(self, repository):
-        checks_to_run = []
-        for check in self.checks:
-            if check.slow and not self.check_all:
-                continue
+    def execute_check(self, subcommand, check, repository):
+        filtered = pathfilter(repository.staged, check.pattern, check.exclude)
+        if not filtered:
+            return []
 
-            filtered = pathfilter(repository.staged, check.pattern, check.exclude)
-            if filtered:
-                if isinstance(check, RepoCheck):
-                    repository = copy.copy(repository)
-                    repository.filtered = filtered
-                    checks_to_run.append((check, repository))
-                else:
-                    checks_to_run.append((check, filtered))
+        if isinstance(check, RepoCheck):
+            repository = copy.copy(repository)
+            repository.filtered = filtered
+            arg = repository
+        else:
+            arg = filtered
 
-        return checks_to_run
-
-    def execute_check(self, check, arg):
-        self.console.pre_check(check)
+        self.console.pre_check(subcommand, check)
         problems = check.check_wrapper(arg)
-        self.console.post_check()
+        self.console.post_check(subcommand, problems)
 
         for problem in problems:
             problem.checkname = check.name()
 
         return problems
+
+    def should_run(self, check):
+        return not check.slow or self.check_all
 
     def get_repository(self):
         staged = self.fs.get_staged_files()
@@ -264,29 +264,31 @@ class Console:
     def start(self):
         pass
 
-    def pre_check(self, check):
+    def pre_check(self, subcommand, check):
         self.nchecks += 1
         self._print(blue("[" + check.name() + "] "), end="", flush=True)
 
-    def post_check(self):
-        pass
-
-    def post_check_for_check_subcommand(self, problems):
+    def post_check(self, subcommand, problems):
         self.problems.extend(problems)
-        if problems:
-            for i, problem in enumerate(problems):
-                self._problem(problem, with_checkname=bool(i > 0))
-        else:
-            self._print(green("passed!"))
+        if subcommand == "check":
+            if problems:
+                for i, problem in enumerate(problems):
+                    self._problem(problem, with_checkname=bool(i > 0))
+            else:
+                self._print(green("passed!"))
+        elif subcommand == "fix":
+            if problems:
+                self._print(green("fixing"))
+            else:
+                self._print(green("passed!"))
 
-    def post_check_for_fix_subcommand(self, problems):
-        self.problems.extend(problems)
-        if problems:
-            self._print(green("fixing"))
-        else:
-            self._print(green("passed!"))
+    def summary(self, subcommand):
+        if subcommand == "check":
+            self._summary_for_check()
+        elif subcommand == "fix":
+            self._summary_for_fix()
 
-    def summary_for_check(self):
+    def _summary_for_check(self):
         fixable = sum(1 for p in self.problems if p.autofix)
         total = len(self.problems)
         if self.printed_anything_yet:
@@ -308,7 +310,7 @@ class Console:
         else:
             self._print(f"{green('No issues')} detected.")
 
-    def summary_for_fix(self):
+    def _summary_for_fix(self):
         fixable = sum(1 for p in self.problems if p.autofix)
         total = len(self.problems)
         if self.printed_anything_yet:
@@ -345,23 +347,14 @@ class VerboseConsole(Console):
     def start(self):
         self.start = time.monotonic()
 
-    def pre_check(self, check):
+    def pre_check(self, subcommand, check, *args, **kwargs):
         self._print(f"Running {check.name()}")
         self.check_start = time.monotonic()
-        super().pre_check(check)
+        super().pre_check(subcommand, check, *args, **kwargs)
 
-    def post_check(self):
+    def post_check(self, *args, **kwargs):
+        super().post_check(*args, **kwargs)
         self.check_end = time.monotonic()
-
-    def post_check_for_check_subcommand(self, *args, **kwargs):
-        super().post_check_for_check_subcommand(*args, **kwargs)
-        elapsed = self.check_end - self.check_start
-        elapsed_since_start = self.check_end - self.start
-        self._print(f"Finished in {elapsed:.2f}s. ", end="")
-        self._print(f"{elapsed_since_start:.2f}s since start.")
-
-    def post_check_for_fix_subcommand(self, *args, **kwargs):
-        super().post_check_for_check_subcommand(*args, **kwargs)
         elapsed = self.check_end - self.check_start
         elapsed_since_start = self.check_end - self.start
         self._print(f"Finished in {elapsed:.2f}s. ", end="")
