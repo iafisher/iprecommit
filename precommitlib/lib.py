@@ -38,8 +38,16 @@ class Precommit:
 
     def check(self):
         """Find problems and print a message for each."""
+        if not self.checks:
+            self.console.no_checks()
+            return
+
         self.console.start()
         repository = self.get_repository()
+        if not (repository.staged or repository.staged_deleted):
+            self.console.no_files()
+            return
+
         for check in self.checks:
             if not self.should_run(check):
                 continue
@@ -50,8 +58,16 @@ class Precommit:
 
     def fix(self):
         """Find problems and fix the ones that can be fixed automatically."""
+        if not self.checks:
+            self.console.no_checks()
+            return
+
         self.console.start()
         repository = self.get_repository()
+        if not (repository.staged or repository.staged_deleted):
+            self.console.no_files()
+            return
+
         for check in self.checks:
             if not self.should_run(check) or not check.fixable:
                 continue
@@ -263,6 +279,12 @@ class Console:
 
     def start(self):
         pass
+
+    def no_checks(self):
+        self._print("No checks were registered.")
+
+    def no_files(self):
+        self._print("No files are staged.")
 
     def pre_check(self, subcommand, check):
         self.nchecks += 1
