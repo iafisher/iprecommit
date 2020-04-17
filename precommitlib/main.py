@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import stat
 import sys
@@ -159,18 +160,23 @@ def check_args(args):
 
 
 def get_precommit(args):
-    sys.path = [os.getcwd()] + sys.path
+    path = os.path.join(os.getcwd(), "precommit.py")
     try:
-        from precommit import init
-    except ImportError:
-        message = (
-            "could not find precommit.py with init function. "
-            + "You can create one by running 'precommit init'."
-        )
-        error(message)
+        # Courtesy of https://stackoverflow.com/questions/67631/
+        # We could add the current directory to `sys.path` and use a regular import
+        # statement, but then if there's no `precommit.py` file in the right place, but
+        # there is one somewhere else on `sys.path`, Python will import that module
+        # instead and the user will be very confused (#28). The technique below
+        # guarantees that an exception will be raised if there is no `precommit.py` in
+        # the expected place.
+        spec = importlib.util.spec_from_file_location("precommit", path)
+        precommit_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(precommit_module)
+    except (FileNotFoundError, ImportError):
+        error("could not find precommit.py. You can create it with 'precommit init'.")
     else:
         checklist = Checklist()
-        init(checklist)
+        precommit_module.init(checklist)
         precommit = Precommit.from_args(checklist.checks, args)
         return precommit
 
