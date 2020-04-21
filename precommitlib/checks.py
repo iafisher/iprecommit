@@ -143,7 +143,7 @@ class JavaScriptStyle(RepoCommand):
     pattern = pattern_from_ext("js")
 
     def __init__(self, **kwargs):
-        super().__init__(["npx", "eslint"], **kwargs)
+        super().__init__(["npx", "eslint"], pass_files=True, **kwargs)
 
     def get_failure_message(self, cmdline):
         return "JavaScript lint error(s)"
