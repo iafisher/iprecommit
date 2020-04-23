@@ -6,16 +6,16 @@ import time
 
 
 class Precommit:
-    def __init__(self, checks, *, console, fs, check_all, dry_run):
+    def __init__(self, checks, *, output, fs, check_all, dry_run):
         """
         Parameters:
           checks: The list of checks to run.
-          console: The interface to the console (for showing output).
+          output: The interface to the console (for showing output).
           fs: The interface to the file system (for running commands).
           check_all: Whether to run all checks.
           dry_run: Whether to actually run fix commands or just pretend to.
         """
-        self.console = console
+        self.output = output
         self.fs = fs
         self.checks = checks
         self.check_all = check_all
@@ -23,11 +23,12 @@ class Precommit:
 
     @classmethod
     def from_args(cls, checks, args):
-        console = Console.from_args(args)
-        fs = Filesystem()
+        console = Console()
+        output = Output.from_args(console, args)
+        fs = Filesystem.from_args(console, args)
         return cls(
             checks,
-            console=console,
+            output=output,
             fs=fs,
             check_all=args.flags["--all"],
             dry_run=args.flags["--dry-run"],
@@ -36,13 +37,13 @@ class Precommit:
     def check(self):
         """Find problems and print a message for each."""
         if not self.checks:
-            self.console.no_checks()
+            self.output.no_checks()
             return
 
-        self.console.start()
+        self.output.start()
         repository = self.get_repository()
         if not (repository.staged or repository.staged_deleted):
-            self.console.no_files()
+            self.output.no_files()
             return
 
         found_problems = False
@@ -54,19 +55,19 @@ class Precommit:
             if problem is not None:
                 found_problems = True
 
-        self.console.summary("check")
+        self.output.summary("check")
         return found_problems
 
     def fix(self):
         """Find problems and fix the ones that can be fixed automatically."""
         if not self.checks:
-            self.console.no_checks()
+            self.output.no_checks()
             return
 
-        self.console.start()
+        self.output.start()
         repository = self.get_repository()
         if not (repository.staged or repository.staged_deleted):
-            self.console.no_files()
+            self.output.no_files()
             return
 
         for check in self.checks:
@@ -81,15 +82,15 @@ class Precommit:
         if not self.dry_run:
             self.fs.run(["git", "add"] + repository.staged)
 
-        self.console.summary("fix")
+        self.output.summary("fix")
 
     def execute_check(self, subcommand, check, repository):
         if not check.filter(repository.staged):
             return None
 
-        self.console.pre_check(subcommand, check)
+        self.output.pre_check(subcommand, check)
         problem = check.check(self.fs, repository)
-        self.console.post_check(subcommand, check, problem)
+        self.output.post_check(subcommand, check, problem)
         return problem
 
     def should_run(self, check):
@@ -167,6 +168,14 @@ class Problem:
 
 
 class Filesystem:
+    def __init__(self, console, *, verbose):
+        self.console = console
+        self.verbose = verbose
+
+    @classmethod
+    def from_args(cls, console, args):
+        return cls(console, verbose=args.flags["--verbose"])
+
     def get_staged_files(self):
         return self._read_files_from_git(["--cached", "--diff-filter=d"])
 
@@ -180,6 +189,9 @@ class Filesystem:
         return open(*args, **kwargs)
 
     def run(self, cmd):
+        if self.verbose:
+            print("Running command: " + " ".join(cmd))
+
         return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     def _read_files_from_git(self, args):
@@ -188,7 +200,13 @@ class Filesystem:
 
 
 class Console:
-    def __init__(self, *, dry_run, verbose):
+    def print(self, *args, **kwargs):
+        print(*args, **kwargs)
+
+
+class Output:
+    def __init__(self, console, *, dry_run, verbose):
+        self.console = console
         self.dry_run = dry_run
         self.verbose = verbose
         self.nchecks = 0
@@ -196,8 +214,10 @@ class Console:
         self.printed_anything_yet = False
 
     @classmethod
-    def from_args(cls, args):
-        return cls(dry_run=args.flags["--dry-run"], verbose=args.flags["--verbose"])
+    def from_args(cls, console, args):
+        return cls(
+            console, dry_run=args.flags["--dry-run"], verbose=args.flags["--verbose"]
+        )
 
     def start(self):
         self.start = time.monotonic()
@@ -279,7 +299,7 @@ class Console:
 
     def _print(self, *args, **kwargs):
         self.printed_anything_yet = True
-        print(*args, **kwargs)
+        self.console.print(*args, **kwargs)
 
     def _problem(self, problem, *, with_checkname=False):
         builder = []

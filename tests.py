@@ -16,7 +16,7 @@ class Test(unittest.TestCase):
         self.mock_fs = MockFilesystem()
         self.precommit = lib.Precommit(
             checklist.checks,
-            console=self.mock_console,
+            output=lib.Output(self.mock_console, dry_run=False, verbose=False),
             fs=self.mock_fs,
             check_all=True,
             dry_run=False,
@@ -75,13 +75,11 @@ class Test(unittest.TestCase):
         )
 
 
-class MockConsole(lib.Console):
+class MockConsole:
     def __init__(self):
-        super().__init__(dry_run=False, verbose=False)
         self.captured_output = StringIO()
 
-    def _print(self, *args, **kwargs):
-        self.printed_anything_yet = True
+    def print(self, *args, **kwargs):
         print(*args, file=self.captured_output, **kwargs)
 
 
