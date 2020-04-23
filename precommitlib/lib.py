@@ -23,8 +23,7 @@ class Precommit:
 
     @classmethod
     def from_args(cls, checks, args):
-        console_cls = VerboseConsole if args.flags["--verbose"] else Console
-        console = console_cls.from_args(args)
+        console = Console.from_args(args)
         fs = Filesystem()
         return cls(
             checks,
@@ -146,20 +145,6 @@ class BaseCheck:
         return filtered
 
 
-def pathfilter(paths, pattern, exclude):
-    if pattern:
-        regex = re.compile(pattern)
-        filtered = [p for p in paths if regex.match(p)]
-    else:
-        filtered = paths
-
-    if exclude:
-        regex = re.compile(exclude)
-        filtered = [p for p in filtered if not regex.match(p)]
-
-    return filtered
-
-
 def run(args, *, merge_output=True):
     stderr = subprocess.STDOUT if merge_output else subprocess.PIPE
     return subprocess.run(args, stdout=subprocess.PIPE, stderr=stderr)
@@ -187,9 +172,6 @@ class Problem:
 
 
 class Filesystem:
-    def stage_files(self, files):
-        self.run(["git", "add"] + files)
-
     def get_staged_files(self):
         return self._read_files_from_git(["--cached", "--diff-filter=d"])
 
@@ -208,18 +190,19 @@ class Filesystem:
 
 
 class Console:
-    def __init__(self, *, dry_run=False):
+    def __init__(self, *, dry_run, verbose):
         self.dry_run = dry_run
+        self.verbose = verbose
         self.nchecks = 0
         self.problems = []
         self.printed_anything_yet = False
 
     @classmethod
     def from_args(cls, args):
-        return cls(dry_run=args.flags["--dry-run"])
+        return cls(dry_run=args.flags["--dry-run"], verbose=args.flags["--verbose"])
 
     def start(self):
-        pass
+        self.start = time.monotonic()
 
     def no_checks(self):
         self._print("No checks were registered.")
@@ -228,6 +211,10 @@ class Console:
         self._print("No files are staged.")
 
     def pre_check(self, subcommand, check):
+        if self.verbose:
+            self._print(f"Running {check.get_name()}")
+            self.check_start = time.monotonic()
+
         self.nchecks += 1
         self._print(blue("[" + check.get_name() + "] "), end="", flush=True)
 
@@ -245,6 +232,13 @@ class Console:
                 self._print(green("fixing"))
             else:
                 self._print(green("passed!"))
+
+        if self.verbose:
+            self.check_end = time.monotonic()
+            elapsed = self.check_end - self.check_start
+            elapsed_since_start = self.check_end - self.start
+            self._print(f"Finished in {elapsed:.2f}s. ", end="")
+            self._print(f"{elapsed_since_start:.2f}s since start.")
 
     def summary(self, subcommand):
         if subcommand == "check":
@@ -299,24 +293,6 @@ class Console:
             self._print()
             self._print(textwrap.indent(problem.message, "  "))
             self._print()
-
-
-class VerboseConsole(Console):
-    def start(self):
-        self.start = time.monotonic()
-
-    def pre_check(self, subcommand, check, *args, **kwargs):
-        self._print(f"Running {check.get_name()}")
-        self.check_start = time.monotonic()
-        super().pre_check(subcommand, check, *args, **kwargs)
-
-    def post_check(self, *args, **kwargs):
-        super().post_check(*args, **kwargs)
-        self.check_end = time.monotonic()
-        elapsed = self.check_end - self.check_start
-        elapsed_since_start = self.check_end - self.start
-        self._print(f"Finished in {elapsed:.2f}s. ", end="")
-        self._print(f"{elapsed_since_start:.2f}s since start.")
 
 
 class Repository:

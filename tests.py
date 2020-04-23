@@ -73,8 +73,8 @@ class Test(unittest.TestCase):
 
 
 class MockConsole(lib.Console):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self):
+        super().__init__(dry_run=False, verbose=False)
         self.captured_output = StringIO()
 
     def _print(self, *args, **kwargs):
