@@ -12,4 +12,5 @@ def init(precommit):
     precommit.check(checks.PythonStyle(), exclude="test_repo")
 
     # Test suite
-    precommit.check(checks.Command("./test"), slow=True)
+    precommit.check(checks.Command(["python3", "tests.py"]))
+    precommit.check(checks.Command("./functional_test"), slow=True)

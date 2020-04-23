@@ -62,7 +62,9 @@ def main_help(args):
 
 def main_check(args):
     precommit = get_precommit(args)
-    precommit.check()
+    found_problems = precommit.check()
+    if found_problems:
+        sys.exit(1)
 
 
 def chdir_to_git_root():

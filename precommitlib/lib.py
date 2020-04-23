@@ -2,7 +2,6 @@ import ast
 import copy
 import re
 import subprocess
-import sys
 import textwrap
 import time
 
@@ -48,13 +47,17 @@ class Precommit:
             self.console.no_files()
             return
 
+        found_problems = False
         for check in self.checks:
             if not self.should_run(check):
                 continue
 
-            self.execute_check("check", check, repository)
+            problems = self.execute_check("check", check, repository)
+            if problems:
+                found_problems = True
 
         self.console.summary("check")
+        return found_problems
 
     def fix(self):
         """Find problems and fix the ones that can be fixed automatically."""
@@ -328,7 +331,6 @@ class Console:
                 self._print(f"Fix {n} with '{blue('precommit fix')}'.", end="")
 
             self._print()
-            sys.exit(1)
         else:
             self._print(f"{green('No issues')} detected.")
 
