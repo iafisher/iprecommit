@@ -54,13 +54,10 @@ The file must define a function called `init` that accepts a `Checklist` object 
 
 The default `precommit.py` file has checks for a number of languages. If a language isn't used in your project, the check for that language will never be run, so there's no overhead to keeping the check in the file.
 
-`Checklist.check` registers a pre-commit check. Checks are run in the order they are registered. The built-in checks know what kind of files they should be invoked on, so `checks.PythonFormat` will only run on Python files, and likewise for `checks.PythonStyle`. If you want to limit a check to a certain set of files, `Checklist.check` accepts a `pattern` parameter which should be a regular expression string that matches the files that the check should run on:
+`Checklist.check` registers a pre-commit check. Checks are run in the order they are registered. The built-in checks know what kind of files they should be invoked on, so `checks.PythonFormat` will only run on Python files, and likewise for `checks.PythonStyle`. If you want to limit a check to a certain set of files, the check functions accept a `exclude` parameter which should be a regular expression string that matches the files that the check should not run on:
 
 ```python
-# Only disallow whitespace in file path in the src/ directory.
-precommit.check(checks.NoWhiteSpaceInFilePath(), pattern=r"^src/.+$")
-# You can also exclude patterns.
-precommit.check(checks.PythonFormat(), exclude=r"setup\.py")
+precommit.check(checks.NoWhiteSpaceInFilePath(exclude=r"^data"))
 ```
 
 Since `precommit.py` is a Python file, you can disable checks simply by commenting them out.
@@ -73,66 +70,30 @@ Some pre-commit checks require other programs to be installed on the computer, e
 If you just need to run a shell command and check that its exit status is zero, you can use the built-in `checks.Command` check:
 
 ```python
-precommit.check(checks.Command("./test"))
+precommit.check(checks.Command("UnitTests", ["./test"]))
 ```
 
-If you need the command to run once per file, use `per_file=True`:
+If you need to pass the names of the files to the command, use `pass_files=True`:
 
 ```python
-precommit.check(checks.Command("check_file", per_file=True))
+precommit.check(checks.Command("check_file", pass_files=True))
 ```
 
-If `per_file` is True, then for each staged file `Command` will invoke the command with the arguments you passed in its constructor plus the file path at the end. For example, if `a.txt` and `b.txt` were the staged files, then the `Command` check registered above would run `check_file a.txt` and `check_file b.txt`.
-
-If you only want to run the command once, but you still want it to receive the list of file paths as command-line arguments, then use `per_file=False` and `pass_files=True`:
+You can restrict the files that the command runs on with `pattern`:
 
 ```python
-precommit.check(checks.Command("check_file", per_file=False, pass_files=True))
+precommit.check(checks.Command("check_file", pass_files=True, pattern=r".*\.py"))
 ```
 
-#### Writing custom checks in Python
-If you need to write custom logic in Python, you should define a class that inherits from either `precommitlib.FileCheck` or `precommitlib.RepoCheck`. The former is for checks that run on every staged file (or every staged file matching a certain pattern) and the latter is for checks that run once for the whole repository.
+This will invoke the command `check_file` once, passing every Python file with staged changes as command-line arguments.
 
-Here's an example of a custom file check:
+If your command only accepts one file at a time, use `separately`:
 
 ```python
-from precommitlib import FileCheck, Problem
-
-class NoBadCharactersInPath(FileCheck):
-    """Checks that the file path contains no bad characters."""
-
-    def __init__(self, bad=" ?;()[]"):
-        self.bad = bad
-
-    def check(self, path):
-        if any(c in path for c in self.bad):
-            return Problem(message="bad character in file path")
+precommit.check(checks.Command("check_file", pass_files=True, separately=True, pattern=r".*\.py"))
 ```
 
-The file check class defines `check` method that takes in a file path. It returns either `None` if there are no problems, or a `Problem` object with an error message. It can also return a list of `Problem` objects.
-
-And here's an example of a custom repository check:
-
-```python
-import os
-from precommitlib import RepoCheck, Problem
-
-class UnitTestsUpdated(RepoCheck):
-    """Checks that a Python file's unit tests are updated."""
-
-    def check(self, repository):
-        for path in repository.filtered:
-            if path.endswith(".py") and not path.endswith("_test.py"):
-                testpath = os.path.splitext(path)[0] + "_test.py"
-                if not testpath in repository.staged:
-                    return Problem(message="did not update unit tests")
-```
-
-In most cases, the only attribute of `repository` you should look at is `filtered`, which lists the file paths that the check should apply to, respecting any custom patterns or exclusions that the user set. The `repository` object also has `staged`, `staged_deleted`, and `unstaged` attributes which list all the staged (added or modified), staged (deleted) and unstaged files in the git repository, respectively.
-
-Repository checks are less common than file checks. One use case is for commands that can optionally accept a list of file paths instead of just one, like the `flake8` linter for Python. You could write a file check that invokes `flake8` once for each file path, but it's more efficient to invoke it once for the entire repository.
-
-Checks can have class-level `pattern` and `exclude` attributes with the same function as the parameters of `Checklist.check`. This is useful, for example, for checks that should only run on files with certain extensions, like language-specific linters and formatters. Arguments to `Checklist.check` take precedence over the value of class-level attributes.
+This will invoke the command `check_file` for every Python file with staged changes.
 
 
 ## API reference

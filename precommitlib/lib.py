@@ -1,5 +1,4 @@
 import ast
-import copy
 import re
 import subprocess
 import textwrap
@@ -52,8 +51,8 @@ class Precommit:
             if not self.should_run(check):
                 continue
 
-            problems = self.execute_check("check", check, repository)
-            if problems:
+            problem = self.execute_check("check", check, repository)
+            if problem is not None:
                 found_problems = True
 
         self.console.summary("check")
@@ -72,14 +71,13 @@ class Precommit:
             return
 
         for check in self.checks:
-            if not self.should_run(check) or not check.fixable:
+            if not self.should_run(check) or not check.is_fixable():
                 continue
 
-            problems = self.execute_check("fix", check, repository)
+            problem = self.execute_check("fix", check, repository)
             if not self.dry_run:
-                for problem in problems:
-                    if problem.autofix:
-                        self.fs.run(problem.autofix)
+                if problem and problem.autofix:
+                    self.fs.run(problem.autofix)
 
         if not self.dry_run:
             self.fs.run(["git", "add"] + repository.staged)
@@ -87,25 +85,13 @@ class Precommit:
         self.console.summary("fix")
 
     def execute_check(self, subcommand, check, repository):
-        filtered = pathfilter(repository.staged, check.pattern, check.exclude)
-        if not filtered:
-            return []
-
-        if isinstance(check, RepoCheck):
-            repository = copy.copy(repository)
-            repository.filtered = filtered
-            arg = repository
-        else:
-            arg = filtered
+        if not check.filter(repository.staged):
+            return None
 
         self.console.pre_check(subcommand, check)
-        problems = check.check_wrapper(arg)
-        self.console.post_check(subcommand, problems)
-
-        for problem in problems:
-            problem.checkname = check.name()
-
-        return problems
+        problem = check.check(repository)
+        self.console.post_check(subcommand, check, problem)
+        return problem
 
     def should_run(self, check):
         return not check.slow or self.check_all
@@ -123,86 +109,41 @@ class Checklist:
     def __init__(self):
         self.checks = []
 
-    def check(self, check, *, pattern=None, exclude=None, slow=False, fatal=False):
-        """Registers the pre-commit check.
-
-        Args:
-          check: The check object itself.
-          pattern: A regular expression pattern, as a string. If not None, then the
-            check will only run on file paths which match this pattern.
-          exclude: A regular expression pattern as a string. If not None, then the check
-            will not run on file paths which match the pattern.
-          slow: Whether the check is expected to be slow or not. If True, then the check
-            will not be invoked unless the precommit command is invoked with the --all
-            flag. By default, the pre-commit hook that is installed in git uses the
-            --all flag.
-          fatal: Whether a check failure should immediately end the pre-commit check.
-        """
-        if not isinstance(check, (FileCheck, RepoCheck)):
-            raise UsageError("check must be a subclass of FileCheck or RepoCheck")
-
-        check.slow = slow
-        check.fatal = fatal
-        if pattern is not None:
-            check.pattern = pattern
-        if exclude is not None:
-            check.exclude = exclude
+    def check(self, check):
+        """Registers the pre-commit check."""
+        if not isinstance(check, BaseCheck):
+            raise UsageError("check must be a subclass of BaseCheck")
 
         self.checks.append(check)
 
 
-def pattern_from_ext(ext):
-    """Returns a regular expression pattern that matches string ending in `ext`."""
-    return r"^.+\." + re.escape(ext) + "$"
-
-
 class BaseCheck:
-    """The base class for pre-commit checks.
+    def __init__(self, slow=False, pattern=None, exclude=None):
+        self.slow = slow
+        self.pattern = pattern
+        self.exclude = exclude
 
-    Custom checks should inherit from either `FileCheck` or `RepoCheck`.
-    """
-
-    fixable = False
-    pattern = None
-    exclude = None
-
-    def check_wrapper(self, *args, **kwargs):
+    def check(self, repository):
         raise NotImplementedError
 
-    def name(self):
+    def get_name(self):
         return self.__class__.__name__
 
-    def help(self):
-        return self.__doc__
+    def is_fixable(self):
+        return False
 
-    @staticmethod
-    def _normalize_result(r):
-        if isinstance(r, Problem):
-            return [r]
-        elif r is None:
-            return []
+    def filter(self, paths):
+        if self.pattern:
+            regex = re.compile(self.pattern)
+            filtered = [p for p in paths if regex.match(p)]
         else:
-            return r
+            filtered = paths
 
+        if self.exclude:
+            regex = re.compile(self.exclude)
+            filtered = [p for p in filtered if not regex.match(p)]
 
-class RepoCheck(BaseCheck):
-    """A base class for pre-commit checks that run once per repo."""
-
-    def check_wrapper(self, repository):
-        return self._normalize_result(self.check(repository))
-
-
-class FileCheck(BaseCheck):
-    """A base class for pre-commit checks that run once per file."""
-
-    def check_wrapper(self, filtered):
-        problems = []
-        for path in filtered:
-            results = self._normalize_result(self.check(path))
-            for result in results:
-                result.path = path
-                problems.append(result)
-        return problems
+        return filtered
 
 
 def pathfilter(paths, pattern, exclude):
@@ -240,12 +181,9 @@ def decode_git_path(path):
 
 
 class Problem:
-    def __init__(self, message, *, checkname=None, autofix=None, verbose_message=None):
-        self.path = None
-        self.checkname = checkname
-        self.message = message
+    def __init__(self, autofix=None, message=None):
         self.autofix = autofix
-        self.verbose_message = verbose_message
+        self.message = message
 
 
 class Filesystem:
@@ -291,18 +229,19 @@ class Console:
 
     def pre_check(self, subcommand, check):
         self.nchecks += 1
-        self._print(blue("[" + check.name() + "] "), end="", flush=True)
+        self._print(blue("[" + check.get_name() + "] "), end="", flush=True)
 
-    def post_check(self, subcommand, problems):
-        self.problems.extend(problems)
+    def post_check(self, subcommand, check, problem):
+        if problem is not None:
+            self.problems.append((check.get_name(), problem))
+
         if subcommand == "check":
-            if problems:
-                for i, problem in enumerate(problems):
-                    self._problem(problem, with_checkname=bool(i > 0))
+            if problem:
+                self._problem(problem)
             else:
                 self._print(green("passed!"))
         elif subcommand == "fix":
-            if problems:
+            if problem:
                 self._print(green("fixing"))
             else:
                 self._print(green("passed!"))
@@ -314,7 +253,7 @@ class Console:
             self._summary_for_fix()
 
     def _summary_for_check(self):
-        fixable = sum(1 for p in self.problems if p.autofix)
+        fixable = sum(1 for _, p in self.problems if p.autofix)
         total = len(self.problems)
         if self.printed_anything_yet:
             self._print()
@@ -335,7 +274,7 @@ class Console:
             self._print(f"{green('No issues')} detected.")
 
     def _summary_for_fix(self):
-        fixable = sum(1 for p in self.problems if p.autofix)
+        fixable = sum(1 for _, p in self.problems if p.autofix)
         total = len(self.problems)
         if self.printed_anything_yet:
             self._print()
@@ -354,16 +293,11 @@ class Console:
         builder = []
         if with_checkname:
             builder.append(blue(f"[{problem.checkname}] "))
-        builder.append(red("error"))
-        builder.append(": ")
-        if problem.path:
-            builder.append(problem.path)
-            builder.append(": ")
-        builder.append(problem.message)
+        builder.append(red("failed!"))
         self._print("".join(builder))
-        if problem.verbose_message:
+        if problem.message:
             self._print()
-            self._print(textwrap.indent(problem.verbose_message, "  "))
+            self._print(textwrap.indent(problem.message, "  "))
             self._print()
 
 
@@ -372,7 +306,7 @@ class VerboseConsole(Console):
         self.start = time.monotonic()
 
     def pre_check(self, subcommand, check, *args, **kwargs):
-        self._print(f"Running {check.name()}")
+        self._print(f"Running {check.get_name()}")
         self.check_start = time.monotonic()
         super().pre_check(subcommand, check, *args, **kwargs)
 

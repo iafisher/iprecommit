@@ -1,152 +1,125 @@
 import sys
-from .lib import FileCheck, Problem, RepoCheck, pattern_from_ext, run
+from .lib import BaseCheck, Problem, UsageError, run
 
 
-class NoStagedAndUnstagedChanges(RepoCheck):
-    """Checks that the file doesn't also have unstaged changes."""
-
-    fixable = True
+class NoStagedAndUnstagedChanges(BaseCheck):
+    """Checks that each staged file doesn't also have unstaged changes."""
 
     def check(self, repository):
         both = set(repository.staged).intersection(set(repository.unstaged))
         if both:
             message = "\n".join(sorted(both))
-            return Problem(
-                "unstaged changes to a staged file",
-                verbose_message=message,
-                autofix=["git", "add"] + list(both),
-            )
+            return Problem(message=message, autofix=["git", "add"] + list(both))
+
+    def is_fixable(self):
+        return True
 
 
 # We construct it like this so the string literal doesn't trigger the check itself.
 DO_NOT_SUBMIT = "DO NOT " + "SUBMIT"
 
 
-class DoNotSubmit(FileCheck):
-    f"""Checks that the file does not contain the string '{DO_NOT_SUBMIT}'."""
-
-    def check(self, path):
-        with open(path, "rb") as f:
-            if DO_NOT_SUBMIT.encode("ascii") in f.read().upper():
-                return Problem(f"file contains '{DO_NOT_SUBMIT}'")
-
-
-class NoWhitespaceInFilePath(FileCheck):
-    """Checks that the file path contains no whitespace."""
-
-    def check(self, path):
-        if any(c.isspace() for c in path):
-            return Problem("file path contains whitespace")
-
-
-def Command(*args, per_file=False, **kwargs):
-    if per_file:
-        return FileCommand(*args, **kwargs)
-    else:
-        return RepoCommand(*args, **kwargs)
-
-
-class RepoCommand(RepoCheck):
-    """Checks that the command returns an exit code of 0."""
-
-    def __init__(self, cmd, *, args=None, pass_files=False):
-        self.pass_files = pass_files
-        if isinstance(cmd, list):
-            self.cmd = cmd[0]
-            self.args = cmd[1:] + (args if args is not None else [])
-        else:
-            self.cmd = cmd
-            self.args = args if args is not None else []
+class DoNotSubmit(BaseCheck):
+    f"""Checks that files do not contain the string '{DO_NOT_SUBMIT}'."""
 
     def check(self, repository):
-        if self.pass_files:
-            cmdline = [self.cmd] + self.args + repository.filtered
+        bad_paths = []
+        for path in self.filter(repository.staged):
+            with open(path, "rb") as f:
+                if DO_NOT_SUBMIT.encode("ascii") in f.read().upper():
+                    bad_paths.append(path)
+
+        if bad_paths:
+            message = "\n".join(sorted(bad_paths))
+            return Problem(f"file contains '{DO_NOT_SUBMIT}'", message=message)
+
+
+class NoWhitespaceInFilePath(BaseCheck):
+    """Checks that file paths do not contain whitespace."""
+
+    def check(self, repository):
+        bad_paths = []
+        for path in self.filter(repository.staged):
+            if any(c.isspace() for c in path):
+                bad_paths.append(path)
+
+        if bad_paths:
+            message = "\n".join(sorted(bad_paths))
+            return Problem("file path contains whitespace", message=message)
+
+
+class Command(BaseCheck):
+    def __init__(
+        self, name, cmd, fix=None, pass_files=False, separately=False, **kwargs
+    ):
+        super().__init__(**kwargs)
+        self.name = name
+        self.cmd = cmd
+        self.fix = fix
+
+        if separately is True and pass_files is False:
+            raise UsageError("if `separately` is True, `pass_files` must also be True")
+
+        self.pass_files = pass_files
+        self.separately = separately
+
+    def check(self, repository):
+        if self.separately:
+            message_builder = []
+            problem = False
+            for path in self.filter(repository.staged):
+                result = run(self.cmd + [path])
+                if result.returncode != 0:
+                    problem = True
+                output = result.stdout.decode(sys.getdefaultencoding()).strip()
+                message_builder.append(output)
+
+            if problem:
+                message = "\n\n".join(message_builder)
+                return Problem(message=message, autofix=self.fix)
         else:
-            cmdline = [self.cmd] + self.args
+            args = self.filter(repository.staged) if self.pass_files else []
+            cmd = self.cmd + args
+            result = run(cmd)
+            if result.returncode != 0:
+                output = result.stdout.decode(sys.getdefaultencoding()).strip()
+                autofix = self.fix + args if self.fix else None
+                return Problem(message=output, autofix=autofix)
 
-        result = run(cmdline)
-        if result.returncode != 0:
-            output = result.stdout.decode(sys.getdefaultencoding()).strip()
-            return Problem(
-                self.get_failure_message(cmdline),
-                verbose_message=output,
-                autofix=self.get_autofix(repository),
-            )
+    def get_name(self):
+        return self.name
 
-    def name(self):
-        if type(self) is RepoCommand:
-            return f"RepoCommand({self.cmd!r})"
-        else:
-            return super().name()
-
-    def get_failure_message(self, cmdline):
-        return f"command {' '.join(cmdline)!r} failed"
-
-    def get_autofix(self, repository):
-        return None
+    def is_fixable(self):
+        return self.fix is not None
 
 
-class FileCommand(FileCheck):
-    """Checks that invoking `cmd` on the file path results in an exit code of 0."""
-
-    def __init__(self, cmd):
-        if isinstance(cmd, list):
-            self.cmd = cmd[0]
-            self.args = cmd[1:]
-        else:
-            self.cmd = cmd
-            self.args = []
-
-    def check(self, path):
-        result = run([self.cmd] + self.args + [path])
-
-        if result.returncode != 0:
-            output = result.stdout.decode(sys.getdefaultencoding()).strip()
-            return Problem(f"command {self.cmd!r} failed", verbose_message=output)
+def PythonFormat(**kwargs):
+    return Command(
+        "PythonFormat",
+        ["black", "--check"],
+        pass_files=True,
+        pattern=r".*\.py",
+        fix=["black"],
+        **kwargs,
+    )
 
 
-class PythonFormat(RepoCommand):
-    """Checks the format of Python files using black."""
-
-    fixable = True
-    pattern = pattern_from_ext("py")
-
-    def __init__(self, **kwargs):
-        super().__init__(["black", "--check"], pass_files=True, **kwargs)
-
-    def get_failure_message(self, cmdline):
-        return "bad formatting"
-
-    def get_autofix(self, repository):
-        return ["black"] + repository.filtered
+def PythonStyle(**kwargs):
+    return Command(
+        "PythonStyle",
+        ["flake8", "--max-line-length=88"],
+        pass_files=True,
+        pattern=r".*\.py",
+        **kwargs,
+    )
 
 
-class PythonStyle(RepoCommand):
-    """Lints Python files using flake8."""
-
-    pattern = pattern_from_ext("py")
-
-    def __init__(self, *, args=None, **kwargs):
-        args = args or []
-        if not any(a.startswith("--max-line-length") for a in args):
-            args = (args or []) + ["--max-line-length=88"]
-        super().__init__("flake8", pass_files=True, args=args, **kwargs)
-
-    def get_failure_message(self, cmdline):
-        return "Python lint error(s)"
-
-
-class JavaScriptStyle(RepoCommand):
-    """Lints JavaScript files using ESLint."""
-
-    fixable = True
-    pattern = pattern_from_ext("js")
-
-    def __init__(self, **kwargs):
-        super().__init__(["npx", "eslint"], pass_files=True, **kwargs)
-
-    def get_failure_message(self, cmdline):
-        return "JavaScript lint error(s)"
-
-    def get_autofix(self, repository):
-        return ["npx", "eslint", "--fix"] + repository.filtered
+def JavaScriptStyle(**kwargs):
+    return Command(
+        "JavaScriptStyle",
+        ["npx", "eslint"],
+        pass_files=True,
+        pattern=r".*\.js",
+        fix=["npx", "eslint", "--fix"],
+        **kwargs,
+    )

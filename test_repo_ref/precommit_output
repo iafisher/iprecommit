@@ -1,16 +1,16 @@
-[NoStagedAndUnstagedChanges] error: unstaged changes to a staged file
+[NoStagedAndUnstagedChanges] failed!
 
   bad_python_format.py
 
 [NoWhitespaceInFilePath] passed!
 [DoNotSubmit] passed!
-[PythonFormat] error: bad formatting
+[PythonFormat] failed!
 
   would reformat bad_python_format.py
   All done! 💥 💔 💥
   1 file would be reformatted.
 
-[PythonStyle] error: Python lint error(s)
+[PythonStyle] failed!
 
   bad_python_format.py:1:7: E201 whitespace after '('
   bad_python_format.py:1:17: E202 whitespace before ')'

@@ -1,1 +1,1 @@
-from .lib import FileCheck, Precommit, Problem, RepoCheck, Repository  # noqa: F401
+from .lib import BaseCheck, Precommit, Problem, Repository  # noqa: F401

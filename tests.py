@@ -30,12 +30,12 @@ class Test(unittest.TestCase):
             output.strip(),
             multiline(
                 """
-            [NoStagedAndUnstagedChanges] error: unstaged changes to a staged file
+            [NoStagedAndUnstagedChanges] failed!
 
               test_repo/bad_python_format.py
 
             [NoWhitespaceInFilePath] passed!
-            [PythonFormat] error: bad formatting
+            [PythonFormat] failed!
 
               would reformat test_repo/bad_python_format.py
               All done! 💥 💔 💥
