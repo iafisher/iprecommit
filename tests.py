@@ -30,14 +30,20 @@ class Test(unittest.TestCase):
             output.strip(),
             multiline(
                 """
-            [NoStagedAndUnstagedChanges] failed!
+            o--[ NoStagedAndUnstagedChanges ]
+            |
+            |  main.py
+            |
+            o--[ failed! ]
 
-              main.py
+            o--[ NoWhitespaceInFilePath ]
+            o--[ passed! ]
 
-            [NoWhitespaceInFilePath] passed!
-            [PythonFormat] failed!
-
-              <failed output of black command>
+            o--[ PythonFormat ]
+            |
+            |  <failed output of black command>
+            |
+            o--[ failed! ]
 
 
             Ran 3 checks. Detected 2 issues. Fix all of them with 'precommit fix'.
@@ -53,8 +59,18 @@ class Test(unittest.TestCase):
             output.strip(),
             multiline(
                 """
-            [NoStagedAndUnstagedChanges] fixing
-            [PythonFormat] fixing
+            o--[ NoStagedAndUnstagedChanges ]
+            |
+            |  main.py
+            |
+            o--[ fixed! ]
+
+            o--[ PythonFormat ]
+            |
+            |  <failed output of black command>
+            |
+            o--[ fixed! ]
+
 
             Ran 2 fixable checks. Detected 2 issues. Fixed 2 of them.
         """

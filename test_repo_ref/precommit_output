@@ -1,20 +1,30 @@
-[NoStagedAndUnstagedChanges] failed!
+o--[ NoStagedAndUnstagedChanges ]
+|
+|  bad_python_format.py
+|
+o--[ failed! ]
 
-  bad_python_format.py
+o--[ NoWhitespaceInFilePath ]
+o--[ passed! ]
 
-[NoWhitespaceInFilePath] passed!
-[DoNotSubmit] passed!
-[PythonFormat] failed!
+o--[ DoNotSubmit ]
+o--[ passed! ]
 
-  would reformat bad_python_format.py
-  All done! 💥 💔 💥
-  1 file would be reformatted.
+o--[ PythonFormat ]
+|
+|  would reformat bad_python_format.py
+|  All done! 💥 💔 💥
+|  1 file would be reformatted.
+|
+o--[ failed! ]
 
-[PythonStyle] failed!
-
-  bad_python_format.py:1:7: E201 whitespace after '('
-  bad_python_format.py:1:17: E202 whitespace before ')'
-  bad_python_format.py:7:1: W391 blank line at end of file
+o--[ PythonStyle ]
+|
+|  bad_python_format.py:1:7: E201 whitespace after '('
+|  bad_python_format.py:1:17: E202 whitespace before ')'
+|  bad_python_format.py:7:1: W391 blank line at end of file
+|
+o--[ failed! ]
 
 
 Ran 5 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.
