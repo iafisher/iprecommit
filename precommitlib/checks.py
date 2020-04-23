@@ -1,11 +1,11 @@
 import sys
-from .lib import BaseCheck, Problem, UsageError, run
+from .lib import BaseCheck, Problem, UsageError
 
 
 class NoStagedAndUnstagedChanges(BaseCheck):
     """Checks that each staged file doesn't also have unstaged changes."""
 
-    def check(self, repository):
+    def check(self, fs, repository):
         both = set(repository.staged).intersection(set(repository.unstaged))
         if both:
             message = "\n".join(sorted(both))
@@ -22,10 +22,10 @@ DO_NOT_SUBMIT = "DO NOT " + "SUBMIT"
 class DoNotSubmit(BaseCheck):
     f"""Checks that files do not contain the string '{DO_NOT_SUBMIT}'."""
 
-    def check(self, repository):
+    def check(self, fs, repository):
         bad_paths = []
         for path in self.filter(repository.staged):
-            with open(path, "rb") as f:
+            with fs.open(path, "rb") as f:
                 if DO_NOT_SUBMIT.encode("ascii") in f.read().upper():
                     bad_paths.append(path)
 
@@ -37,7 +37,7 @@ class DoNotSubmit(BaseCheck):
 class NoWhitespaceInFilePath(BaseCheck):
     """Checks that file paths do not contain whitespace."""
 
-    def check(self, repository):
+    def check(self, fs, repository):
         bad_paths = []
         for path in self.filter(repository.staged):
             if any(c.isspace() for c in path):
@@ -63,12 +63,12 @@ class Command(BaseCheck):
         self.pass_files = pass_files
         self.separately = separately
 
-    def check(self, repository):
+    def check(self, fs, repository):
         if self.separately:
             message_builder = []
             problem = False
             for path in self.filter(repository.staged):
-                result = run(self.cmd + [path])
+                result = fs.run(self.cmd + [path])
                 if result.returncode != 0:
                     problem = True
                 output = result.stdout.decode(sys.getdefaultencoding()).strip()
@@ -80,7 +80,7 @@ class Command(BaseCheck):
         else:
             args = self.filter(repository.staged) if self.pass_files else []
             cmd = self.cmd + args
-            result = run(cmd)
+            result = fs.run(cmd)
             if result.returncode != 0:
                 output = result.stdout.decode(sys.getdefaultencoding()).strip()
                 autofix = self.fix + args if self.fix else None

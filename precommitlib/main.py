@@ -1,10 +1,11 @@
 import importlib.util
 import os
 import stat
+import subprocess
 import sys
 from collections import namedtuple
 
-from .lib import Checklist, Precommit, blue, run, turn_off_colors, turn_on_colors
+from .lib import Checklist, Precommit, blue, turn_off_colors, turn_on_colors
 
 
 def main():
@@ -68,7 +69,9 @@ def main_check(args):
 
 
 def chdir_to_git_root():
-    gitroot = run(["git", "rev-parse", "--show-toplevel"])
+    gitroot = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"], stdout=subprocess.PIPE
+    )
     if gitroot.returncode != 0:
         error("must be in git repository.")
     os.chdir(gitroot.stdout.decode("ascii").strip())

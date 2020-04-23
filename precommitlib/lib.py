@@ -88,7 +88,7 @@ class Precommit:
             return None
 
         self.console.pre_check(subcommand, check)
-        problem = check.check(repository)
+        problem = check.check(self.fs, repository)
         self.console.post_check(subcommand, check, problem)
         return problem
 
@@ -145,11 +145,6 @@ class BaseCheck:
         return filtered
 
 
-def run(args, *, merge_output=True):
-    stderr = subprocess.STDOUT if merge_output else subprocess.PIPE
-    return subprocess.run(args, stdout=subprocess.PIPE, stderr=stderr)
-
-
 def decode_git_path(path):
     """Converts a path string as Git displays it to a UTF-8 encoded string.
 
@@ -181,8 +176,11 @@ class Filesystem:
     def get_unstaged_files(self):
         return self._read_files_from_git([])
 
+    def open(self, *args, **kwargs):
+        return open(*args, **kwargs)
+
     def run(self, cmd):
-        return run(cmd)
+        return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     def _read_files_from_git(self, args):
         result = self.run(["git", "diff", "--name-only"] + args)

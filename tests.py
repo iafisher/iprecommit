@@ -32,14 +32,12 @@ class Test(unittest.TestCase):
                 """
             [NoStagedAndUnstagedChanges] failed!
 
-              test_repo/bad_python_format.py
+              main.py
 
             [NoWhitespaceInFilePath] passed!
             [PythonFormat] failed!
 
-              would reformat test_repo/bad_python_format.py
-              All done! 💥 💔 💥
-              1 file would be reformatted.
+              <failed output of black command>
 
 
             Ran 3 checks. Detected 2 issues. Fix all of them with 'precommit fix'.
@@ -65,9 +63,14 @@ class Test(unittest.TestCase):
         self.assertEqual(
             self.mock_fs.commands_run,
             [
-                ["git", "add", "test_repo/bad_python_format.py"],
-                ["black", "test_repo/bad_python_format.py"],
-                ["git", "add", "test_repo/bad_python_format.py"],
+                # `git add` to fix the `NoStagedAndUnstagedChanges` check.
+                ["git", "add", "main.py"],
+                # Running the `PythonFormat` check.
+                ["black", "--check", "main.py"],
+                # Fixing the `PythonFormat` check.
+                ["black", "main.py"],
+                # Adding unstaged changes at the end.
+                ["git", "add", "main.py"],
             ],
         )
 
@@ -86,20 +89,32 @@ class MockFilesystem:
     def __init__(self):
         self.commands_run = []
 
-    def stage_files(self, files):
-        self.run(["git", "add"] + files)
-
     def get_staged_files(self):
-        return ["test_repo/bad_python_format.py"]
+        return ["main.py"]
 
     def get_staged_for_deletion_files(self):
         return []
 
     def get_unstaged_files(self):
-        return ["test_repo/bad_python_format.py"]
+        return ["main.py"]
+
+    def open(self, *args, **kwargs):
+        raise NotImplementedError
 
     def run(self, cmd):
         self.commands_run.append(cmd)
+        if cmd[0] == "black":
+            stdout = b"<failed output of black command>\n"
+            fake_result = FakeCommandResult(returncode=1, stdout=stdout)
+        else:
+            fake_result = FakeCommandResult(returncode=1)
+        return fake_result
+
+
+class FakeCommandResult:
+    def __init__(self, returncode, stdout=""):
+        self.returncode = returncode
+        self.stdout = stdout
 
 
 def multiline(s):
