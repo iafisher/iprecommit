@@ -70,7 +70,9 @@ def main_check(args):
 
 def chdir_to_git_root():
     gitroot = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"], stdout=subprocess.PIPE
+        ["git", "rev-parse", "--show-toplevel"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
     if gitroot.returncode != 0:
         error("must be in git repository.")
