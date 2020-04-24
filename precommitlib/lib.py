@@ -209,8 +209,9 @@ class Output:
         self.console = console
         self.dry_run = dry_run
         self.verbose = verbose
-        self.nchecks = 0
-        self.problems = []
+        self.num_of_checks = 0
+        self.num_of_problems = 0
+        self.num_of_fixable_problems = 0
 
     @classmethod
     def from_args(cls, console, args):
@@ -232,12 +233,14 @@ class Output:
             self._print(f"Running {check.get_name()}")
             self.check_start = time.monotonic()
 
-        self.nchecks += 1
+        self.num_of_checks += 1
         self._print(blue("o--[ " + check.get_name() + " ]"))
 
     def post_check(self, subcommand, check, problem):
         if problem is not None:
-            self.problems.append((check.get_name(), problem))
+            self.num_of_problems += 1
+            if check.is_fixable():
+                self.num_of_fixable_problems += 1
 
         if problem and problem.message:
             self._print(blue("|"))
@@ -274,17 +277,17 @@ class Output:
             self._summary_for_fix()
 
     def _summary_for_check(self):
-        fixable = sum(1 for _, p in self.problems if p.autofix)
-        total = len(self.problems)
-        self._print("Ran", blue(plural(self.nchecks, "check")), end=". ")
-        if total > 0:
-            self._print(f"Detected {red(plural(total, 'issue'))}", end=". ")
+        self._print("Ran", blue(plural(self.num_of_checks, "check")), end=". ")
+        if self.num_of_problems > 0:
+            self._print(
+                f"Detected {red(plural(self.num_of_problems, 'issue'))}", end=". "
+            )
 
-            if fixable > 0:
-                if fixable == total:
+            if self.num_of_fixable_problems > 0:
+                if self.num_of_fixable_problems == self.num_of_problems:
                     n = green("all of them")
                 else:
-                    n = blue(f"{fixable} of them")
+                    n = blue(f"{self.num_of_fixable_problems} of them")
 
                 self._print(f"Fix {n} with '{blue('precommit fix')}'.", end="")
 
@@ -293,14 +296,15 @@ class Output:
             self._print(f"{green('No issues')} detected.")
 
     def _summary_for_fix(self):
-        fixable = sum(1 for _, p in self.problems if p.autofix)
-        total = len(self.problems)
-        self._print("Ran", blue(plural(self.nchecks, "fixable check")), end=". ")
-        self._print("Detected", red(plural(total, "issue")), end=". ")
+        self._print("Ran", blue(plural(self.num_of_checks, "fixable check")), end=". ")
+        self._print("Detected", red(plural(self.num_of_problems, "issue")), end=". ")
         if self.dry_run:
-            self._print(f"Would have fixed", green(f"{fixable} of them") + ".")
+            self._print(
+                f"Would have fixed",
+                green(f"{self.num_of_fixable_problems} of them") + ".",
+            )
         else:
-            self._print("Fixed", green(f"{fixable} of them."))
+            self._print("Fixed", green(f"{self.num_of_fixable_problems} of them."))
 
     def _print(self, *args, **kwargs):
         self.console.print(*args, **kwargs)
