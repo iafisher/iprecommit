@@ -98,7 +98,7 @@ def PythonFormat(**kwargs):
         "PythonFormat",
         ["black", "--check"],
         pass_files=True,
-        pattern=r".*\.py",
+        pattern=r".*\.py$",
         fix=["black"],
         **kwargs,
     )
@@ -109,7 +109,7 @@ def PythonStyle(**kwargs):
         "PythonStyle",
         ["flake8", "--max-line-length=88"],
         pass_files=True,
-        pattern=r".*\.py",
+        pattern=r".*\.py$",
         **kwargs,
     )
 
@@ -119,7 +119,7 @@ def JavaScriptStyle(**kwargs):
         "JavaScriptStyle",
         ["npx", "eslint"],
         pass_files=True,
-        pattern=r".*\.js",
+        pattern=r".*\.js$",
         fix=["npx", "eslint", "--fix"],
         **kwargs,
     )
