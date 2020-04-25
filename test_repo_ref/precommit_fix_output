@@ -1,15 +1,11 @@
 o--[ NoStagedAndUnstagedChanges ]
-|
 |  bad_python_format.py
-|
 o--[ fixed! ]
 
 o--[ PythonFormat ]
-|
 |  would reformat bad_python_format.py
 |  All done! 💥 💔 💥
 |  1 file would be reformatted.
-|
 o--[ fixed! ]
 
 

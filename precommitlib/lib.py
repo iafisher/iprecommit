@@ -1,8 +1,11 @@
 import ast
 import re
 import subprocess
+import sys
 import textwrap
 import time
+
+from . import utils
 
 
 class Precommit:
@@ -168,9 +171,15 @@ class Problem:
 
 
 class Filesystem:
+    prefix = utils.blue("|  ")
+
     def __init__(self, console, *, verbose):
         self.console = console
         self.verbose = verbose
+        # This is a function because the test suite turns off colors after the program
+        # starts, but if we assign `blue("|  ")` to a class attribute then it gets
+        # colored before the colors are turned off.
+        self.prefix = utils.blue("|  ")
 
     @classmethod
     def from_args(cls, console, args):
@@ -188,11 +197,31 @@ class Filesystem:
     def open(self, *args, **kwargs):
         return open(*args, **kwargs)
 
-    def run(self, cmd):
-        if self.verbose:
-            print("Running command: " + " ".join(cmd))
+    def print(self, msg):
+        self.console.print(textwrap.indent(msg, self.prefix))
 
-        return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    def run(self, cmd, *, capture_output=True):
+        if self.verbose:
+            self.console.print("Running command: " + " ".join(cmd))
+
+        if capture_output:
+            return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        else:
+            # Normally this isn't necessary, but sometimes when you pipe precommit
+            # itself to another command or to a file (as the functional test does), then
+            # it will print all the output of the command below before any of
+            # precommit's output, for reasons that remain obscure to me.
+            sys.stdout.flush()
+
+            # Print the prefix before each line of the command's output by piping it to
+            # sed.
+            ps = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            subprocess.run(
+                ["sed", "-e", "s/^/" + self.prefix + "/"],
+                stdin=ps.stdout,
+                stderr=subprocess.STDOUT,
+            )
+            return ps.wait()
 
     def _read_files_from_git(self, args):
         result = self.run(["git", "diff", "--name-only"] + args)
@@ -234,7 +263,7 @@ class Output:
             self.check_start = time.monotonic()
 
         self.num_of_checks += 1
-        self._print(blue("o--[ " + check.get_name() + " ]"))
+        self._print(utils.blue("o--[ " + check.get_name() + " ]"))
 
     def post_check(self, subcommand, check, problem):
         if problem is not None:
@@ -242,23 +271,25 @@ class Output:
             if check.is_fixable():
                 self.num_of_fixable_problems += 1
 
-        if problem and problem.message:
-            self._print(blue("|"))
-            self._print(textwrap.indent(problem.message, blue("|  "), lambda _: True))
-            self._print(blue("|"))
+        # if problem and problem.message:
+        #     self._print(utils.blue("|"))
+        #     self._print(
+        #         textwrap.indent(problem.message, utils.blue("|  "), lambda _: True)
+        #     )
+        #     self._print(utils.blue("|"))
 
-        self._print(blue("o--[ "), end="")
+        self._print(utils.blue("o--[ "), end="")
         if subcommand == "check":
             if problem:
-                self._print(red("failed!"), end="")
+                self._print(utils.red("failed!"), end="")
             else:
-                self._print(green("passed!"), end="")
+                self._print(utils.green("passed!"), end="")
         elif subcommand == "fix":
             if problem:
-                self._print(green("fixed!"), end="")
+                self._print(utils.green("fixed!"), end="")
             else:
-                self._print(green("passed!"), end="")
-        self._print(blue(" ]"))
+                self._print(utils.green("passed!"), end="")
+        self._print(utils.blue(" ]"))
 
         if self.verbose:
             self.check_end = time.monotonic()
@@ -277,34 +308,45 @@ class Output:
             self._summary_for_fix()
 
     def _summary_for_check(self):
-        self._print("Ran", blue(plural(self.num_of_checks, "check")), end=". ")
+        self._print(
+            "Ran", utils.blue(utils.plural(self.num_of_checks, "check")), end=". "
+        )
         if self.num_of_problems > 0:
             self._print(
-                f"Detected {red(plural(self.num_of_problems, 'issue'))}", end=". "
+                f"Detected {utils.red(utils.plural(self.num_of_problems, 'issue'))}",
+                end=". ",
             )
 
             if self.num_of_fixable_problems > 0:
                 if self.num_of_fixable_problems == self.num_of_problems:
-                    n = green("all of them")
+                    n = utils.green("all of them")
                 else:
-                    n = blue(f"{self.num_of_fixable_problems} of them")
+                    n = utils.blue(f"{self.num_of_fixable_problems} of them")
 
-                self._print(f"Fix {n} with '{blue('precommit fix')}'.", end="")
+                self._print(f"Fix {n} with '{utils.blue('precommit fix')}'.", end="")
 
             self._print()
         else:
-            self._print(f"{green('No issues')} detected.")
+            self._print(f"{utils.green('No issues')} detected.")
 
     def _summary_for_fix(self):
-        self._print("Ran", blue(plural(self.num_of_checks, "fixable check")), end=". ")
-        self._print("Detected", red(plural(self.num_of_problems, "issue")), end=". ")
+        self._print(
+            "Ran",
+            utils.blue(utils.plural(self.num_of_checks, "fixable check")),
+            end=". ",
+        )
+        self._print(
+            "Detected", utils.red(utils.plural(self.num_of_problems, "issue")), end=". "
+        )
         if self.dry_run:
             self._print(
                 f"Would have fixed",
-                green(f"{self.num_of_fixable_problems} of them") + ".",
+                utils.green(f"{self.num_of_fixable_problems} of them") + ".",
             )
         else:
-            self._print("Fixed", green(f"{self.num_of_fixable_problems} of them."))
+            self._print(
+                "Fixed", utils.green(f"{self.num_of_fixable_problems} of them.")
+            )
 
     def _print(self, *args, **kwargs):
         self.console.print(*args, **kwargs)
@@ -315,49 +357,6 @@ class Repository:
         self.staged = staged
         self.staged_deleted = staged_deleted
         self.unstaged = unstaged
-
-
-_COLOR_RED = "91"
-_COLOR_BLUE = "94"
-_COLOR_GREEN = "92"
-_COLOR_RESET = "0"
-_NO_COLOR = False
-
-
-def turn_on_colors():
-    """Turns on colored output globally for the program."""
-    global _NO_COLOR
-    _NO_COLOR = False
-
-
-def turn_off_colors():
-    """Turns off colored output globally for the program."""
-    global _NO_COLOR
-    _NO_COLOR = True
-
-
-def red(text):
-    """Returns a string that will display as red using ANSI color codes."""
-    return colored(text, _COLOR_RED)
-
-
-def blue(text):
-    """Returns a string that will display as blue using ANSI color codes."""
-    return colored(text, _COLOR_BLUE)
-
-
-def green(text):
-    """Returns a string that will display as green using ANSI color codes."""
-    return colored(text, _COLOR_GREEN)
-
-
-def colored(text, color):
-    return f"\033[{color}m{text}\033[{_COLOR_RESET}m" if not _NO_COLOR else text
-
-
-def plural(n, word, suffix="s"):
-    """Returns the numeral and the proper plural form of the word."""
-    return f"{n} {word}" if n == 1 else f"{n} {word}{suffix}"
 
 
 class UsageError(Exception):

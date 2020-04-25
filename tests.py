@@ -1,12 +1,12 @@
 import unittest
 from io import BytesIO, StringIO
 
-from precommitlib import lib, checks
+from precommitlib import checks, lib, utils
 
 
 class Test(unittest.TestCase):
     def setUp(self):
-        lib.turn_off_colors()
+        utils.turn_off_colors()
         checklist = lib.Checklist()
         checklist.check(checks.DoNotSubmit())
         checklist.check(checks.NoStagedAndUnstagedChanges())
@@ -14,7 +14,7 @@ class Test(unittest.TestCase):
         checklist.check(checks.PythonFormat())
 
         self.mock_console = MockConsole()
-        self.mock_fs = MockFilesystem()
+        self.mock_fs = MockFilesystem(self.mock_console, verbose=False)
         self.precommit = lib.Precommit(
             checklist.checks,
             output=lib.Output(self.mock_console, dry_run=False, verbose=False),
@@ -32,24 +32,18 @@ class Test(unittest.TestCase):
             multiline(
                 """
             o--[ DoNotSubmit ]
-            |
             |  main.py
-            |
             o--[ failed! ]
 
             o--[ NoStagedAndUnstagedChanges ]
-            |
             |  main.py
-            |
             o--[ failed! ]
 
             o--[ NoWhitespaceInFilePath ]
             o--[ passed! ]
 
             o--[ PythonFormat ]
-            |
             |  <failed output of black command>
-            |
             o--[ failed! ]
 
 
@@ -67,15 +61,11 @@ class Test(unittest.TestCase):
             multiline(
                 """
             o--[ NoStagedAndUnstagedChanges ]
-            |
             |  main.py
-            |
             o--[ fixed! ]
 
             o--[ PythonFormat ]
-            |
             |  <failed output of black command>
-            |
             o--[ fixed! ]
 
 
@@ -106,8 +96,9 @@ class MockConsole:
         print(*args, file=self.captured_output, **kwargs)
 
 
-class MockFilesystem:
-    def __init__(self):
+class MockFilesystem(lib.Filesystem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.commands_run = []
 
     def get_staged_files(self):
@@ -123,14 +114,11 @@ class MockFilesystem:
         # We create the bytestring like this so we don't trigger the DoNotSubmit check.
         return BytesIO(b"DO NOT" + b" SUBMIT")
 
-    def run(self, cmd):
+    def run(self, cmd, *, capture_output=True):
         self.commands_run.append(cmd)
-        if cmd[0] == "black":
-            stdout = b"<failed output of black command>\n"
-            fake_result = FakeCommandResult(returncode=1, stdout=stdout)
-        else:
-            fake_result = FakeCommandResult(returncode=1)
-        return fake_result
+        if cmd[0] == "black" and cmd[1] == "--check":
+            self.print("<failed output of black command>")
+        return FakeCommandResult(returncode=1)
 
 
 class FakeCommandResult:

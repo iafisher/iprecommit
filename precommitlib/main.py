@@ -5,7 +5,8 @@ import subprocess
 import sys
 from collections import namedtuple
 
-from .lib import Checklist, Precommit, blue, turn_off_colors, turn_on_colors
+from . import utils
+from .lib import Checklist, Precommit
 
 
 def main():
@@ -52,7 +53,7 @@ def main_list(args):
     precommit = get_precommit(args)
 
     for check in precommit.repo_checks + precommit.file_checks:
-        print(blue("[" + check.name() + "] "), end="")
+        print(utils.blue("[" + check.name() + "] "), end="")
         doc = check.help() or "no description available"
         print(doc)
 
@@ -98,7 +99,7 @@ def handle_args(args):
     # before handling command-line arguments so that it can be overridden by explicitly
     # specifying --color.
     if "NO_COLOR" in os.environ and not sys.stdout.isatty():
-        turn_off_colors()
+        utils.turn_off_colors()
 
     args = parse_args(args)
     errormsg = check_args(args)
@@ -110,9 +111,9 @@ def handle_args(args):
             args.flags[flag] = False
 
     if args.flags["--color"]:
-        turn_on_colors()
+        utils.turn_on_colors()
     elif args.flags["--no-color"]:
-        turn_off_colors()
+        utils.turn_off_colors()
 
     return args
 

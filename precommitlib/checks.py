@@ -1,4 +1,3 @@
-import sys
 from .lib import BaseCheck, Problem, UsageError
 
 
@@ -9,7 +8,8 @@ class NoStagedAndUnstagedChanges(BaseCheck):
         both = set(repository.staged).intersection(set(repository.unstaged))
         if both:
             message = "\n".join(sorted(both))
-            return Problem(message=message, autofix=["git", "add"] + list(both))
+            fs.print(message)
+            return Problem(autofix=["git", "add"] + list(both))
 
     def is_fixable(self):
         return True
@@ -31,7 +31,8 @@ class DoNotSubmit(BaseCheck):
 
         if bad_paths:
             message = "\n".join(sorted(bad_paths))
-            return Problem(f"file contains '{DO_NOT_SUBMIT}'", message=message)
+            fs.print(message)
+            return Problem(f"file contains '{DO_NOT_SUBMIT}'")
 
 
 class NoWhitespaceInFilePath(BaseCheck):
@@ -45,7 +46,8 @@ class NoWhitespaceInFilePath(BaseCheck):
 
         if bad_paths:
             message = "\n".join(sorted(bad_paths))
-            return Problem("file path contains whitespace", message=message)
+            fs.print(message)
+            return Problem("file path contains whitespace")
 
 
 class Command(BaseCheck):
@@ -65,26 +67,23 @@ class Command(BaseCheck):
 
     def check(self, fs, repository):
         if self.separately:
-            message_builder = []
             problem = False
             for path in self.filter(repository.staged):
-                result = fs.run(self.cmd + [path])
-                if result.returncode != 0:
+                returncode = fs.run(self.cmd + [path], capture_output=False)
+                if returncode != 0:
                     problem = True
-                output = result.stdout.decode(sys.getdefaultencoding()).strip()
-                message_builder.append(output)
 
             if problem:
-                message = "\n\n".join(message_builder)
-                return Problem(message=message, autofix=self.fix)
+                # TODO(2020-04-23): There should be a separate fix command for each
+                # file path.
+                return Problem(autofix=self.fix)
         else:
             args = self.filter(repository.staged) if self.pass_files else []
             cmd = self.cmd + args
-            result = fs.run(cmd)
-            if result.returncode != 0:
-                output = result.stdout.decode(sys.getdefaultencoding()).strip()
+            returncode = fs.run(cmd, capture_output=False)
+            if returncode != 0:
                 autofix = self.fix + args if self.fix else None
-                return Problem(message=output, autofix=autofix)
+                return Problem(autofix=autofix)
 
     def get_name(self):
         return self.name
