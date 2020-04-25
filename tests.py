@@ -1,5 +1,5 @@
 import unittest
-from io import StringIO
+from io import BytesIO, StringIO
 
 from precommitlib import lib, checks
 
@@ -8,6 +8,7 @@ class Test(unittest.TestCase):
     def setUp(self):
         lib.turn_off_colors()
         checklist = lib.Checklist()
+        checklist.check(checks.DoNotSubmit())
         checklist.check(checks.NoStagedAndUnstagedChanges())
         checklist.check(checks.NoWhitespaceInFilePath())
         checklist.check(checks.PythonFormat())
@@ -30,6 +31,12 @@ class Test(unittest.TestCase):
             output.strip(),
             multiline(
                 """
+            o--[ DoNotSubmit ]
+            |
+            |  main.py
+            |
+            o--[ failed! ]
+
             o--[ NoStagedAndUnstagedChanges ]
             |
             |  main.py
@@ -46,7 +53,7 @@ class Test(unittest.TestCase):
             o--[ failed! ]
 
 
-            Ran 3 checks. Detected 2 issues. Fix all of them with 'precommit fix'.
+            Ran 4 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.
         """
             ),
         )
@@ -113,7 +120,8 @@ class MockFilesystem:
         return ["main.py"]
 
     def open(self, *args, **kwargs):
-        raise NotImplementedError
+        # We create the bytestring like this so we don't trigger the DoNotSubmit check.
+        return BytesIO(b"DO NOT" + b" SUBMIT")
 
     def run(self, cmd):
         self.commands_run.append(cmd)
