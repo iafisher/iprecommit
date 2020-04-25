@@ -19,8 +19,6 @@ def main():
         main_init(args)
     elif args.subcommand == "fix":
         main_fix(args)
-    elif args.subcommand == "list":
-        main_list(args)
     else:
         main_check(args)
 
@@ -49,15 +47,6 @@ def main_fix(args):
     precommit.fix()
 
 
-def main_list(args):
-    precommit = get_precommit(args)
-
-    for check in precommit.repo_checks + precommit.file_checks:
-        print(utils.blue("[" + check.name() + "] "), end="")
-        doc = check.help() or "no description available"
-        print(doc)
-
-
 def main_help(args):
     print(HELP)
 
@@ -80,7 +69,7 @@ def chdir_to_git_root():
     os.chdir(gitroot.stdout.decode("ascii").strip())
 
 
-SUBCOMMANDS = {"init", "fix", "list", "help", "check"}
+SUBCOMMANDS = {"init", "fix", "help", "check"}
 SHORT_FLAGS = {"-f": "--force", "-h": "--help"}
 FLAGS = {
     "--color": set(),
