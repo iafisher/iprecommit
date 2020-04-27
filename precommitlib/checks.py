@@ -92,23 +92,34 @@ class Command(BaseCheck):
         return self.fix is not None
 
 
-def PythonFormat(**kwargs):
+def PythonFormat(args=[], **kwargs):
     return Command(
         "PythonFormat",
-        ["black", "--check"],
+        ["black", "--check"] + args,
         pass_files=True,
         pattern=r".*\.py$",
-        fix=["black"],
+        fix=["black"] + args,
         **kwargs,
     )
 
 
-def PythonStyle(**kwargs):
+def PythonStyle(args=[], **kwargs):
     return Command(
         "PythonStyle",
-        ["flake8", "--max-line-length=88"],
+        ["flake8", "--max-line-length=88"] + args,
         pass_files=True,
         pattern=r".*\.py$",
+        **kwargs,
+    )
+
+
+def PythonImportOrder(args=[], **kwargs):
+    return Command(
+        "PythonImportOrder",
+        ["isort", "-c"] + args,
+        pass_files=True,
+        pattern=r".*\.py$",
+        fix=["isort"] + args,
         **kwargs,
     )
 
