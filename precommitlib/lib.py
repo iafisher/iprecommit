@@ -57,16 +57,19 @@ class Precommit:
         found_problems = False
         for check in self.checks:
             if not self.should_run(check):
+                self.print_check_header(check)
+                self.print_check_status("skipped")
+                self.console.print()
                 continue
 
             problem = self.execute_check("check", check, repository)
             if problem is not None:
                 found_problems = True
 
-        self.summary_for_check()
+        self.print_summary_for_check()
         return found_problems
 
-    def summary_for_check(self):
+    def print_summary_for_check(self):
         self.console.print()
         self.console.print(
             "Ran", utils.blue(utils.plural(self.num_of_checks, "check")), end=". "
@@ -115,9 +118,9 @@ class Precommit:
         if not self.dry_run:
             self.fs.run(["git", "add"] + repository.staged)
 
-        self.summary_for_fix()
+        self.print_summary_for_fix()
 
-    def summary_for_fix(self):
+    def print_summary_for_fix(self):
         self.console.print()
         self.console.print(
             "Ran",
@@ -146,7 +149,7 @@ class Precommit:
             self.check_start = time.monotonic()
 
         self.num_of_checks += 1
-        self.console.print(utils.blue("o--[ " + check.get_name() + " ]"))
+        self.print_check_header(check)
         problem = check.check(self.fs, repository)
         self.post_check(subcommand, check, problem)
         return problem
@@ -157,18 +160,12 @@ class Precommit:
             if check.is_fixable():
                 self.num_of_fixable_problems += 1
 
-        self.console.print(utils.blue("o--[ "), end="")
         if subcommand == "check":
-            if problem:
-                self.console.print(utils.red("failed!"), end="")
-            else:
-                self.console.print(utils.green("passed!"), end="")
+            status = utils.red("failed!") if problem else utils.green("passed!")
         elif subcommand == "fix":
-            if problem:
-                self.console.print(utils.green("fixed!"), end="")
-            else:
-                self.console.print(utils.green("passed!"), end="")
-        self.console.print(utils.blue(" ]"))
+            status = utils.green("fixed!") if problem else utils.green("passed!")
+
+        self.print_check_status(status)
 
         if self.verbose:
             self.check_end = time.monotonic()
@@ -178,6 +175,12 @@ class Precommit:
             self.console.print(f"{elapsed_since_start:.2f}s since start.")
 
         self.console.print()
+
+    def print_check_header(self, check):
+        self.console.print(utils.blue("o--[ " + check.get_name() + " ]"))
+
+    def print_check_status(self, status):
+        self.console.print(utils.blue("o--[ ") + status + utils.blue(" ]"))
 
     def should_run(self, check):
         return not check.slow or self.check_all
