@@ -54,20 +54,56 @@ class Precommit:
             self.console.print("No files are staged.")
             return
 
-        found_problems = False
         for check in self.checks:
             if not self.should_run(check):
-                self.print_check_header(check)
-                self.print_check_status("skipped")
-                self.console.print()
+                self.print_check_header_and_status(check, "skipped")
                 continue
 
-            problem = self.execute_check("check", check, repository)
-            if problem is not None:
-                found_problems = True
+            if not check.filter(repository.staged):
+                self.print_check_header_and_status(check, "skipped")
+                continue
+
+            self.pre_check(check)
+            problem = check.check(self.fs, repository)
+            status = utils.red("failed!") if problem else utils.green("passed!")
+            self.post_check(check, status, problem)
 
         self.print_summary_for_check()
-        return found_problems
+        return self.num_of_problems > 0
+
+    def fix(self):
+        """Find problems and fix the ones that can be fixed automatically."""
+        if not self.checks:
+            self.console.print("No checks were registered.")
+            return
+
+        self.start = time.monotonic()
+        repository = self.get_repository()
+        if not (repository.staged or repository.staged_deleted):
+            self.console.print("No files are staged.")
+            return
+
+        for check in self.checks:
+            if not self.should_run(check) or not check.is_fixable():
+                continue
+
+            if not check.filter(repository.staged):
+                self.print_check_header_and_status(check, "skipped")
+                continue
+
+            self.pre_check(check)
+            problem = check.check(self.fs, repository)
+            status = utils.green("fixed!") if problem else utils.green("passed!")
+            self.post_check(check, status, problem)
+
+            if not self.dry_run:
+                if problem and problem.autofix:
+                    self.fs.run(problem.autofix)
+
+        if not self.dry_run:
+            self.fs.run(["git", "add"] + repository.staged)
+
+        self.print_summary_for_fix()
 
     def print_summary_for_check(self):
         self.console.print()
@@ -94,32 +130,6 @@ class Precommit:
         else:
             self.console.print(f"{utils.green('No issues')} detected.")
 
-    def fix(self):
-        """Find problems and fix the ones that can be fixed automatically."""
-        if not self.checks:
-            self.console.print("No checks were registered.")
-            return
-
-        self.start = time.monotonic()
-        repository = self.get_repository()
-        if not (repository.staged or repository.staged_deleted):
-            self.console.print("No files are staged.")
-            return
-
-        for check in self.checks:
-            if not self.should_run(check) or not check.is_fixable():
-                continue
-
-            problem = self.execute_check("fix", check, repository)
-            if not self.dry_run:
-                if problem and problem.autofix:
-                    self.fs.run(problem.autofix)
-
-        if not self.dry_run:
-            self.fs.run(["git", "add"] + repository.staged)
-
-        self.print_summary_for_fix()
-
     def print_summary_for_fix(self):
         self.console.print()
         self.console.print(
@@ -140,30 +150,19 @@ class Precommit:
                 "Fixed " + utils.green(f"{self.num_of_fixable_problems} of them") + "."
             )
 
-    def execute_check(self, subcommand, check, repository):
-        if not check.filter(repository.staged):
-            return None
-
+    def pre_check(self, check):
         if self.verbose:
             self.console.print(f"Running {check.get_name()}")
             self.check_start = time.monotonic()
 
         self.num_of_checks += 1
         self.print_check_header(check)
-        problem = check.check(self.fs, repository)
-        self.post_check(subcommand, check, problem)
-        return problem
 
-    def post_check(self, subcommand, check, problem):
+    def post_check(self, check, status, problem):
         if problem is not None:
             self.num_of_problems += 1
             if check.is_fixable():
                 self.num_of_fixable_problems += 1
-
-        if subcommand == "check":
-            status = utils.red("failed!") if problem else utils.green("passed!")
-        elif subcommand == "fix":
-            status = utils.green("fixed!") if problem else utils.green("passed!")
 
         self.print_check_status(status)
 
@@ -174,6 +173,11 @@ class Precommit:
             self.console.print(f"Finished in {elapsed:.2f}s. ", end="")
             self.console.print(f"{elapsed_since_start:.2f}s since start.")
 
+        self.console.print()
+
+    def print_check_header_and_status(self, check, status):
+        self.print_check_header(check)
+        self.print_check_status(status)
         self.console.print()
 
     def print_check_header(self, check):
