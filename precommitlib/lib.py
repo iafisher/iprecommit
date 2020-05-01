@@ -9,44 +9,49 @@ from . import utils
 
 
 class Precommit:
-    def __init__(self, checks, *, output, fs, check_all, dry_run):
+    def __init__(self, checks, *, console, fs, check_all, dry_run, verbose):
         """
         Parameters:
           checks: The list of checks to run.
-          output: The interface to the console (for showing output).
+          console: The interface to the console (for showing output).
           fs: The interface to the file system (for running commands).
           check_all: Whether to run all checks.
           dry_run: Whether to actually run fix commands or just pretend to.
         """
-        self.output = output
+        self.console = console
         self.fs = fs
         self.checks = checks
         self.check_all = check_all
         self.dry_run = dry_run
+        self.verbose = verbose
+
+        self.num_of_checks = 0
+        self.num_of_problems = 0
+        self.num_of_fixable_problems = 0
 
     @classmethod
     def from_args(cls, checks, args):
         console = Console()
-        output = Output.from_args(console, args)
         fs = Filesystem.from_args(console, args)
         return cls(
             checks,
-            output=output,
+            console=console,
             fs=fs,
             check_all=args.flags["--all"],
             dry_run=args.flags["--dry-run"],
+            verbose=args.flags["--verbose"],
         )
 
     def check(self):
         """Find problems and print a message for each."""
         if not self.checks:
-            self.output.no_checks()
+            self.console.print("No checks were registered.")
             return
 
-        self.output.start()
+        self.start = time.monotonic()
         repository = self.get_repository()
         if not (repository.staged or repository.staged_deleted):
-            self.output.no_files()
+            self.console.print("No files are staged.")
             return
 
         found_problems = False
@@ -58,19 +63,44 @@ class Precommit:
             if problem is not None:
                 found_problems = True
 
-        self.output.summary("check")
+        self.summary_for_check()
         return found_problems
+
+    def summary_for_check(self):
+        self.console.print()
+        self.console.print(
+            "Ran", utils.blue(utils.plural(self.num_of_checks, "check")), end=". "
+        )
+        if self.num_of_problems > 0:
+            self.console.print(
+                f"Detected {utils.red(utils.plural(self.num_of_problems, 'issue'))}",
+                end=". ",
+            )
+
+            if self.num_of_fixable_problems > 0:
+                if self.num_of_fixable_problems == self.num_of_problems:
+                    n = utils.green("all of them")
+                else:
+                    n = utils.blue(f"{self.num_of_fixable_problems} of them")
+
+                self.console.print(
+                    f"Fix {n} with '{utils.blue('precommit fix')}'.", end=""
+                )
+
+            self.console.print()
+        else:
+            self.console.print(f"{utils.green('No issues')} detected.")
 
     def fix(self):
         """Find problems and fix the ones that can be fixed automatically."""
         if not self.checks:
-            self.output.no_checks()
+            self.console.print("No checks were registered.")
             return
 
-        self.output.start()
+        self.start = time.monotonic()
         repository = self.get_repository()
         if not (repository.staged or repository.staged_deleted):
-            self.output.no_files()
+            self.console.print("No files are staged.")
             return
 
         for check in self.checks:
@@ -85,16 +115,69 @@ class Precommit:
         if not self.dry_run:
             self.fs.run(["git", "add"] + repository.staged)
 
-        self.output.summary("fix")
+        self.summary_for_fix()
+
+    def summary_for_fix(self):
+        self.console.print()
+        self.console.print(
+            "Ran",
+            utils.blue(utils.plural(self.num_of_checks, "fixable check")),
+            end=". ",
+        )
+        self.console.print(
+            "Detected", utils.red(utils.plural(self.num_of_problems, "issue")), end=". "
+        )
+        if self.dry_run:
+            self.console.print(
+                f"Would have fixed",
+                utils.green(f"{self.num_of_fixable_problems} of them") + ".",
+            )
+        else:
+            self.console.print(
+                "Fixed " + utils.green(f"{self.num_of_fixable_problems} of them") + "."
+            )
 
     def execute_check(self, subcommand, check, repository):
         if not check.filter(repository.staged):
             return None
 
-        self.output.pre_check(subcommand, check)
+        if self.verbose:
+            self.console.print(f"Running {check.get_name()}")
+            self.check_start = time.monotonic()
+
+        self.num_of_checks += 1
+        self.console.print(utils.blue("o--[ " + check.get_name() + " ]"))
         problem = check.check(self.fs, repository)
-        self.output.post_check(subcommand, check, problem)
+        self.post_check(subcommand, check, problem)
         return problem
+
+    def post_check(self, subcommand, check, problem):
+        if problem is not None:
+            self.num_of_problems += 1
+            if check.is_fixable():
+                self.num_of_fixable_problems += 1
+
+        self.console.print(utils.blue("o--[ "), end="")
+        if subcommand == "check":
+            if problem:
+                self.console.print(utils.red("failed!"), end="")
+            else:
+                self.console.print(utils.green("passed!"), end="")
+        elif subcommand == "fix":
+            if problem:
+                self.console.print(utils.green("fixed!"), end="")
+            else:
+                self.console.print(utils.green("passed!"), end="")
+        self.console.print(utils.blue(" ]"))
+
+        if self.verbose:
+            self.check_end = time.monotonic()
+            elapsed = self.check_end - self.check_start
+            elapsed_since_start = self.check_end - self.start
+            self.console.print(f"Finished in {elapsed:.2f}s. ", end="")
+            self.console.print(f"{elapsed_since_start:.2f}s since start.")
+
+        self.console.print()
 
     def should_run(self, check):
         return not check.slow or self.check_all
@@ -231,125 +314,6 @@ class Filesystem:
 class Console:
     def print(self, *args, **kwargs):
         print(*args, **kwargs)
-
-
-class Output:
-    def __init__(self, console, *, dry_run, verbose):
-        self.console = console
-        self.dry_run = dry_run
-        self.verbose = verbose
-        self.num_of_checks = 0
-        self.num_of_problems = 0
-        self.num_of_fixable_problems = 0
-
-    @classmethod
-    def from_args(cls, console, args):
-        return cls(
-            console, dry_run=args.flags["--dry-run"], verbose=args.flags["--verbose"]
-        )
-
-    def start(self):
-        self.start = time.monotonic()
-
-    def no_checks(self):
-        self._print("No checks were registered.")
-
-    def no_files(self):
-        self._print("No files are staged.")
-
-    def pre_check(self, subcommand, check):
-        if self.verbose:
-            self._print(f"Running {check.get_name()}")
-            self.check_start = time.monotonic()
-
-        self.num_of_checks += 1
-        self._print(utils.blue("o--[ " + check.get_name() + " ]"))
-
-    def post_check(self, subcommand, check, problem):
-        if problem is not None:
-            self.num_of_problems += 1
-            if check.is_fixable():
-                self.num_of_fixable_problems += 1
-
-        # if problem and problem.message:
-        #     self._print(utils.blue("|"))
-        #     self._print(
-        #         textwrap.indent(problem.message, utils.blue("|  "), lambda _: True)
-        #     )
-        #     self._print(utils.blue("|"))
-
-        self._print(utils.blue("o--[ "), end="")
-        if subcommand == "check":
-            if problem:
-                self._print(utils.red("failed!"), end="")
-            else:
-                self._print(utils.green("passed!"), end="")
-        elif subcommand == "fix":
-            if problem:
-                self._print(utils.green("fixed!"), end="")
-            else:
-                self._print(utils.green("passed!"), end="")
-        self._print(utils.blue(" ]"))
-
-        if self.verbose:
-            self.check_end = time.monotonic()
-            elapsed = self.check_end - self.check_start
-            elapsed_since_start = self.check_end - self.start
-            self._print(f"Finished in {elapsed:.2f}s. ", end="")
-            self._print(f"{elapsed_since_start:.2f}s since start.")
-
-        self._print()
-
-    def summary(self, subcommand):
-        self._print()
-        if subcommand == "check":
-            self._summary_for_check()
-        elif subcommand == "fix":
-            self._summary_for_fix()
-
-    def _summary_for_check(self):
-        self._print(
-            "Ran", utils.blue(utils.plural(self.num_of_checks, "check")), end=". "
-        )
-        if self.num_of_problems > 0:
-            self._print(
-                f"Detected {utils.red(utils.plural(self.num_of_problems, 'issue'))}",
-                end=". ",
-            )
-
-            if self.num_of_fixable_problems > 0:
-                if self.num_of_fixable_problems == self.num_of_problems:
-                    n = utils.green("all of them")
-                else:
-                    n = utils.blue(f"{self.num_of_fixable_problems} of them")
-
-                self._print(f"Fix {n} with '{utils.blue('precommit fix')}'.", end="")
-
-            self._print()
-        else:
-            self._print(f"{utils.green('No issues')} detected.")
-
-    def _summary_for_fix(self):
-        self._print(
-            "Ran",
-            utils.blue(utils.plural(self.num_of_checks, "fixable check")),
-            end=". ",
-        )
-        self._print(
-            "Detected", utils.red(utils.plural(self.num_of_problems, "issue")), end=". "
-        )
-        if self.dry_run:
-            self._print(
-                f"Would have fixed",
-                utils.green(f"{self.num_of_fixable_problems} of them") + ".",
-            )
-        else:
-            self._print(
-                "Fixed", utils.green(f"{self.num_of_fixable_problems} of them.")
-            )
-
-    def _print(self, *args, **kwargs):
-        self.console.print(*args, **kwargs)
 
 
 class Repository:

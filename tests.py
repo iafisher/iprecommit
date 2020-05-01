@@ -17,10 +17,11 @@ class Test(unittest.TestCase):
         self.mock_fs = MockFilesystem(self.mock_console, verbose=False)
         self.precommit = lib.Precommit(
             checklist.checks,
-            output=lib.Output(self.mock_console, dry_run=False, verbose=False),
+            console=self.mock_console,
             fs=self.mock_fs,
             check_all=True,
             dry_run=False,
+            verbose=False,
         )
 
     def test_check_command(self):
