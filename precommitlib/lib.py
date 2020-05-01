@@ -93,12 +93,13 @@ class Precommit:
 
             self.pre_check(check)
             problem = check.check(self.fs, repository)
-            status = utils.green("fixed!") if problem else utils.green("passed!")
-            self.post_check(check, status, problem)
 
             if not self.dry_run:
                 if problem and problem.autofix:
                     self.fs.run(problem.autofix)
+
+            status = utils.green("fixed!") if problem else utils.green("passed!")
+            self.post_check(check, status, problem)
 
         if not self.dry_run:
             self.fs.run(["git", "add"] + repository.staged)
@@ -216,7 +217,7 @@ class BaseCheck:
         self.pattern = pattern
         self.exclude = exclude
 
-    def check(self, repository):
+    def check(self, fs, repository):
         raise NotImplementedError
 
     def get_name(self):
@@ -261,8 +262,6 @@ class Problem:
 
 
 class Filesystem:
-    prefix = utils.blue("|  ")
-
     def __init__(self, console, *, verbose):
         self.console = console
         self.verbose = verbose
