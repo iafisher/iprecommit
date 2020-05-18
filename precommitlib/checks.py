@@ -103,9 +103,9 @@ def PythonFormat(args=[], *, pattern=r".*\.py$", **kwargs):
     )
 
 
-def PythonStyle(args=[], *, pattern=r".*\.py$", **kwargs):
+def PythonLint(args=[], *, pattern=r".*\.py$", **kwargs):
     return Command(
-        "PythonStyle",
+        "PythonLint",
         ["flake8", "--max-line-length=88"] + args,
         pass_files=True,
         pattern=pattern,
@@ -130,9 +130,9 @@ def PythonTypes(args=[], *, pattern=r".*\.py$", **kwargs):
     )
 
 
-def JavaScriptStyle(*, pattern=r".*\.js$", **kwargs):
+def JavaScriptLint(*, pattern=r".*\.js$", **kwargs):
     return Command(
-        "JavaScriptStyle",
+        "JavaScriptLint",
         ["npx", "eslint"],
         pass_files=True,
         pattern=pattern,

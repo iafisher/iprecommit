@@ -200,8 +200,8 @@ def init(precommit):
     # Check Python format with black:
     #   precommit.check(checks.PythonFormat())
     #
-    # Check Python style with flake8:
-    #  precommit.check(checks.PythonStyle())
+    # Lint Python code with flake8:
+    #  precommit.check(checks.PythonLint())
     #
     # Check the order of Python imports with isort:
     #   precommit.check(checks.PythonImportOrder())
@@ -209,8 +209,8 @@ def init(precommit):
     # Check Python static type annotations with mypy:
     #   precommit.check(checks.PythonTypes())
     #
-    # Check JavaScript style with ESLint:
-    #  precommit.check(checks.JavaScriptStyle())
+    # Lint JavaScript code with ESLint:
+    #  precommit.check(checks.JavaScriptLint())
     #
 """
 

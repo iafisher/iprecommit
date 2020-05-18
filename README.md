@@ -40,21 +40,31 @@ from precommitlib import checks
 
 
 def init(precommit):
-    # Generic checks
     precommit.check(checks.NoStagedAndUnstagedChanges())
     precommit.check(checks.NoWhitespaceInFilePath())
+    precommit.check(checks.DoNotSubmit())
 
-    # Language-specific checks
-    precommit.check(checks.PythonFormat())
-    precommit.check(checks.PythonStyle())
-    precommit.check(checks.JavaScriptStyle())
+    # Check Python format with black:
+    #   precommit.check(checks.PythonFormat())
+    #
+    # Lint Python code with flake8:
+    #  precommit.check(checks.PythonLint())
+    #
+    # Check the order of Python imports with isort:
+    #   precommit.check(checks.PythonImportOrder())
+    #
+    # Check Python static type annotations with mypy:
+    #   precommit.check(checks.PythonTypes())
+    #
+    # Lint JavaScript code with ESLint:
+    #  precommit.check(checks.JavaScriptLint())
 ```
 
 The file must define a function called `init` that accepts a `Checklist` object as a parameter. You are not intended to run `precommit.py` directly. You should always invoke it using the `precommit` command.
 
 The default `precommit.py` file has checks for a number of languages. If a language isn't used in your project, the check for that language will never be run, so there's no overhead to keeping the check in the file.
 
-`Checklist.check` registers a pre-commit check. Checks are run in the order they are registered. The built-in checks know what kind of files they should be invoked on, so `checks.PythonFormat` will only run on Python files, and likewise for `checks.PythonStyle`. If you want to limit a check to a certain set of files, the check functions accept a `exclude` parameter which should be a regular expression string that matches the files that the check should not run on:
+`Checklist.check` registers a pre-commit check. Checks are run in the order they are registered. The built-in checks know what kind of files they should be invoked on, so `checks.PythonFormat` will only run on Python files, and likewise for `checks.PythonLint`. If you want to limit a check to a certain set of files, the check functions accept a `exclude` parameter which should be a regular expression string that matches the files that the check should not run on:
 
 ```python
 precommit.check(checks.NoWhiteSpaceInFilePath(exclude=r"^data"))

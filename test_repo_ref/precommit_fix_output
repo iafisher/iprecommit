@@ -11,7 +11,7 @@ o--[ fixed! ]
 o--[ PythonImportOrder ]
 o--[ passed! ]
 
-o--[ JavaScriptStyle ]
+o--[ JavaScriptLint ]
 o--[ skipped ]
 
 

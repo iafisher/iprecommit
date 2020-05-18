@@ -14,7 +14,7 @@ o--[ PythonFormat ]
 |  1 file would be reformatted.
 o--[ failed! ]
 
-o--[ PythonStyle ]
+o--[ PythonLint ]
 |  bad_python_format.py:1:7: E201 whitespace after '('
 |  bad_python_format.py:1:17: E202 whitespace before ')'
 |  bad_python_format.py:7:1: W391 blank line at end of file
@@ -26,7 +26,7 @@ o--[ passed! ]
 o--[ PythonTypes ]
 o--[ passed! ]
 
-o--[ JavaScriptStyle ]
+o--[ JavaScriptLint ]
 o--[ skipped ]
 
 
