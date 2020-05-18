@@ -92,50 +92,50 @@ class Command(BaseCheck):
         return self.fix is not None
 
 
-def PythonFormat(args=[], **kwargs):
+def PythonFormat(args=[], *, pattern=r".*\.py$", **kwargs):
     return Command(
         "PythonFormat",
         ["black", "--check"] + args,
         pass_files=True,
-        pattern=r".*\.py$",
+        pattern=pattern,
         fix=["black"] + args,
         **kwargs,
     )
 
 
-def PythonStyle(args=[], **kwargs):
+def PythonStyle(args=[], *, pattern=r".*\.py$", **kwargs):
     return Command(
         "PythonStyle",
         ["flake8", "--max-line-length=88"] + args,
         pass_files=True,
-        pattern=r".*\.py$",
+        pattern=pattern,
         **kwargs,
     )
 
 
-def PythonImportOrder(args=[], **kwargs):
+def PythonImportOrder(args=[], *, pattern=r".*\.py$", **kwargs):
     return Command(
         "PythonImportOrder",
         ["isort", "-c"] + args,
         pass_files=True,
-        pattern=r".*\.py$",
+        pattern=pattern,
         fix=["isort"] + args,
         **kwargs,
     )
 
 
-def PythonTypes(args=[], **kwargs):
+def PythonTypes(args=[], *, pattern=r".*\.py$", **kwargs):
     return Command(
-        "PythonTypes", ["mypy"] + args, pass_files=True, pattern=r".*\.py", **kwargs
+        "PythonTypes", ["mypy"] + args, pass_files=True, pattern=pattern, **kwargs
     )
 
 
-def JavaScriptStyle(**kwargs):
+def JavaScriptStyle(*, pattern=r".*\.js$", **kwargs):
     return Command(
         "JavaScriptStyle",
         ["npx", "eslint"],
         pass_files=True,
-        pattern=r".*\.js$",
+        pattern=pattern,
         fix=["npx", "eslint", "--fix"],
         **kwargs,
     )
