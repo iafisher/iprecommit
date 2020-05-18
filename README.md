@@ -44,20 +44,20 @@ def init(precommit):
     precommit.check(checks.NoWhitespaceInFilePath())
     precommit.check(checks.DoNotSubmit())
 
-    # Check Python format with black:
-    #   precommit.check(checks.PythonFormat())
-    #
-    # Lint Python code with flake8:
-    #  precommit.check(checks.PythonLint())
-    #
-    # Check the order of Python imports with isort:
-    #   precommit.check(checks.PythonImportOrder())
-    #
-    # Check Python static type annotations with mypy:
-    #   precommit.check(checks.PythonTypes())
-    #
-    # Lint JavaScript code with ESLint:
-    #  precommit.check(checks.JavaScriptLint())
+    # Check Python format with black.
+    precommit.check(checks.PythonFormat())
+
+    # Lint Python code with flake8.
+    precommit.check(checks.PythonLint())
+
+    # Check the order of Python imports with isort.
+    precommit.check(checks.PythonImportOrder())
+
+    # Check Python static type annotations with mypy.
+    precommit.check(checks.PythonTypes())
+
+    # Lint JavaScript code with ESLint.
+    precommit.check(checks.JavaScriptLint())
 ```
 
 The file must define a function called `init` that accepts a `Checklist` object as a parameter. You are not intended to run `precommit.py` directly. You should always invoke it using the `precommit` command.
