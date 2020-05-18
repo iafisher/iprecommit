@@ -72,6 +72,8 @@ pip3 install "$d"
 
 status "Running tests"
 precommit init
+# Enable all pre-commit checks.
+sed -i 's/#[[:blank:]]*precommit.check/precommit.check/g' precommit.py
 
 # Modify a file to fail the "no staged and unstaged changes" check.
 echo -e "\n\n" >> bad_python_format.py

@@ -193,15 +193,25 @@ from precommitlib import checks
 
 
 def init(precommit):
-    # Generic checks
     precommit.check(checks.NoStagedAndUnstagedChanges())
     precommit.check(checks.NoWhitespaceInFilePath())
     precommit.check(checks.DoNotSubmit())
 
-    # Language-specific checks
-    precommit.check(checks.PythonFormat())
-    precommit.check(checks.PythonStyle())
-    precommit.check(checks.JavaScriptStyle())
+    # Check Python format with black:
+    #   precommit.check(checks.PythonFormat())
+    #
+    # Check Python style with flake8:
+    #  precommit.check(checks.PythonStyle())
+    #
+    # Check the order of Python imports with isort:
+    #   precommit.check(checks.PythonImportOrder())
+    #
+    # Check Python static type annotations with mypy:
+    #   precommit.check(checks.PythonTypes())
+    #
+    # Check JavaScript style with ESLint:
+    #  precommit.check(checks.JavaScriptStyle())
+    #
 """
 
 

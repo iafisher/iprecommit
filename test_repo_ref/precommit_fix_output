@@ -8,8 +8,11 @@ o--[ PythonFormat ]
 |  1 file would be reformatted.
 o--[ fixed! ]
 
+o--[ PythonImportOrder ]
+o--[ passed! ]
+
 o--[ JavaScriptStyle ]
 o--[ skipped ]
 
 
-Ran 2 fixable checks. Detected 2 issues. Fixed 2 of them.
+Ran 3 fixable checks. Detected 2 issues. Fixed 2 of them.

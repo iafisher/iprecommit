@@ -20,8 +20,14 @@ o--[ PythonStyle ]
 |  bad_python_format.py:7:1: W391 blank line at end of file
 o--[ failed! ]
 
+o--[ PythonImportOrder ]
+o--[ passed! ]
+
+o--[ PythonTypes ]
+o--[ passed! ]
+
 o--[ JavaScriptStyle ]
 o--[ skipped ]
 
 
-Ran 5 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.
+Ran 7 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.
