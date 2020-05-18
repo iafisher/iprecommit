@@ -124,6 +124,12 @@ def PythonImportOrder(args=[], **kwargs):
     )
 
 
+def PythonTypes(args=[], **kwargs):
+    return Command(
+        "PythonTypes", ["mypy"] + args, pass_files=True, pattern=r".*\.py", **kwargs
+    )
+
+
 def JavaScriptStyle(**kwargs):
     return Command(
         "JavaScriptStyle",
