@@ -207,7 +207,7 @@ def init(precommit):
     precommit.check(checks.PythonImportOrder())
 
     # Check Python static type annotations with mypy.
-    precommit.check(checks.PythonTypes())
+    # precommit.check(checks.PythonTypes())
 
     # Lint JavaScript code with ESLint.
     precommit.check(checks.JavaScriptLint())

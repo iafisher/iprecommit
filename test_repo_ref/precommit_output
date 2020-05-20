@@ -23,11 +23,8 @@ o--[ failed! ]
 o--[ PythonImportOrder ]
 o--[ passed! ]
 
-o--[ PythonTypes ]
-o--[ passed! ]
-
 o--[ JavaScriptLint ]
 o--[ skipped ]
 
 
-Ran 7 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.
+Ran 6 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.
