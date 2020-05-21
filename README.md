@@ -23,13 +23,11 @@ precommit fix
 
 [pre-commit](https://pre-commit.com/) seems to be the most widely-used tool for pre-commit hook management. It's a mature and robust tool that can do many things that my tool can't. The main advantages of my tool are:
 
-- It clearly distinguishes between checking for errors and fixing them.
-
 - It's simple to configure. You just edit a self-explanatory Python file, rather than a YAML file whose schema you have to look up. Defining your pre-commit checks in Python is easy.
 
-- After you install it, you just need to run one command (`precommit init`) to get a working, sensible pre-commit check.
+- After you install it, you just need to run one command (`precommit init`) to get a sensible, non-trivial pre-commit check.
 
-- It's a standalone tool with no dependencies besides Python and git.
+- It's a standalone tool with no dependencies besides Python.
 
 
 ## User guide
