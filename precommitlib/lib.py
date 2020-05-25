@@ -18,9 +18,12 @@ class Precommit:
           check_all: Whether to run all checks.
           dry_run: Whether to actually run fix commands or just pretend to.
         """
-        self.console = console
-        self.fs = fs
-        self.checks = checks
+        self._console = console
+        self._fs = fs
+        # Calling it `self._checks` instead of `self.checks` avoids giving a confusing
+        # error message for the common typo of `precommit.checks(...)` instead of
+        # `precommit.check(...)`.
+        self._checks = checks
         self.check_all = check_all
         self.dry_run = dry_run
         self.verbose = verbose
@@ -44,17 +47,17 @@ class Precommit:
 
     def check(self):
         """Find problems and print a message for each."""
-        if not self.checks:
-            self.console.print("No checks were registered.")
+        if not self._checks:
+            self._console.print("No checks were registered.")
             return
 
         self.start = time.monotonic()
         repository = self.get_repository()
         if not (repository.staged or repository.staged_deleted):
-            self.console.print("No files are staged.")
+            self._console.print("No files are staged.")
             return
 
-        for check in self.checks:
+        for check in self._checks:
             if not self.should_run(check):
                 self.print_check_header_and_status(check, "skipped")
                 continue
@@ -64,7 +67,7 @@ class Precommit:
                 continue
 
             self.pre_check(check)
-            problem = check.check(self.fs, repository)
+            problem = check.check(self._fs, repository)
             status = utils.red("failed!") if problem else utils.green("passed!")
             self.post_check(check, status, problem)
 
@@ -73,17 +76,17 @@ class Precommit:
 
     def fix(self):
         """Find problems and fix the ones that can be fixed automatically."""
-        if not self.checks:
-            self.console.print("No checks were registered.")
+        if not self._checks:
+            self._console.print("No checks were registered.")
             return
 
         self.start = time.monotonic()
         repository = self.get_repository()
         if not (repository.staged or repository.staged_deleted):
-            self.console.print("No files are staged.")
+            self._console.print("No files are staged.")
             return
 
-        for check in self.checks:
+        for check in self._checks:
             if not self.should_run(check) or not check.is_fixable():
                 continue
 
@@ -92,27 +95,27 @@ class Precommit:
                 continue
 
             self.pre_check(check)
-            problem = check.check(self.fs, repository)
+            problem = check.check(self._fs, repository)
 
             if not self.dry_run:
                 if problem and problem.autofix:
-                    self.fs.run(problem.autofix)
+                    self._fs.run(problem.autofix)
 
             status = utils.green("fixed!") if problem else utils.green("passed!")
             self.post_check(check, status, problem)
 
         if not self.dry_run:
-            self.fs.run(["git", "add"] + repository.staged)
+            self._fs.run(["git", "add"] + repository.staged)
 
         self.print_summary_for_fix()
 
     def print_summary_for_check(self):
-        self.console.print()
-        self.console.print(
+        self._console.print()
+        self._console.print(
             "Ran", utils.blue(utils.plural(self.num_of_checks, "check")), end=". "
         )
         if self.num_of_problems > 0:
-            self.console.print(
+            self._console.print(
                 f"Detected {utils.red(utils.plural(self.num_of_problems, 'issue'))}",
                 end=". ",
             )
@@ -123,37 +126,37 @@ class Precommit:
                 else:
                     n = utils.blue(f"{self.num_of_fixable_problems} of them")
 
-                self.console.print(
+                self._console.print(
                     f"Fix {n} with '{utils.blue('precommit fix')}'.", end=""
                 )
 
-            self.console.print()
+            self._console.print()
         else:
-            self.console.print(f"{utils.green('No issues')} detected.")
+            self._console.print(f"{utils.green('No issues')} detected.")
 
     def print_summary_for_fix(self):
-        self.console.print()
-        self.console.print(
+        self._console.print()
+        self._console.print(
             "Ran",
             utils.blue(utils.plural(self.num_of_checks, "fixable check")),
             end=". ",
         )
-        self.console.print(
+        self._console.print(
             "Detected", utils.red(utils.plural(self.num_of_problems, "issue")), end=". "
         )
         if self.dry_run:
-            self.console.print(
+            self._console.print(
                 f"Would have fixed",
                 utils.green(f"{self.num_of_fixable_problems} of them") + ".",
             )
         else:
-            self.console.print(
+            self._console.print(
                 "Fixed " + utils.green(f"{self.num_of_fixable_problems} of them") + "."
             )
 
     def pre_check(self, check):
         if self.verbose:
-            self.console.print(f"Running {check.get_name()}")
+            self._console.print(f"Running {check.get_name()}")
             self.check_start = time.monotonic()
 
         self.num_of_checks += 1
@@ -171,29 +174,29 @@ class Precommit:
             self.check_end = time.monotonic()
             elapsed = self.check_end - self.check_start
             elapsed_since_start = self.check_end - self.start
-            self.console.print(f"Finished in {elapsed:.2f}s. ", end="")
-            self.console.print(f"{elapsed_since_start:.2f}s since start.")
+            self._console.print(f"Finished in {elapsed:.2f}s. ", end="")
+            self._console.print(f"{elapsed_since_start:.2f}s since start.")
 
-        self.console.print()
+        self._console.print()
 
     def print_check_header_and_status(self, check, status):
         self.print_check_header(check)
         self.print_check_status(status)
-        self.console.print()
+        self._console.print()
 
     def print_check_header(self, check):
-        self.console.print(utils.blue("o--[ " + check.get_name() + " ]"))
+        self._console.print(utils.blue("o--[ " + check.get_name() + " ]"))
 
     def print_check_status(self, status):
-        self.console.print(utils.blue("o--[ ") + status + utils.blue(" ]"))
+        self._console.print(utils.blue("o--[ ") + status + utils.blue(" ]"))
 
     def should_run(self, check):
         return not check.slow or self.check_all
 
     def get_repository(self):
-        staged = self.fs.get_staged_files()
-        staged_deleted = self.fs.get_staged_for_deletion_files()
-        unstaged = self.fs.get_unstaged_files()
+        staged = self._fs.get_staged_files()
+        staged_deleted = self._fs.get_staged_for_deletion_files()
+        unstaged = self._fs.get_unstaged_files()
         return Repository(
             staged=staged, staged_deleted=staged_deleted, unstaged=unstaged
         )
@@ -201,14 +204,14 @@ class Precommit:
 
 class Checklist:
     def __init__(self):
-        self.checks = []
+        self._checks = []
 
     def check(self, check):
         """Registers the pre-commit check."""
         if not isinstance(check, BaseCheck):
             raise UsageError("check must be a subclass of BaseCheck")
 
-        self.checks.append(check)
+        self._checks.append(check)
 
 
 class BaseCheck:
@@ -263,7 +266,7 @@ class Problem:
 
 class Filesystem:
     def __init__(self, console, *, verbose):
-        self.console = console
+        self._console = console
         self.verbose = verbose
         # This is a function because the test suite turns off colors after the program
         # starts, but if we assign `blue("|  ")` to a class attribute then it gets
@@ -287,11 +290,11 @@ class Filesystem:
         return open(*args, **kwargs)
 
     def print(self, msg):
-        self.console.print(textwrap.indent(msg, self.prefix))
+        self._console.print(textwrap.indent(msg, self.prefix))
 
     def run(self, cmd, *, capture_output=True):
         if self.verbose:
-            self.console.print("Running command: " + " ".join(cmd))
+            self._console.print("Running command: " + " ".join(cmd))
 
         if capture_output:
             return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

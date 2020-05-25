@@ -16,7 +16,7 @@ class Test(unittest.TestCase):
         self.mock_console = MockConsole()
         self.mock_fs = MockFilesystem(self.mock_console, verbose=False)
         self.precommit = lib.Precommit(
-            checklist.checks,
+            checklist._checks,
             console=self.mock_console,
             fs=self.mock_fs,
             check_all=True,

@@ -174,7 +174,7 @@ def get_precommit(args):
     else:
         checklist = Checklist()
         precommit_module.init(checklist)
-        precommit = Precommit.from_args(checklist.checks, args)
+        precommit = Precommit.from_args(checklist._checks, args)
         return precommit
 
 
