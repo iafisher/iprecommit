@@ -59,11 +59,13 @@ class Precommit:
 
         for check in self._checks:
             if not self.should_run(check):
-                self.print_check_header_and_status(check, "skipped")
+                if self.verbose:
+                    self.print_check_header_and_status(check, "skipped")
                 continue
 
             if not check.filter(repository.staged):
-                self.print_check_header_and_status(check, "skipped")
+                if self.verbose:
+                    self.print_check_header_and_status(check, "skipped")
                 continue
 
             self.pre_check(check)
@@ -87,11 +89,17 @@ class Precommit:
             return
 
         for check in self._checks:
-            if not self.should_run(check) or not check.is_fixable():
+            if not check.is_fixable():
+                continue
+
+            if not self.should_run(check):
+                if self.verbose:
+                    self.print_check_header_and_status(check, "skipped")
                 continue
 
             if not check.filter(repository.staged):
-                self.print_check_header_and_status(check, "skipped")
+                if self.verbose:
+                    self.print_check_header_and_status(check, "skipped")
                 continue
 
             self.pre_check(check)
