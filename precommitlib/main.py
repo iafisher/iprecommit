@@ -214,6 +214,12 @@ def init(precommit):
 
     # Check Rust format with rustfmt.
     precommit.check(checks.RustFormat())
+
+    # Run a custom command.
+    # precommit.checks(checks.Command("UnitTests", ["./test"]))
+
+    # Run a custom command on each file.
+    # precommit.checks(checks.Command("FileCheck", ["check_file"], pass_files=True))
 """
 
 
