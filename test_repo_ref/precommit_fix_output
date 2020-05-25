@@ -14,5 +14,8 @@ o--[ passed! ]
 o--[ JavaScriptLint ]
 o--[ skipped ]
 
+o--[ RustFormat ]
+o--[ skipped ]
+
 
 Ran 3 fixable checks. Detected 2 issues. Fixed 2 of them.

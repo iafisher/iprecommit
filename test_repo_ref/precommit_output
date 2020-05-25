@@ -26,5 +26,8 @@ o--[ passed! ]
 o--[ JavaScriptLint ]
 o--[ skipped ]
 
+o--[ RustFormat ]
+o--[ skipped ]
+
 
 Ran 6 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.

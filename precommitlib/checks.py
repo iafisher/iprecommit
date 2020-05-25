@@ -139,3 +139,14 @@ def JavaScriptLint(*, pattern=r".*\.js$", **kwargs):
         fix=["npx", "eslint", "--fix"],
         **kwargs,
     )
+
+
+def RustFormat(args=[], *, pattern=r".*\.rs$", **kwargs):
+    return Command(
+        "RustFormat",
+        ["cargo", "fmt", "--", "--check"] + args,
+        pass_files=True,
+        pattern=pattern,
+        fix=["cargo", "fmt", "--"] + args,
+        **kwargs,
+    )

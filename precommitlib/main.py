@@ -211,6 +211,9 @@ def init(precommit):
 
     # Lint JavaScript code with ESLint.
     precommit.check(checks.JavaScriptLint())
+
+    # Check Rust format with rustfmt.
+    precommit.check(checks.RustFormat())
 """
 
 
