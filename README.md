@@ -87,10 +87,10 @@ If you need to pass the names of the files to the command, use `pass_files=True`
 precommit.check(checks.Command("FileCheck", ["check_file"], pass_files=True))
 ```
 
-You can restrict the files that the command runs on with `pattern`:
+You can restrict the files that the command runs on with `include`:
 
 ```python
-precommit.check(checks.Command("FileCheck", ["check_file"], pass_files=True, pattern=r".*\.py$"))
+precommit.check(checks.Command("FileCheck", ["check_file"], pass_files=True, include=["*.py"]))
 ```
 
 This will invoke the command `check_file` once, passing every Python file with staged changes as command-line arguments.
@@ -98,10 +98,12 @@ This will invoke the command `check_file` once, passing every Python file with s
 If your command only accepts one file at a time, use `separately`:
 
 ```python
-precommit.check(checks.Command("FileCheck", ["check_file"], pass_files=True, separately=True, pattern=r".*\.py$"))
+precommit.check(checks.Command("FileCheck", ["check_file"], pass_files=True, separately=True, include=["*.py"]))
 ```
 
 This will invoke the command `check_file` for every Python file with staged changes.
+
+You can exclude files and patterns using the `exclude` parameter. Both `include` and `exclude` are lists of Unix-style wildcard patterns. For details, see the [fnmatch](https://docs.python.org/3.6/library/fnmatch.html) module of the Python standard library.
 
 
 ## API reference

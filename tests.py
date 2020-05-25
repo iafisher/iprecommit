@@ -11,7 +11,7 @@ class Test(unittest.TestCase):
         checklist.check(checks.DoNotSubmit())
         checklist.check(checks.NoStagedAndUnstagedChanges())
         checklist.check(checks.NoWhitespaceInFilePath())
-        checklist.check(checks.PythonFormat())
+        checklist.check(checks.PythonFormat(exclude=["ignoreme.py"]))
 
         self.mock_console = MockConsole()
         self.mock_fs = MockFilesystem(self.mock_console, verbose=False)
@@ -33,6 +33,7 @@ class Test(unittest.TestCase):
             multiline(
                 """
             o--[ DoNotSubmit ]
+            |  ignoreme.py
             |  main.py
             o--[ failed! ]
 
@@ -84,7 +85,7 @@ class Test(unittest.TestCase):
                 # Fixing the `PythonFormat` check.
                 ["black", "main.py"],
                 # Adding unstaged changes at the end.
-                ["git", "add", "main.py"],
+                ["git", "add", "main.py", "ignoreme.py"],
             ],
         )
 
@@ -103,7 +104,7 @@ class MockFilesystem(lib.Filesystem):
         self.commands_run = []
 
     def get_staged_files(self):
-        return ["main.py"]
+        return ["main.py", "ignoreme.py"]
 
     def get_staged_for_deletion_files(self):
         return []

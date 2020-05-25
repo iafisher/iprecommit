@@ -1,5 +1,5 @@
 import ast
-import re
+import fnmatch
 import subprocess
 import sys
 import textwrap
@@ -223,10 +223,10 @@ class Checklist:
 
 
 class BaseCheck:
-    def __init__(self, slow=False, pattern=None, exclude=None):
+    def __init__(self, slow=False, include=None, exclude=None):
         self.slow = slow
-        self.pattern = pattern
-        self.exclude = exclude
+        self.include = include if include is not None else []
+        self.exclude = exclude if exclude is not None else []
 
     def check(self, fs, repository):
         raise NotImplementedError
@@ -238,15 +238,21 @@ class BaseCheck:
         return False
 
     def filter(self, paths):
-        if self.pattern:
-            regex = re.compile(self.pattern)
-            filtered = [p for p in paths if regex.match(p)]
+        if self.include:
+            filtered = [
+                p
+                for p in paths
+                if any(fnmatch.fnmatch(p, pattern) for pattern in self.include)
+            ]
         else:
             filtered = paths
 
         if self.exclude:
-            regex = re.compile(self.exclude)
-            filtered = [p for p in filtered if not regex.match(p)]
+            filtered = [
+                p
+                for p in filtered
+                if not any(fnmatch.fnmatch(p, pattern) for pattern in self.exclude)
+            ]
 
         return filtered
 

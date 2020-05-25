@@ -92,61 +92,65 @@ class Command(BaseCheck):
         return self.fix is not None
 
 
-def PythonFormat(args=[], *, pattern=r".*\.py$", **kwargs):
+def PythonFormat(args=[], *, include=[], **kwargs):
     return Command(
         "PythonFormat",
         ["black", "--check"] + args,
         pass_files=True,
-        pattern=pattern,
+        include=["*.py"] + include,
         fix=["black"] + args,
         **kwargs,
     )
 
 
-def PythonLint(args=[], *, pattern=r".*\.py$", **kwargs):
+def PythonLint(args=[], *, include=[], **kwargs):
     return Command(
         "PythonLint",
         ["flake8", "--max-line-length=88"] + args,
         pass_files=True,
-        pattern=pattern,
+        include=["*.py"] + include,
         **kwargs,
     )
 
 
-def PythonImportOrder(args=[], *, pattern=r".*\.py$", **kwargs):
+def PythonImportOrder(args=[], *, include=[], **kwargs):
     return Command(
         "PythonImportOrder",
         ["isort", "-c"] + args,
         pass_files=True,
-        pattern=pattern,
+        include=["*.py"] + include,
         fix=["isort"] + args,
         **kwargs,
     )
 
 
-def PythonTypes(args=[], *, pattern=r".*\.py$", **kwargs):
+def PythonTypes(args=[], *, include=[], **kwargs):
     return Command(
-        "PythonTypes", ["mypy"] + args, pass_files=True, pattern=pattern, **kwargs
+        "PythonTypes",
+        ["mypy"] + args,
+        pass_files=True,
+        include=["*.py"] + include,
+        **kwargs,
     )
 
 
-def JavaScriptLint(*, pattern=r".*\.js$", **kwargs):
+def JavaScriptLint(*, include=[], **kwargs):
     return Command(
         "JavaScriptLint",
         ["npx", "eslint"],
         pass_files=True,
-        pattern=pattern,
+        include=["*.js"] + include,
         fix=["npx", "eslint", "--fix"],
         **kwargs,
     )
 
 
-def RustFormat(args=[], *, pattern=r".*\.rs$", **kwargs):
+def RustFormat(args=[], *, include=[], **kwargs):
     return Command(
         "RustFormat",
         ["cargo", "fmt", "--", "--check"] + args,
         pass_files=True,
-        pattern=pattern,
+        include=["*.rs"] + include,
         fix=["cargo", "fmt", "--"] + args,
         **kwargs,
     )
