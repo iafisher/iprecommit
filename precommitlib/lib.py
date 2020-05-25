@@ -224,6 +224,12 @@ class Checklist:
 
 class BaseCheck:
     def __init__(self, slow=False, include=None, exclude=None):
+        if isinstance(include, str):
+            raise UsageError("include should be a list of strings")
+
+        if isinstance(exclude, str):
+            raise UsageError("exclude should be a list of strings")
+
         self.slow = slow
         self.include = include if include is not None else []
         self.exclude = exclude if exclude is not None else []

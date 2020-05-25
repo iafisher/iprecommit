@@ -8,8 +8,8 @@ def init(precommit):
     precommit.check(checks.DoNotSubmit())
 
     # Language-specific checks
-    precommit.check(checks.PythonFormat(exclude="test_repo"))
-    precommit.check(checks.PythonLint(exclude="test_repo"))
+    precommit.check(checks.PythonFormat(exclude=["test_repo/*"]))
+    precommit.check(checks.PythonLint(exclude=["test_repo/*"]))
 
     # Test suite
     precommit.check(checks.Command("UnitTests", ["python3", "tests.py"]))
