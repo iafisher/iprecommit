@@ -12,5 +12,11 @@ def init(precommit):
     precommit.check(checks.PythonLint(exclude=["test_repo/*"]))
 
     # Test suite
-    precommit.check(checks.Command("UnitTests", ["python3", "tests.py"]))
-    precommit.check(checks.Command("FunctionalTests", ["./functional_test"], slow=True))
+    precommit.check(
+        checks.Command("UnitTests", ["python3", "tests.py"], exclude=["*.md"])
+    )
+    precommit.check(
+        checks.Command(
+            "FunctionalTests", ["./functional_test"], exclude=["*.md"], slow=True
+        )
+    )
