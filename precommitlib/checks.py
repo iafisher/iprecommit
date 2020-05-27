@@ -69,8 +69,8 @@ class Command(BaseCheck):
         if self.separately:
             problem = False
             for path in self.filter(repository.staged):
-                returncode = fs.run(self.cmd + [path], capture_output=False)
-                if returncode != 0:
+                r = fs.run(self.cmd + [path], capture_output=False)
+                if r.returncode != 0:
                     problem = True
 
             if problem:
@@ -80,8 +80,8 @@ class Command(BaseCheck):
         else:
             args = self.filter(repository.staged) if self.pass_files else []
             cmd = self.cmd + args
-            returncode = fs.run(cmd, capture_output=False)
-            if returncode != 0:
+            r = fs.run(cmd, capture_output=False)
+            if r.returncode != 0:
                 autofix = self.fix + args if self.fix else None
                 return Problem(autofix=autofix)
 

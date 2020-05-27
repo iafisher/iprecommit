@@ -3,9 +3,9 @@ o--[ NoStagedAndUnstagedChanges ]
 o--[ fixed! ]
 
 o--[ PythonFormat ]
-|  would reformat bad_python_format.py
-|  All done! 💥 💔 💥
-|  1 file would be reformatted.
+|  reformatted bad_python_format.py
+|  All done! ✨ 🍰 ✨
+|  1 file reformatted.
 o--[ fixed! ]
 
 o--[ PythonImportOrder ]

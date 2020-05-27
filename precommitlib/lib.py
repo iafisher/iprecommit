@@ -4,6 +4,7 @@ import subprocess
 import sys
 import textwrap
 import time
+from collections import namedtuple
 
 from . import utils
 
@@ -103,11 +104,13 @@ class Precommit:
                 continue
 
             self.pre_check(check)
+            self._fs.disable_cmd_output = True
             problem = check.check(self._fs, repository)
+            self._fs.disable_cmd_output = False
 
             if not self.dry_run:
                 if problem and problem.autofix:
-                    self._fs.run(problem.autofix)
+                    self._fs.run(problem.autofix, capture_output=False)
 
             status = utils.green("fixed!") if problem else utils.green("passed!")
             self.post_check(check, status, problem)
@@ -292,6 +295,7 @@ class Filesystem:
         # starts, but if we assign `blue("|  ")` to a class attribute then it gets
         # colored before the colors are turned off.
         self.prefix = utils.blue("|  ")
+        self.disable_cmd_output = False
 
     @classmethod
     def from_args(cls, console, args):
@@ -316,8 +320,9 @@ class Filesystem:
         if self.verbose:
             self._console.print("Running command: " + " ".join(cmd))
 
-        if capture_output:
-            return subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if self.disable_cmd_output or capture_output:
+            r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            return CommandResult(returncode=r.returncode, stdout=r.stdout)
         else:
             # Normally this isn't necessary, but sometimes when you pipe precommit
             # itself to another command or to a file (as the functional test does), then
@@ -333,11 +338,15 @@ class Filesystem:
                 stdin=ps.stdout,
                 stderr=subprocess.STDOUT,
             )
-            return ps.wait()
+            returncode = ps.wait()
+            return CommandResult(returncode=returncode, stdout=None)
 
     def _read_files_from_git(self, args):
         result = self.run(["git", "diff", "--name-only"] + args)
         return [decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()]
+
+
+CommandResult = namedtuple("CommandResult", ["returncode", "stdout"])
 
 
 class Console:
