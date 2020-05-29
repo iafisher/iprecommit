@@ -8,12 +8,6 @@ _NO_COLOR = False
 VERBOSE = False
 
 
-def turn_on_colors():
-    """Turns on colored output globally for the program."""
-    global _NO_COLOR
-    _NO_COLOR = False
-
-
 def turn_off_colors():
     """Turns off colored output globally for the program."""
     global _NO_COLOR

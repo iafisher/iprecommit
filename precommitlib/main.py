@@ -11,6 +11,7 @@ from .lib import Checklist, Precommit
 
 def main():
     args = handle_args(sys.argv[1:])
+    configure_globals(args)
 
     chdir_to_git_root()
     if args.subcommand == "help" or args.flags["--help"]:
@@ -84,12 +85,6 @@ Args = namedtuple("Args", ["subcommand", "positional", "flags"])
 
 
 def handle_args(args):
-    # Check for the NO_COLOR environment variable and for a non-terminal standard output
-    # before handling command-line arguments so that it can be overridden by explicitly
-    # specifying --color.
-    if "NO_COLOR" in os.environ and not sys.stdout.isatty():
-        utils.turn_off_colors()
-
     args = parse_args(args)
     errormsg = check_args(args)
     if errormsg:
@@ -98,13 +93,6 @@ def handle_args(args):
     for flag in FLAGS:
         if flag not in args.flags:
             args.flags[flag] = False
-
-    if args.flags["--color"]:
-        utils.turn_on_colors()
-    elif args.flags["--no-color"]:
-        utils.turn_off_colors()
-
-    utils.VERBOSE = args.flags["--verbose"]
 
     return args
 
@@ -156,6 +144,23 @@ def check_args(args):
                 return f"flag {flag} not valid for {args.subcommand} subcommand"
 
     return None
+
+
+def configure_globals(args):
+    # Check for the NO_COLOR environment variable and for a non-terminal standard output
+    # before handling command-line arguments so that it can be overridden by explicitly
+    # specifying --color.
+    no_color = "NO_COLOR" in os.environ or not sys.stdout.isatty()
+
+    if args.flags["--color"]:
+        no_color = False
+    elif args.flags["--no-color"]:
+        no_color = True
+
+    if no_color:
+        utils.turn_off_colors()
+
+    utils.VERBOSE = args.flags["--verbose"]
 
 
 def get_precommit(args):
