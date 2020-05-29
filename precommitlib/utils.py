@@ -5,6 +5,9 @@ _COLOR_RESET = "0"
 _NO_COLOR = False
 
 
+VERBOSE = False
+
+
 def turn_on_colors():
     """Turns on colored output globally for the program."""
     global _NO_COLOR

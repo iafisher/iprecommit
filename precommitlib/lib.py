@@ -10,7 +10,7 @@ from . import utils
 
 
 class Precommit:
-    def __init__(self, checks, *, console, fs, check_all, dry_run, verbose):
+    def __init__(self, checks, *, console, fs, check_all, dry_run):
         """
         Parameters:
           checks: The list of checks to run.
@@ -27,7 +27,6 @@ class Precommit:
         self._checks = checks
         self.check_all = check_all
         self.dry_run = dry_run
-        self.verbose = verbose
 
         self.num_of_checks = 0
         self.num_of_problems = 0
@@ -43,7 +42,6 @@ class Precommit:
             fs=fs,
             check_all=args.flags["--all"],
             dry_run=args.flags["--dry-run"],
-            verbose=args.flags["--verbose"],
         )
 
     def check(self):
@@ -60,12 +58,12 @@ class Precommit:
 
         for check in self._checks:
             if not self.should_run(check):
-                if self.verbose:
+                if utils.VERBOSE:
                     self.print_check_header_and_status(check, "skipped")
                 continue
 
             if not check.filter(repository.staged):
-                if self.verbose:
+                if utils.VERBOSE:
                     self.print_check_header_and_status(check, "skipped")
                 continue
 
@@ -94,12 +92,12 @@ class Precommit:
                 continue
 
             if not self.should_run(check):
-                if self.verbose:
+                if utils.VERBOSE:
                     self.print_check_header_and_status(check, "skipped")
                 continue
 
             if not check.filter(repository.staged):
-                if self.verbose:
+                if utils.VERBOSE:
                     self.print_check_header_and_status(check, "skipped")
                 continue
 
@@ -166,7 +164,7 @@ class Precommit:
             )
 
     def pre_check(self, check):
-        if self.verbose:
+        if utils.VERBOSE:
             self._console.print(f"Running {check.get_name()}")
             self.check_start = time.monotonic()
 
@@ -181,7 +179,7 @@ class Precommit:
 
         self.print_check_status(status)
 
-        if self.verbose:
+        if utils.VERBOSE:
             self.check_end = time.monotonic()
             elapsed = self.check_end - self.check_start
             elapsed_since_start = self.check_end - self.start
@@ -288,9 +286,8 @@ class Problem:
 
 
 class Filesystem:
-    def __init__(self, console, *, verbose):
+    def __init__(self, console):
         self._console = console
-        self.verbose = verbose
         # This is a function because the test suite turns off colors after the program
         # starts, but if we assign `blue("|  ")` to a class attribute then it gets
         # colored before the colors are turned off.
@@ -299,7 +296,7 @@ class Filesystem:
 
     @classmethod
     def from_args(cls, console, args):
-        return cls(console, verbose=args.flags["--verbose"])
+        return cls(console)
 
     def get_staged_files(self):
         return self._read_files_from_git(["--cached", "--diff-filter=d"])
@@ -317,7 +314,7 @@ class Filesystem:
         self._console.print(textwrap.indent(msg, self.prefix))
 
     def run(self, cmd, *, capture_output=True):
-        if self.verbose:
+        if utils.VERBOSE:
             self._console.print("Running command: " + " ".join(cmd))
 
         if self.disable_cmd_output or capture_output:

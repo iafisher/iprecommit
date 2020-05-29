@@ -14,14 +14,13 @@ class Test(unittest.TestCase):
         checklist.check(checks.PythonFormat(exclude=["ignoreme.py"]))
 
         self.mock_console = MockConsole()
-        self.mock_fs = MockFilesystem(self.mock_console, verbose=False)
+        self.mock_fs = MockFilesystem(self.mock_console)
         self.precommit = lib.Precommit(
             checklist._checks,
             console=self.mock_console,
             fs=self.mock_fs,
             check_all=True,
             dry_run=False,
-            verbose=False,
         )
 
     def test_check_command(self):

@@ -104,6 +104,8 @@ def handle_args(args):
     elif args.flags["--no-color"]:
         utils.turn_off_colors()
 
+    utils.VERBOSE = args.flags["--verbose"]
+
     return args
 
 
