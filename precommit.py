@@ -13,9 +13,6 @@ def init(precommit):
 
     # Test suite
     precommit.check(
-        checks.Command("UnitTests", ["python3", "tests.py"], exclude=["*.md"])
-    )
-    precommit.check(
         checks.Command(
             "FunctionalTests", ["./functional_test"], exclude=["*.md"], slow=True
         )

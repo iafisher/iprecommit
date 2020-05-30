@@ -2,7 +2,6 @@ import ast
 import fnmatch
 import subprocess
 import sys
-import textwrap
 import time
 from collections import namedtuple
 
@@ -10,17 +9,13 @@ from . import utils
 
 
 class Precommit:
-    def __init__(self, checks, *, console, fs, check_all, dry_run):
+    def __init__(self, checks, *, check_all, dry_run):
         """
         Parameters:
           checks: The list of checks to run.
-          console: The interface to the console (for showing output).
-          fs: The interface to the file system (for running commands).
-          check_all: Whether to run all checks.
+          check_all: Whether to run all checks, including slow ones.
           dry_run: Whether to actually run fix commands or just pretend to.
         """
-        self._console = console
-        self._fs = fs
         # Calling it `self._checks` instead of `self.checks` avoids giving a confusing
         # error message for the common typo of `precommit.checks(...)` instead of
         # `precommit.check(...)`.
@@ -34,26 +29,20 @@ class Precommit:
 
     @classmethod
     def from_args(cls, checks, args):
-        console = Console()
-        fs = Filesystem.from_args(console, args)
         return cls(
-            checks,
-            console=console,
-            fs=fs,
-            check_all=args.flags["--all"],
-            dry_run=args.flags["--dry-run"],
+            checks, check_all=args.flags["--all"], dry_run=args.flags["--dry-run"]
         )
 
     def check(self):
         """Find problems and print a message for each."""
         if not self._checks:
-            self._console.print("No checks were registered.")
+            print("No checks were registered.")
             return
 
         self.start = time.monotonic()
         repository = self.get_repository()
         if not (repository.staged or repository.staged_deleted):
-            self._console.print("No files are staged.")
+            print("No files are staged.")
             return
 
         for check in self._checks:
@@ -68,7 +57,7 @@ class Precommit:
                 continue
 
             self.pre_check(check)
-            problem = check.check(self._fs, repository)
+            problem = check.check(repository, stream_output=True)
             status = utils.red("failed!") if problem else utils.green("passed!")
             self.post_check(check, status, problem)
 
@@ -78,13 +67,13 @@ class Precommit:
     def fix(self):
         """Find problems and fix the ones that can be fixed automatically."""
         if not self._checks:
-            self._console.print("No checks were registered.")
+            print("No checks were registered.")
             return
 
         self.start = time.monotonic()
         repository = self.get_repository()
         if not (repository.staged or repository.staged_deleted):
-            self._console.print("No files are staged.")
+            print("No files are staged.")
             return
 
         for check in self._checks:
@@ -102,29 +91,25 @@ class Precommit:
                 continue
 
             self.pre_check(check)
-            self._fs.disable_cmd_output = True
-            problem = check.check(self._fs, repository)
-            self._fs.disable_cmd_output = False
+            problem = check.check(repository, stream_output=False)
 
             if not self.dry_run:
                 if problem and problem.autofix:
-                    self._fs.run(problem.autofix, capture_output=False)
+                    run(problem.autofix, stream_output=True)
 
             status = utils.green("fixed!") if problem else utils.green("passed!")
             self.post_check(check, status, problem)
 
         if not self.dry_run:
-            self._fs.run(["git", "add"] + repository.staged)
+            run(["git", "add"] + repository.staged, stream_output=False)
 
         self.print_summary_for_fix()
 
     def print_summary_for_check(self):
-        self._console.print()
-        self._console.print(
-            "Ran", utils.blue(utils.plural(self.num_of_checks, "check")), end=". "
-        )
+        print()
+        print("Ran", utils.blue(utils.plural(self.num_of_checks, "check")), end=". ")
         if self.num_of_problems > 0:
-            self._console.print(
+            print(
                 f"Detected {utils.red(utils.plural(self.num_of_problems, 'issue'))}",
                 end=". ",
             )
@@ -135,37 +120,35 @@ class Precommit:
                 else:
                     n = utils.blue(f"{self.num_of_fixable_problems} of them")
 
-                self._console.print(
-                    f"Fix {n} with '{utils.blue('precommit fix')}'.", end=""
-                )
+                print(f"Fix {n} with '{utils.blue('precommit fix')}'.", end="")
 
-            self._console.print()
+            print()
         else:
-            self._console.print(f"{utils.green('No issues')} detected.")
+            print(f"{utils.green('No issues')} detected.")
 
     def print_summary_for_fix(self):
-        self._console.print()
-        self._console.print(
+        print()
+        print(
             "Ran",
             utils.blue(utils.plural(self.num_of_checks, "fixable check")),
             end=". ",
         )
-        self._console.print(
+        print(
             "Detected", utils.red(utils.plural(self.num_of_problems, "issue")), end=". "
         )
         if self.dry_run:
-            self._console.print(
+            print(
                 f"Would have fixed",
                 utils.green(f"{self.num_of_fixable_problems} of them") + ".",
             )
         else:
-            self._console.print(
+            print(
                 "Fixed " + utils.green(f"{self.num_of_fixable_problems} of them") + "."
             )
 
     def pre_check(self, check):
         if utils.VERBOSE:
-            self._console.print(f"Running {check.get_name()}")
+            print(f"Running {check.get_name()}")
             self.check_start = time.monotonic()
 
         self.num_of_checks += 1
@@ -183,29 +166,29 @@ class Precommit:
             self.check_end = time.monotonic()
             elapsed = self.check_end - self.check_start
             elapsed_since_start = self.check_end - self.start
-            self._console.print(f"Finished in {elapsed:.2f}s. ", end="")
-            self._console.print(f"{elapsed_since_start:.2f}s since start.")
+            print(f"Finished in {elapsed:.2f}s. ", end="")
+            print(f"{elapsed_since_start:.2f}s since start.")
 
-        self._console.print()
+        print()
 
     def print_check_header_and_status(self, check, status):
         self.print_check_header(check)
         self.print_check_status(status)
-        self._console.print()
+        print()
 
     def print_check_header(self, check):
-        self._console.print(utils.blue("o--[ " + check.get_name() + " ]"))
+        print(utils.blue("o--[ " + check.get_name() + " ]"))
 
     def print_check_status(self, status):
-        self._console.print(utils.blue("o--[ ") + status + utils.blue(" ]"))
+        print(utils.blue("o--[ ") + status + utils.blue(" ]"))
 
     def should_run(self, check):
         return not check.slow or self.check_all
 
     def get_repository(self):
-        staged = self._fs.get_staged_files()
-        staged_deleted = self._fs.get_staged_for_deletion_files()
-        unstaged = self._fs.get_unstaged_files()
+        staged = get_staged_files()
+        staged_deleted = get_staged_for_deletion_files()
+        unstaged = get_unstaged_files()
         return Repository(
             staged=staged, staged_deleted=staged_deleted, unstaged=unstaged
         )
@@ -285,70 +268,50 @@ class Problem:
         self.message = message
 
 
-class Filesystem:
-    def __init__(self, console):
-        self._console = console
-        # This is a function because the test suite turns off colors after the program
-        # starts, but if we assign `blue("|  ")` to a class attribute then it gets
-        # colored before the colors are turned off.
-        self.prefix = utils.blue("|  ")
-        self.disable_cmd_output = False
+def get_staged_files():
+    return _read_files_from_git(["--cached", "--diff-filter=d"])
 
-    @classmethod
-    def from_args(cls, console, args):
-        return cls(console)
 
-    def get_staged_files(self):
-        return self._read_files_from_git(["--cached", "--diff-filter=d"])
+def get_staged_for_deletion_files():
+    return _read_files_from_git(["--cached", "--diff-filter=D"])
 
-    def get_staged_for_deletion_files(self):
-        return self._read_files_from_git(["--cached", "--diff-filter=D"])
 
-    def get_unstaged_files(self):
-        return self._read_files_from_git([])
+def get_unstaged_files():
+    return _read_files_from_git([])
 
-    def open(self, *args, **kwargs):
-        return open(*args, **kwargs)
 
-    def print(self, msg):
-        self._console.print(textwrap.indent(msg, self.prefix))
+def _read_files_from_git(args):
+    result = run(["git", "diff", "--name-only"] + args, stream_output=False)
+    return [decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()]
 
-    def run(self, cmd, *, capture_output=True):
-        if utils.VERBOSE:
-            self._console.print("Running command: " + " ".join(cmd))
 
-        if self.disable_cmd_output or capture_output:
-            r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            return CommandResult(returncode=r.returncode, stdout=r.stdout)
-        else:
-            # Normally this isn't necessary, but sometimes when you pipe precommit
-            # itself to another command or to a file (as the functional test does), then
-            # it will print all the output of the command below before any of
-            # precommit's output, for reasons that remain obscure to me.
-            sys.stdout.flush()
+def run(cmd, *, stream_output):
+    if utils.VERBOSE:
+        print("Running command: " + " ".join(cmd))
 
-            # Print the prefix before each line of the command's output by piping it to
-            # sed.
-            ps = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            subprocess.run(
-                ["sed", "-e", "s/^/" + self.prefix + "/"],
-                stdin=ps.stdout,
-                stderr=subprocess.STDOUT,
-            )
-            returncode = ps.wait()
-            return CommandResult(returncode=returncode, stdout=None)
+    if not stream_output:
+        r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        return CommandResult(returncode=r.returncode, stdout=r.stdout)
+    else:
+        # Normally this isn't necessary, but sometimes when you pipe precommit
+        # itself to another command or to a file (as the functional test does), then
+        # it will print all the output of the command below before any of
+        # precommit's output, for reasons that remain obscure to me.
+        sys.stdout.flush()
 
-    def _read_files_from_git(self, args):
-        result = self.run(["git", "diff", "--name-only"] + args)
-        return [decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()]
+        # Print the prefix before each line of the command's output by piping it to
+        # sed.
+        ps = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        subprocess.run(
+            ["sed", "-e", "s/^/" + utils.blue("|  ") + "/"],
+            stdin=ps.stdout,
+            stderr=subprocess.STDOUT,
+        )
+        returncode = ps.wait()
+        return CommandResult(returncode=returncode, stdout=None)
 
 
 CommandResult = namedtuple("CommandResult", ["returncode", "stdout"])
-
-
-class Console:
-    def print(self, *args, **kwargs):
-        print(*args, **kwargs)
 
 
 class Repository:

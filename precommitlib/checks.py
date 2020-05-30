@@ -1,14 +1,22 @@
-from .lib import BaseCheck, Problem, UsageError
+import textwrap
+
+from . import utils
+from .lib import BaseCheck, Problem, UsageError, run
+
+
+def stream(msg):
+    print(textwrap.indent(msg, utils.blue("|  ")))
 
 
 class NoStagedAndUnstagedChanges(BaseCheck):
     """Checks that each staged file doesn't also have unstaged changes."""
 
-    def check(self, fs, repository):
+    def check(self, repository, *, stream_output):
         both = set(repository.staged).intersection(set(repository.unstaged))
         if both:
             message = "\n".join(sorted(both))
-            fs.print(message)
+            if stream_output:
+                stream(message)
             return Problem(autofix=["git", "add"] + list(both))
 
     def is_fixable(self):
@@ -22,23 +30,24 @@ DO_NOT_SUBMIT = "DO NOT " + "SUBMIT"
 class DoNotSubmit(BaseCheck):
     f"""Checks that files do not contain the string '{DO_NOT_SUBMIT}'."""
 
-    def check(self, fs, repository):
+    def check(self, repository, *, stream_output):
         bad_paths = []
         for path in self.filter(repository.staged):
-            with fs.open(path, "rb") as f:
+            with open(path, "rb") as f:
                 if DO_NOT_SUBMIT.encode("ascii") in f.read().upper():
                     bad_paths.append(path)
 
         if bad_paths:
             message = "\n".join(sorted(bad_paths))
-            fs.print(message)
+            if stream_output:
+                stream(message)
             return Problem(f"file contains '{DO_NOT_SUBMIT}'")
 
 
 class NoWhitespaceInFilePath(BaseCheck):
     """Checks that file paths do not contain whitespace."""
 
-    def check(self, fs, repository):
+    def check(self, repository, *, stream_output):
         bad_paths = []
         for path in self.filter(repository.staged):
             if any(c.isspace() for c in path):
@@ -46,7 +55,8 @@ class NoWhitespaceInFilePath(BaseCheck):
 
         if bad_paths:
             message = "\n".join(sorted(bad_paths))
-            fs.print(message)
+            if stream_output:
+                stream(message)
             return Problem("file path contains whitespace")
 
 
@@ -65,11 +75,11 @@ class Command(BaseCheck):
         self.pass_files = pass_files
         self.separately = separately
 
-    def check(self, fs, repository):
+    def check(self, repository, *, stream_output):
         if self.separately:
             problem = False
             for path in self.filter(repository.staged):
-                r = fs.run(self.cmd + [path], capture_output=False)
+                r = run(self.cmd + [path], stream_output=stream_output)
                 if r.returncode != 0:
                     problem = True
 
@@ -80,7 +90,7 @@ class Command(BaseCheck):
         else:
             args = self.filter(repository.staged) if self.pass_files else []
             cmd = self.cmd + args
-            r = fs.run(cmd, capture_output=False)
+            r = run(cmd, stream_output=stream_output)
             if r.returncode != 0:
                 autofix = self.fix + args if self.fix else None
                 return Problem(autofix=autofix)
