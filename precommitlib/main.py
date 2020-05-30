@@ -233,6 +233,9 @@ def init(precommit):
     # Check the order of Python imports with isort.
     precommit.check(checks.PythonImportOrder())
 
+    # Check that requirements.txt matches pip freeze.
+    precommit.check(checks.PipFreeze())
+
     # Check Python static type annotations with mypy.
     # precommit.check(checks.PythonTypes())
 

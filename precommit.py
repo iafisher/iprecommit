@@ -11,6 +11,7 @@ def init(precommit):
     precommit.check(checks.PythonFormat(exclude=["test_repo/*"]))
     precommit.check(checks.PythonLint(exclude=["test_repo/*"]))
     precommit.check(checks.PythonTypes(exclude=["test_repo/*"]))
+    precommit.check(checks.PipFreeze())
 
     # Test suite
     precommit.check(

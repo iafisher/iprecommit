@@ -4,8 +4,9 @@ A suite of useful pre-commit checks.
 Author:  Ian Fisher (iafisher@fastmail.com)
 Version: May 2020
 """
+import shlex
 import textwrap
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from . import utils
 from .lib import (
@@ -95,8 +96,9 @@ class Command(BaseCheck):
     def __init__(
         self,
         name: str,
-        cmd: List[str],
+        cmd: Union[List[str], str],
         fix: Optional[List[str]] = None,
+        shell: bool = False,
         pass_files: bool = False,
         separately: bool = False,
         **kwargs,
@@ -109,6 +111,7 @@ class Command(BaseCheck):
         if separately is True and pass_files is False:
             raise UsageError("if `separately` is True, `pass_files` must also be True")
 
+        self.shell = shell
         self.pass_files = pass_files
         self.separately = separately
 
@@ -116,7 +119,13 @@ class Command(BaseCheck):
         if self.separately:
             problem = False
             for path in files:
-                r = run(self.cmd + [path], stream_output=stream_output)
+                cmd: Union[List[str], str]
+                if isinstance(self.cmd, str):
+                    cmd = self.cmd + " " + shlex.quote(path)
+                else:
+                    cmd = self.cmd + [path]
+
+                r = run(cmd, shell=self.shell, stream_output=stream_output)
                 if r.returncode != 0:
                     problem = True
 
@@ -126,8 +135,12 @@ class Command(BaseCheck):
                 return Problem(autofix=self.fix)
         else:
             args = files if self.pass_files else []
-            cmd = self.cmd + args
-            r = run(cmd, stream_output=stream_output)
+            if isinstance(self.cmd, str):
+                cmd = self.cmd + " " + " ".join(map(shlex.quote, args))
+            else:
+                cmd = self.cmd + args
+
+            r = run(cmd, shell=self.shell, stream_output=stream_output)
             if r.returncode != 0:
                 autofix = self.fix + args if self.fix else None
                 return Problem(autofix=autofix)
@@ -185,6 +198,15 @@ def PythonTypes(
         ["mypy"] + args,
         pass_files=True,
         include=["*.py"] + include,
+        **kwargs,
+    )
+
+
+def PipFreeze(**kwargs):
+    return Command(
+        "PipFreeze",
+        "[ ! -e requirements.txt ] || pip freeze | diff - requirements.txt",
+        shell=True,
         **kwargs,
     )
 

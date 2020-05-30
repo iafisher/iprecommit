@@ -13,7 +13,7 @@ import subprocess
 import sys
 import time
 from collections import namedtuple
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from . import utils
 
@@ -312,7 +312,9 @@ def _read_files_from_git(args: List[str]) -> List[str]:
 CommandResult = namedtuple("CommandResult", ["returncode", "stdout"])
 
 
-def run(cmd: List[str], *, stream_output: bool) -> CommandResult:
+def run(
+    cmd: Union[List[str], str], *, shell: bool = False, stream_output: bool
+) -> CommandResult:
     """
     Runs a shell command.
 
@@ -326,7 +328,9 @@ def run(cmd: List[str], *, stream_output: bool) -> CommandResult:
         print("Running command: " + " ".join(cmd))
 
     if not stream_output:
-        r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        r = subprocess.run(
+            cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
         return CommandResult(returncode=r.returncode, stdout=r.stdout)
     else:
         # Normally this isn't necessary, but sometimes when you pipe precommit
@@ -337,7 +341,9 @@ def run(cmd: List[str], *, stream_output: bool) -> CommandResult:
 
         # Print the prefix before each line of the command's output by piping it to
         # sed.
-        ps = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        ps = subprocess.Popen(
+            cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+        )
         subprocess.run(
             ["sed", "-e", "s/^/" + utils.blue("|  ") + "/"],
             stdin=ps.stdout,

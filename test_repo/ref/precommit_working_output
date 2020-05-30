@@ -22,5 +22,8 @@ o--[ failed! ]
 o--[ PythonImportOrder ]
 o--[ passed! ]
 
+o--[ PipFreeze ]
+o--[ passed! ]
 
-Ran 6 checks. Detected 2 issues. Fix 1 of them with 'precommit fix'.
+
+Ran 7 checks. Detected 2 issues. Fix 1 of them with 'precommit fix'.
