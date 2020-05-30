@@ -19,17 +19,21 @@ from . import utils
 
 
 class Precommit:
-    def __init__(self, checks: List["BaseCheck"], *, check_all: bool) -> None:
+    def __init__(
+        self, checks: List["BaseCheck"], *, check_all: bool, working: bool
+    ) -> None:
         """
         Parameters:
           checks: The list of checks to run.
           check_all: Whether to run all checks, including slow ones.
+          working: Whether to check the working directory as well as staged files.
         """
         # Calling it `self._checks` instead of `self.checks` avoids giving a confusing
         # error message for the common typo of `precommit.checks(...)` instead of
         # `precommit.check(...)`.
         self._checks = checks
         self.check_all = check_all
+        self.working = working
 
         self.num_of_checks = 0
         self.num_of_problems = 0
@@ -47,8 +51,13 @@ class Precommit:
 
         self.start = time.monotonic()
         repository = self.get_repository()
-        if not (repository.staged or repository.staged_deleted):
-            print("No files are staged.")
+        files = (
+            repository.unstaged + repository.staged
+            if self.working
+            else repository.staged
+        )
+        if not (files or repository.staged_deleted):
+            print("No files to check.")
             return False
 
         for check in self._checks:
@@ -57,13 +66,13 @@ class Precommit:
                     self.print_check_header_and_status(check, "skipped")
                 continue
 
-            if not check.filter(repository.staged):
+            if not check.filter(files):
                 if utils.VERBOSE:
                     self.print_check_header_and_status(check, "skipped")
                 continue
 
             self.pre_check(check)
-            problem = check.check(repository, stream_output=True)
+            problem = check.check(check.filter(files), stream_output=True)
             status = utils.red("failed!") if problem else utils.green("passed!")
             self.post_check(check, status, problem)
 
@@ -78,9 +87,13 @@ class Precommit:
 
         self.start = time.monotonic()
         repository = self.get_repository()
-        if not (repository.staged or repository.staged_deleted):
-            print("No files are staged.")
-            return
+        files = (
+            repository.unstaged + repository.staged
+            if self.working
+            else repository.staged
+        )
+        if not (files or repository.staged_deleted):
+            print("No files to fix.")
 
         for check in self._checks:
             if not check.is_fixable():
@@ -91,13 +104,13 @@ class Precommit:
                     self.print_check_header_and_status(check, "skipped")
                 continue
 
-            if not check.filter(repository.staged):
+            if not check.filter(files):
                 if utils.VERBOSE:
                     self.print_check_header_and_status(check, "skipped")
                 continue
 
             self.pre_check(check)
-            problem = check.check(repository, stream_output=False)
+            problem = check.check(check.filter(files), stream_output=False)
 
             if problem and problem.autofix:
                 run(problem.autofix, stream_output=True)
@@ -105,7 +118,7 @@ class Precommit:
             status = utils.green("fixed!") if problem else utils.green("passed!")
             self.post_check(check, status, problem)
 
-        run(["git", "add"] + repository.staged, stream_output=False)
+        run(["git", "add"] + files, stream_output=False)
         self.print_summary_for_fix()
 
     def print_summary_for_check(self) -> None:
@@ -226,9 +239,7 @@ class BaseCheck:
         self.include = include if include is not None else []
         self.exclude = exclude if exclude is not None else []
 
-    def check(
-        self, repository: "Repository", *, stream_output: bool
-    ) -> Optional["Problem"]:
+    def check(self, files: List[str], *, stream_output: bool) -> Optional["Problem"]:
         raise NotImplementedError
 
     def get_name(self) -> str:

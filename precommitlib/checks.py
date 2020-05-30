@@ -8,7 +8,14 @@ import textwrap
 from typing import List, Optional
 
 from . import utils
-from .lib import BaseCheck, Problem, Repository, UsageError, run
+from .lib import (
+    BaseCheck,
+    Problem,
+    UsageError,
+    get_staged_files,
+    get_unstaged_files,
+    run,
+)
 
 
 def stream(msg: str) -> None:
@@ -27,10 +34,10 @@ def stream(msg: str) -> None:
 class NoStagedAndUnstagedChanges(BaseCheck):
     """Checks that each staged file doesn't also have unstaged changes."""
 
-    def check(
-        self, repository: Repository, *, stream_output: bool
-    ) -> Optional[Problem]:
-        both = set(repository.staged).intersection(set(repository.unstaged))
+    def check(self, files: List[str], *, stream_output: bool) -> Optional[Problem]:
+        staged = get_staged_files()
+        unstaged = get_unstaged_files()
+        both = set(staged).intersection(set(unstaged))
         if both:
             message = "\n".join(sorted(both))
             if stream_output:
@@ -50,11 +57,9 @@ DO_NOT_SUBMIT = "DO NOT " + "SUBMIT"
 class DoNotSubmit(BaseCheck):
     f"""Checks that files do not contain the string '{DO_NOT_SUBMIT}'."""
 
-    def check(
-        self, repository: Repository, *, stream_output: bool
-    ) -> Optional[Problem]:
+    def check(self, files: List[str], *, stream_output: bool) -> Optional[Problem]:
         bad_paths = []
-        for path in self.filter(repository.staged):
+        for path in files:
             with open(path, "rb") as f:
                 if DO_NOT_SUBMIT.encode("ascii") in f.read().upper():
                     bad_paths.append(path)
@@ -71,11 +76,9 @@ class DoNotSubmit(BaseCheck):
 class NoWhitespaceInFilePath(BaseCheck):
     """Checks that file paths do not contain whitespace."""
 
-    def check(
-        self, repository: Repository, *, stream_output: bool
-    ) -> Optional[Problem]:
+    def check(self, files: List[str], *, stream_output: bool) -> Optional[Problem]:
         bad_paths = []
-        for path in self.filter(repository.staged):
+        for path in files:
             if any(c.isspace() for c in path):
                 bad_paths.append(path)
 
@@ -109,12 +112,10 @@ class Command(BaseCheck):
         self.pass_files = pass_files
         self.separately = separately
 
-    def check(
-        self, repository: Repository, *, stream_output: bool
-    ) -> Optional[Problem]:
+    def check(self, files: List[str], *, stream_output: bool) -> Optional[Problem]:
         if self.separately:
             problem = False
-            for path in self.filter(repository.staged):
+            for path in files:
                 r = run(self.cmd + [path], stream_output=stream_output)
                 if r.returncode != 0:
                     problem = True
@@ -124,7 +125,7 @@ class Command(BaseCheck):
                 # file path.
                 return Problem(autofix=self.fix)
         else:
-            args = self.filter(repository.staged) if self.pass_files else []
+            args = files if self.pass_files else []
             cmd = self.cmd + args
             r = run(cmd, stream_output=stream_output)
             if r.returncode != 0:

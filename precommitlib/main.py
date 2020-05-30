@@ -80,7 +80,7 @@ def chdir_to_git_root():
 
 
 SUBCOMMANDS = {"init", "fix", "help", "check"}
-SHORT_FLAGS = {"-f": "--force", "-h": "--help"}
+SHORT_FLAGS = {"-f": "--force", "-h": "--help", "-w": "--working"}
 FLAGS = {
     "--color": set(),
     "--no-color": set(),
@@ -88,6 +88,7 @@ FLAGS = {
     "--verbose": {"fix", "check"},
     "--all": {"fix", "check"},
     "--force": {"init"},
+    "--working": {"fix", "check"},
 }
 Args = namedtuple("Args", ["subcommand", "positional", "flags"])
 
@@ -201,7 +202,11 @@ def get_precommit(args):
         checklist = Checklist()
         precommit_module.init(checklist)
 
-        precommit = Precommit(checklist._checks, check_all=args.flags["--all"])
+        precommit = Precommit(
+            checklist._checks,
+            check_all=args.flags["--all"],
+            working=args.flags["--working"],
+        )
         return precommit
 
 

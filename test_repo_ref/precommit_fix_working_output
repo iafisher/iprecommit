@@ -1,0 +1,14 @@
+o--[ NoStagedAndUnstagedChanges ]
+o--[ passed! ]
+
+o--[ PythonFormat ]
+|  reformatted bad_python_format.py
+|  All done! ✨ 🍰 ✨
+|  1 file reformatted.
+o--[ fixed! ]
+
+o--[ PythonImportOrder ]
+o--[ passed! ]
+
+
+Ran 3 fixable checks. Detected 1 issue. Fixed 1 of them.

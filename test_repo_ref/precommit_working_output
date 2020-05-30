@@ -1,0 +1,26 @@
+o--[ NoStagedAndUnstagedChanges ]
+o--[ passed! ]
+
+o--[ NoWhitespaceInFilePath ]
+o--[ passed! ]
+
+o--[ DoNotSubmit ]
+o--[ passed! ]
+
+o--[ PythonFormat ]
+|  would reformat bad_python_format.py
+|  All done! 💥 💔 💥
+|  1 file would be reformatted.
+o--[ failed! ]
+
+o--[ PythonLint ]
+|  bad_python_format.py:1:7: E201 whitespace after '('
+|  bad_python_format.py:1:17: E202 whitespace before ')'
+|  bad_python_format.py:4:1: W391 blank line at end of file
+o--[ failed! ]
+
+o--[ PythonImportOrder ]
+o--[ passed! ]
+
+
+Ran 6 checks. Detected 2 issues. Fix 1 of them with 'precommit fix'.

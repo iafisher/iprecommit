@@ -78,7 +78,7 @@ echo -e "\n\n" >> bad_python_format.py
 git add bad_python_format.py
 echo -e "\n\n" >> bad_python_format.py
 
-# Remove a file (regression test for #23)
+# Remove a file (regression test for #23).
 rm to_be_removed.txt
 git add to_be_removed.txt
 
@@ -93,6 +93,21 @@ git diff --no-index "$d/test_repo_ref/precommit_output" git_precommit_output
 echo "Checking output of 'precommit fix'"
 precommit fix --no-color &> precommit_fix_output || true
 git diff --no-index "$d/test_repo_ref/precommit_fix_output" precommit_fix_output
+git diff --no-index "$d/test_repo_ref/fixed_python_format.py" bad_python_format.py
+
+# Modify bad_python_format.py to have bad format again.
+git reset HEAD bad_python_format.py > /dev/null
+git checkout -- bad_python_format.py
+# Unstaged change to bad_python_format.py so that precommit picks up on it.
+echo -e "\n\n" >> bad_python_format.py
+
+echo "Checking output of 'precommit -w'"
+precommit -w --no-color &> precommit_output || true
+git diff --no-index "$d/test_repo_ref/precommit_working_output" precommit_output
+
+echo "Checking output of 'precommit fix -w'"
+precommit fix -w --no-color &> precommit_fix_output || true
+git diff --no-index "$d/test_repo_ref/precommit_fix_working_output" precommit_fix_output
 git diff --no-index "$d/test_repo_ref/fixed_python_format.py" bad_python_format.py
 
 echo
