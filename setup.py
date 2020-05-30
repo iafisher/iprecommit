@@ -18,5 +18,6 @@ setup(
     author_email="iafisher@protonmail.com",
     entry_points={"console_scripts": ["precommit = precommitlib.main:main"]},
     packages=find_packages(exclude=["tests"]),
+    package_data={"": ["precommit.py.template"]},
     project_urls={"Source": "https://github.com/iafisher/precommit"},
 )

@@ -10,7 +10,7 @@ def init(precommit):
     # Language-specific checks
     precommit.check(checks.PythonFormat(exclude=["test_repo/*"]))
     precommit.check(checks.PythonLint(exclude=["test_repo/*"]))
-    precommit.check(checks.PythonTypes(exclude=["test_repo/*"]))
+    precommit.check(checks.PythonTypes(exclude=["test_repo/*", "setup.py"]))
     precommit.check(checks.PipFreeze())
 
     # Test suite

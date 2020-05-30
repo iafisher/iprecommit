@@ -9,6 +9,8 @@ Version: May 2020
 """
 import importlib.util
 import os
+import pkg_resources
+import shutil
 import stat
 import subprocess
 import sys
@@ -41,8 +43,9 @@ def main_init(args):
     if not args.flags["--force"] and os.path.exists(hookpath):
         utils.error(f"{hookpath} already exists. Re-run with --force to overwrite it.")
 
-    with open("precommit.py", "w", encoding="utf-8") as f:
-        f.write(PRECOMMIT)
+    # Courtesy of https://setuptools.readthedocs.io/en/latest/pkg_resources.html
+    template_path = pkg_resources.resource_filename(__name__, "precommit.py.template")
+    shutil.copyfile(template_path, "precommit.py")
 
     with open(hookpath, "w", encoding="utf-8") as f:
         f.write("#!/bin/sh\n\nprecommit --all\n")
@@ -208,49 +211,6 @@ def get_precommit(args):
             working=args.flags["--working"],
         )
         return precommit
-
-
-PRECOMMIT = """\
-""\"Pre-commit configuration for git.
-
-This file was created by precommit (https://github.com/iafisher/precommit).
-You are welcome to edit it yourself to customize your pre-commit hook.
-""\"
-from precommitlib import checks
-
-
-def init(precommit):
-    precommit.check(checks.NoStagedAndUnstagedChanges())
-    precommit.check(checks.NoWhitespaceInFilePath())
-    precommit.check(checks.DoNotSubmit())
-
-    # Check Python format with black.
-    precommit.check(checks.PythonFormat())
-
-    # Lint Python code with flake8.
-    precommit.check(checks.PythonLint())
-
-    # Check the order of Python imports with isort.
-    precommit.check(checks.PythonImportOrder())
-
-    # Check that requirements.txt matches pip freeze.
-    precommit.check(checks.PipFreeze())
-
-    # Check Python static type annotations with mypy.
-    # precommit.check(checks.PythonTypes())
-
-    # Lint JavaScript code with ESLint.
-    precommit.check(checks.JavaScriptLint())
-
-    # Check Rust format with rustfmt.
-    precommit.check(checks.RustFormat())
-
-    # Run a custom command.
-    # precommit.checks(checks.Command("UnitTests", ["./test"]))
-
-    # Run a custom command on each file.
-    # precommit.checks(checks.Command("FileCheck", ["check_file"], pass_files=True))
-"""
 
 
 HELP = """\
