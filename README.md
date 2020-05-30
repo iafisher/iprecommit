@@ -100,10 +100,6 @@ This will invoke the command `check_file` for every Python file with staged chan
 You can exclude files and patterns using the `exclude` parameter. Both `include` and `exclude` are lists of Unix-style wildcard patterns. For details, see the [fnmatch](https://docs.python.org/3.6/library/fnmatch.html) module of the Python standard library.
 
 
-## API reference
-TODO
-
-
 ## Missing features
 You can see features that I've considered but ultimately rejected by looking at [the GitHub issues marked 'wontfix'](https://github.com/iafisher/precommit/issues?q=is%3Aissue+label%3Awontfix). Some notable ones include:
 
