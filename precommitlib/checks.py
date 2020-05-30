@@ -1,6 +1,14 @@
 """
 A suite of useful pre-commit checks.
 
+If you want to write your own check, you'll need to create a new class that inherits
+from `BaseCheck` and defines a `check` method that returns a `Problem` object if it
+finds any issues, or `None` otherwise. Read through the existing checks in this module
+for inspiration.
+
+If your check can be formulated as a shell command, you can just write a function that
+wraps the `Command` class. This module contains many examples of that.
+
 Author:  Ian Fisher (iafisher@fastmail.com)
 Version: May 2020
 """
@@ -19,30 +27,20 @@ from .lib import (
 )
 
 
-def stream(msg: str) -> None:
-    """
-    Prints the message.
-
-    This is the function that all checks should use to emit output, like this:
-
-        if stream_output:
-            stream(msg)
-
-    """
-    print(textwrap.indent(msg, utils.blue("|  ")))
-
-
 class NoStagedAndUnstagedChanges(BaseCheck):
     """Checks that each staged file doesn't also have unstaged changes."""
 
     def check(self, files: List[str], *, stream_output: bool) -> Optional[Problem]:
+        # This check is highly unusual in that it ignores the `files` parameter and
+        # instead queries the state of the repository itself. Almost all other checks
+        # should NOT do this.
         staged = get_staged_files()
         unstaged = get_unstaged_files()
         both = set(staged).intersection(set(unstaged))
         if both:
             message = "\n".join(sorted(both))
             if stream_output:
-                stream(message)
+                _stream(message)
             return Problem(autofix=["git", "add"] + list(both))
 
         return None
@@ -68,7 +66,7 @@ class DoNotSubmit(BaseCheck):
         if bad_paths:
             message = "\n".join(sorted(bad_paths))
             if stream_output:
-                stream(message)
+                _stream(message)
             return Problem(message=f"file contains '{DO_NOT_SUBMIT}'")
 
         return None
@@ -86,7 +84,7 @@ class NoWhitespaceInFilePath(BaseCheck):
         if bad_paths:
             message = "\n".join(sorted(bad_paths))
             if stream_output:
-                stream(message)
+                _stream(message)
             return Problem(message="file path contains whitespace")
 
         return None
@@ -231,3 +229,16 @@ def RustFormat(args: List[str] = [], *, include: List[str] = [], **kwargs) -> Ba
         fix=["cargo", "fmt", "--"] + args,
         **kwargs,
     )
+
+
+def _stream(msg: str) -> None:
+    """
+    Prints the message.
+
+    This is the function that all checks should use to emit output, like this:
+
+        if stream_output:
+            _stream(msg)
+
+    """
+    print(textwrap.indent(msg, utils.blue("|  ")))

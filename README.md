@@ -1,7 +1,5 @@
 A simple tool to manage pre-commit hooks for git.
 
-I wrote it to standardize and automate the repetitive steps of setting up and maintaining pre-commit hooks for git. It's tailored to my personal workflow, but if you'd like to try it yourself you can install it like this (**warning**: the tool is under active development and I may make breaking changes to the API without prior notice):
-
 ```shell
 pip3 install git+https://github.com/iafisher/precommit.git
 ```
@@ -98,6 +96,14 @@ precommit.check(checks.Command("FileCheck", ["check_file"], pass_files=True, sep
 This will invoke the command `check_file` for every Python file with staged changes.
 
 You can exclude files and patterns using the `exclude` parameter. Both `include` and `exclude` are lists of Unix-style wildcard patterns. For details, see the [fnmatch](https://docs.python.org/3.6/library/fnmatch.html) module of the Python standard library.
+
+
+## Development
+If you're interested in using this tool, I'd encourage you to fork your own copy and tailor it to your personal workflow and preferences.
+
+The core logic for running checks and applying fixes is in `precommitlib/lib.py`. The built-in checks are defined in `precommitlib/checks.py`, and the pre-commit configuration template is at `precommitlib/precommit.py.template`.
+
+Run the test suite with `./functional_test`, which simulates an actual user session: creating a git repository and virtual environment, installing precommit, and running it as a shell command.
 
 
 ## Missing features
