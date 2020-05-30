@@ -12,6 +12,7 @@ wraps the `Command` class. This module contains many examples of that.
 Author:  Ian Fisher (iafisher@fastmail.com)
 Version: May 2020
 """
+import os
 import shlex
 import textwrap
 from typing import List, Optional, Union
@@ -200,10 +201,15 @@ def PythonTypes(
     )
 
 
-def PipFreeze(**kwargs):
+def PipFreeze(venv, **kwargs):
+    if venv is None:
+        pip = "pip"
+    else:
+        pip = os.path.join(venv, "bin", "pip")
+
     return Command(
         "PipFreeze",
-        "[ ! -e requirements.txt ] || pip freeze | diff - requirements.txt",
+        f"[ ! -e requirements.txt ] || {pip} freeze | diff - requirements.txt",
         shell=True,
         **kwargs,
     )
