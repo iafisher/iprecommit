@@ -19,21 +19,17 @@ from . import utils
 
 
 class Precommit:
-    def __init__(
-        self, checks: List["BaseCheck"], *, check_all: bool, dry_run: bool
-    ) -> None:
+    def __init__(self, checks: List["BaseCheck"], *, check_all: bool) -> None:
         """
         Parameters:
           checks: The list of checks to run.
           check_all: Whether to run all checks, including slow ones.
-          dry_run: Whether to actually run fix commands or just pretend to.
         """
         # Calling it `self._checks` instead of `self.checks` avoids giving a confusing
         # error message for the common typo of `precommit.checks(...)` instead of
         # `precommit.check(...)`.
         self._checks = checks
         self.check_all = check_all
-        self.dry_run = dry_run
 
         self.num_of_checks = 0
         self.num_of_problems = 0
@@ -103,16 +99,13 @@ class Precommit:
             self.pre_check(check)
             problem = check.check(repository, stream_output=False)
 
-            if not self.dry_run:
-                if problem and problem.autofix:
-                    run(problem.autofix, stream_output=True)
+            if problem and problem.autofix:
+                run(problem.autofix, stream_output=True)
 
             status = utils.green("fixed!") if problem else utils.green("passed!")
             self.post_check(check, status, problem)
 
-        if not self.dry_run:
-            run(["git", "add"] + repository.staged, stream_output=False)
-
+        run(["git", "add"] + repository.staged, stream_output=False)
         self.print_summary_for_fix()
 
     def print_summary_for_check(self) -> None:
@@ -146,15 +139,7 @@ class Precommit:
         print(
             "Detected", utils.red(utils.plural(self.num_of_problems, "issue")), end=". "
         )
-        if self.dry_run:
-            print(
-                f"Would have fixed",
-                utils.green(f"{self.num_of_fixable_problems} of them") + ".",
-            )
-        else:
-            print(
-                "Fixed " + utils.green(f"{self.num_of_fixable_problems} of them") + "."
-            )
+        print("Fixed " + utils.green(f"{self.num_of_fixable_problems} of them") + ".")
 
     def pre_check(self, check: "BaseCheck") -> None:
         if utils.VERBOSE:

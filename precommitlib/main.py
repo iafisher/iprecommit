@@ -88,7 +88,6 @@ FLAGS = {
     "--verbose": {"fix", "check"},
     "--all": {"fix", "check"},
     "--force": {"init"},
-    "--dry-run": {"fix"},
 }
 Args = namedtuple("Args", ["subcommand", "positional", "flags"])
 
@@ -202,11 +201,7 @@ def get_precommit(args):
         checklist = Checklist()
         precommit_module.init(checklist)
 
-        precommit = Precommit(
-            checklist._checks,
-            check_all=args.flags["--all"],
-            dry_run=args.flags["--dry-run"],
-        )
+        precommit = Precommit(checklist._checks, check_all=args.flags["--all"])
         return precommit
 
 
