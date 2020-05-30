@@ -1,3 +1,9 @@
+"""
+A suite of useful pre-commit checks.
+
+Author:  Ian Fisher (iafisher@fastmail.com)
+Version: May 2020
+"""
 import textwrap
 
 from . import utils
@@ -5,6 +11,15 @@ from .lib import BaseCheck, Problem, UsageError, run
 
 
 def stream(msg):
+    """
+    Prints the message.
+
+    This is the function that all checks should use to emit output, like this:
+
+        if stream_output:
+            stream(msg)
+
+    """
     print(textwrap.indent(msg, utils.blue("|  ")))
 
 

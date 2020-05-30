@@ -1,3 +1,12 @@
+"""
+The main library for the precommit tool.
+
+Holds the machinery for running pre-commit checks and fixes and reporting the results.
+The checks themselves are defined in checks.py.
+
+Author:  Ian Fisher (iafisher@fastmail.com)
+Version: May 2020
+"""
 import ast
 import fnmatch
 import subprocess
@@ -27,14 +36,8 @@ class Precommit:
         self.num_of_problems = 0
         self.num_of_fixable_problems = 0
 
-    @classmethod
-    def from_args(cls, checks, args):
-        return cls(
-            checks, check_all=args.flags["--all"], dry_run=args.flags["--dry-run"]
-        )
-
     def check(self):
-        """Find problems and print a message for each."""
+        """Finds problems and print a message for each."""
         if not self._checks:
             print("No checks were registered.")
             return
@@ -65,7 +68,7 @@ class Precommit:
         return self.num_of_problems > 0
 
     def fix(self):
-        """Find problems and fix the ones that can be fixed automatically."""
+        """Finds problems and fixes the ones that can be fixed automatically."""
         if not self._checks:
             print("No checks were registered.")
             return
@@ -208,6 +211,15 @@ class Checklist:
 
 class BaseCheck:
     def __init__(self, slow=False, include=None, exclude=None):
+        """
+        Parameters:
+          slow: Whether the check is slow and should not be run by default.
+          include: A list of patterns for file paths that the check should run on. If
+            left as None, then the check runs on all files.
+          exclude: A list of patterns for file paths that the check should NOT run on.
+            Takes precedence over `include`, i.e. if a file path matches a pattern in
+            `include` and in `exclude`, the file path will be excluded.
+        """
         if isinstance(include, str):
             raise UsageError("include should be a list of strings")
 
@@ -218,7 +230,7 @@ class BaseCheck:
         self.include = include if include is not None else []
         self.exclude = exclude if exclude is not None else []
 
-    def check(self, fs, repository):
+    def check(self, repository, *, stream_output):
         raise NotImplementedError
 
     def get_name(self):
@@ -248,7 +260,8 @@ class BaseCheck:
 
 
 def decode_git_path(path):
-    """Converts a path string as Git displays it to a UTF-8 encoded string.
+    """
+    Converts a path string as Git displays it to a UTF-8 encoded string.
 
     If the file path contains a non-ASCII character or a literal double quote, Git
     backslash-escapes the offending character and encloses the whole path in double
@@ -286,6 +299,15 @@ def _read_files_from_git(args):
 
 
 def run(cmd, *, stream_output):
+    """
+    Runs a shell command.
+
+    If `stream_output` is True, then the output is streamed to the console rather than
+    captured and suppressed.
+
+    Due to inconsistencies with the Python subprocess API, this function returns an
+    object of type `CommandResult`.
+    """
     if utils.VERBOSE:
         print("Running command: " + " ".join(cmd))
 

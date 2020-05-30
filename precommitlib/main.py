@@ -1,3 +1,12 @@
+"""
+The command-line interface to the precommit tool.
+
+Most of the tool's implementation lives in lib.py, and the definitions of the pre-commit
+checks live in checks.py.
+
+Author:  Ian Fisher (iafisher@fastmail.com)
+Version: May 2020
+"""
 import importlib.util
 import os
 import stat
@@ -10,7 +19,7 @@ from .lib import Checklist, Precommit
 
 
 def main():
-    args = handle_args(sys.argv[1:])
+    args = parse_args(sys.argv[1:])
     configure_globals(args)
 
     chdir_to_git_root()
@@ -26,11 +35,11 @@ def main():
 
 def main_init(args):
     if not args.flags["--force"] and os.path.exists("precommit.py"):
-        error("precommit.py already exists. Re-run with --force to overwrite it.")
+        utils.error("precommit.py already exists. Re-run with --force to overwrite it.")
 
     hookpath = os.path.join(".git", "hooks", "pre-commit")
     if not args.flags["--force"] and os.path.exists(hookpath):
-        error(f"{hookpath} already exists. Re-run with --force to overwrite it.")
+        utils.error(f"{hookpath} already exists. Re-run with --force to overwrite it.")
 
     with open("precommit.py", "w", encoding="utf-8") as f:
         f.write(PRECOMMIT)
@@ -66,7 +75,7 @@ def chdir_to_git_root():
         stderr=subprocess.PIPE,
     )
     if gitroot.returncode != 0:
-        error("must be in git repository.")
+        utils.error("must be in git repository.")
     os.chdir(gitroot.stdout.decode("ascii").strip())
 
 
@@ -84,20 +93,12 @@ FLAGS = {
 Args = namedtuple("Args", ["subcommand", "positional", "flags"])
 
 
-def handle_args(args):
-    args = parse_args(args)
-    errormsg = check_args(args)
-    if errormsg:
-        error(errormsg)
-
-    for flag in FLAGS:
-        if flag not in args.flags:
-            args.flags[flag] = False
-
-    return args
-
-
 def parse_args(args):
+    """
+    Parses the argument list into an `Args` object.
+
+    Exits the program with an error message if the arguments are invalid.
+    """
     positional = []
     flags = {}
     force_positional = False
@@ -119,10 +120,23 @@ def parse_args(args):
     else:
         subcommand = "check"
 
-    return Args(subcommand=subcommand, flags=flags, positional=positional)
+    args = Args(subcommand=subcommand, flags=flags, positional=positional)
+
+    errormsg = check_args(args)
+    if errormsg:
+        utils.error(errormsg)
+
+    for flag in FLAGS:
+        if flag not in args.flags:
+            args.flags[flag] = False
+
+    return args
 
 
 def check_args(args):
+    """
+    Checks that the command-line arguments are valid.
+    """
     if len(args.positional) > 0:
         return "precommit does not take positional arguments"
 
@@ -147,6 +161,9 @@ def check_args(args):
 
 
 def configure_globals(args):
+    """
+    Configure global settings based on the command-line arguments.
+    """
     # Check for the NO_COLOR environment variable and for a non-terminal standard output
     # before handling command-line arguments so that it can be overridden by explicitly
     # specifying --color.
@@ -177,17 +194,20 @@ def get_precommit(args):
         precommit_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(precommit_module)
     except (FileNotFoundError, ImportError):
-        error("could not find precommit.py. You can create it with 'precommit init'.")
+        utils.error(
+            "could not find precommit.py. You can create it with 'precommit init'."
+        )
     else:
+        # Call the user's code to initialize the checklist.
         checklist = Checklist()
         precommit_module.init(checklist)
-        precommit = Precommit.from_args(checklist._checks, args)
+
+        precommit = Precommit(
+            checklist._checks,
+            check_all=args.flags["--all"],
+            dry_run=args.flags["--dry-run"],
+        )
         return precommit
-
-
-def error(message):
-    print(f"Error: {message}", file=sys.stderr)
-    sys.exit(1)
 
 
 PRECOMMIT = """\
