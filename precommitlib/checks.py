@@ -5,12 +5,13 @@ Author:  Ian Fisher (iafisher@fastmail.com)
 Version: May 2020
 """
 import textwrap
+from typing import List, Optional
 
 from . import utils
-from .lib import BaseCheck, Problem, UsageError, run
+from .lib import BaseCheck, Problem, Repository, UsageError, run
 
 
-def stream(msg):
+def stream(msg: str) -> None:
     """
     Prints the message.
 
@@ -26,7 +27,9 @@ def stream(msg):
 class NoStagedAndUnstagedChanges(BaseCheck):
     """Checks that each staged file doesn't also have unstaged changes."""
 
-    def check(self, repository, *, stream_output):
+    def check(
+        self, repository: Repository, *, stream_output: bool
+    ) -> Optional[Problem]:
         both = set(repository.staged).intersection(set(repository.unstaged))
         if both:
             message = "\n".join(sorted(both))
@@ -34,7 +37,9 @@ class NoStagedAndUnstagedChanges(BaseCheck):
                 stream(message)
             return Problem(autofix=["git", "add"] + list(both))
 
-    def is_fixable(self):
+        return None
+
+    def is_fixable(self) -> bool:
         return True
 
 
@@ -45,7 +50,9 @@ DO_NOT_SUBMIT = "DO NOT " + "SUBMIT"
 class DoNotSubmit(BaseCheck):
     f"""Checks that files do not contain the string '{DO_NOT_SUBMIT}'."""
 
-    def check(self, repository, *, stream_output):
+    def check(
+        self, repository: Repository, *, stream_output: bool
+    ) -> Optional[Problem]:
         bad_paths = []
         for path in self.filter(repository.staged):
             with open(path, "rb") as f:
@@ -56,13 +63,17 @@ class DoNotSubmit(BaseCheck):
             message = "\n".join(sorted(bad_paths))
             if stream_output:
                 stream(message)
-            return Problem(f"file contains '{DO_NOT_SUBMIT}'")
+            return Problem(message=f"file contains '{DO_NOT_SUBMIT}'")
+
+        return None
 
 
 class NoWhitespaceInFilePath(BaseCheck):
     """Checks that file paths do not contain whitespace."""
 
-    def check(self, repository, *, stream_output):
+    def check(
+        self, repository: Repository, *, stream_output: bool
+    ) -> Optional[Problem]:
         bad_paths = []
         for path in self.filter(repository.staged):
             if any(c.isspace() for c in path):
@@ -72,13 +83,21 @@ class NoWhitespaceInFilePath(BaseCheck):
             message = "\n".join(sorted(bad_paths))
             if stream_output:
                 stream(message)
-            return Problem("file path contains whitespace")
+            return Problem(message="file path contains whitespace")
+
+        return None
 
 
 class Command(BaseCheck):
     def __init__(
-        self, name, cmd, fix=None, pass_files=False, separately=False, **kwargs
-    ):
+        self,
+        name: str,
+        cmd: List[str],
+        fix: Optional[List[str]] = None,
+        pass_files: bool = False,
+        separately: bool = False,
+        **kwargs,
+    ) -> None:
         super().__init__(**kwargs)
         self.name = name
         self.cmd = cmd
@@ -90,7 +109,9 @@ class Command(BaseCheck):
         self.pass_files = pass_files
         self.separately = separately
 
-    def check(self, repository, *, stream_output):
+    def check(
+        self, repository: Repository, *, stream_output: bool
+    ) -> Optional[Problem]:
         if self.separately:
             problem = False
             for path in self.filter(repository.staged):
@@ -110,14 +131,18 @@ class Command(BaseCheck):
                 autofix = self.fix + args if self.fix else None
                 return Problem(autofix=autofix)
 
-    def get_name(self):
+        return None
+
+    def get_name(self) -> str:
         return self.name
 
-    def is_fixable(self):
+    def is_fixable(self) -> bool:
         return self.fix is not None
 
 
-def PythonFormat(args=[], *, include=[], **kwargs):
+def PythonFormat(
+    args: List[str] = [], *, include: List[str] = [], **kwargs
+) -> BaseCheck:
     return Command(
         "PythonFormat",
         ["black", "--check"] + args,
@@ -128,7 +153,7 @@ def PythonFormat(args=[], *, include=[], **kwargs):
     )
 
 
-def PythonLint(args=[], *, include=[], **kwargs):
+def PythonLint(args: List[str] = [], *, include: List[str] = [], **kwargs) -> BaseCheck:
     return Command(
         "PythonLint",
         ["flake8", "--max-line-length=88"] + args,
@@ -138,7 +163,9 @@ def PythonLint(args=[], *, include=[], **kwargs):
     )
 
 
-def PythonImportOrder(args=[], *, include=[], **kwargs):
+def PythonImportOrder(
+    args: List[str] = [], *, include: List[str] = [], **kwargs
+) -> BaseCheck:
     return Command(
         "PythonImportOrder",
         ["isort", "-c"] + args,
@@ -149,7 +176,9 @@ def PythonImportOrder(args=[], *, include=[], **kwargs):
     )
 
 
-def PythonTypes(args=[], *, include=[], **kwargs):
+def PythonTypes(
+    args: List[str] = [], *, include: List[str] = [], **kwargs
+) -> BaseCheck:
     return Command(
         "PythonTypes",
         ["mypy"] + args,
@@ -159,7 +188,7 @@ def PythonTypes(args=[], *, include=[], **kwargs):
     )
 
 
-def JavaScriptLint(*, include=[], **kwargs):
+def JavaScriptLint(*, include: List[str] = [], **kwargs) -> BaseCheck:
     return Command(
         "JavaScriptLint",
         ["npx", "eslint"],
@@ -170,7 +199,7 @@ def JavaScriptLint(*, include=[], **kwargs):
     )
 
 
-def RustFormat(args=[], *, include=[], **kwargs):
+def RustFormat(args: List[str] = [], *, include: List[str] = [], **kwargs) -> BaseCheck:
     return Command(
         "RustFormat",
         ["cargo", "fmt", "--", "--check"] + args,

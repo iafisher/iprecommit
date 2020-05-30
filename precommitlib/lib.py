@@ -13,12 +13,15 @@ import subprocess
 import sys
 import time
 from collections import namedtuple
+from typing import List, Optional
 
 from . import utils
 
 
 class Precommit:
-    def __init__(self, checks, *, check_all, dry_run):
+    def __init__(
+        self, checks: List["BaseCheck"], *, check_all: bool, dry_run: bool
+    ) -> None:
         """
         Parameters:
           checks: The list of checks to run.
@@ -36,17 +39,21 @@ class Precommit:
         self.num_of_problems = 0
         self.num_of_fixable_problems = 0
 
-    def check(self):
-        """Finds problems and print a message for each."""
+    def check(self) -> bool:
+        """
+        Finds problems and print a message for each.
+
+        Returns True if any problems were found.
+        """
         if not self._checks:
             print("No checks were registered.")
-            return
+            return False
 
         self.start = time.monotonic()
         repository = self.get_repository()
         if not (repository.staged or repository.staged_deleted):
             print("No files are staged.")
-            return
+            return False
 
         for check in self._checks:
             if not self.should_run(check):
@@ -67,7 +74,7 @@ class Precommit:
         self.print_summary_for_check()
         return self.num_of_problems > 0
 
-    def fix(self):
+    def fix(self) -> None:
         """Finds problems and fixes the ones that can be fixed automatically."""
         if not self._checks:
             print("No checks were registered.")
@@ -108,7 +115,7 @@ class Precommit:
 
         self.print_summary_for_fix()
 
-    def print_summary_for_check(self):
+    def print_summary_for_check(self) -> None:
         print()
         print("Ran", utils.blue(utils.plural(self.num_of_checks, "check")), end=". ")
         if self.num_of_problems > 0:
@@ -129,7 +136,7 @@ class Precommit:
         else:
             print(f"{utils.green('No issues')} detected.")
 
-    def print_summary_for_fix(self):
+    def print_summary_for_fix(self) -> None:
         print()
         print(
             "Ran",
@@ -149,7 +156,7 @@ class Precommit:
                 "Fixed " + utils.green(f"{self.num_of_fixable_problems} of them") + "."
             )
 
-    def pre_check(self, check):
+    def pre_check(self, check: "BaseCheck") -> None:
         if utils.VERBOSE:
             print(f"Running {check.get_name()}")
             self.check_start = time.monotonic()
@@ -157,7 +164,9 @@ class Precommit:
         self.num_of_checks += 1
         self.print_check_header(check)
 
-    def post_check(self, check, status, problem):
+    def post_check(
+        self, check: "BaseCheck", status: str, problem: Optional["Problem"]
+    ) -> None:
         if problem is not None:
             self.num_of_problems += 1
             if check.is_fixable():
@@ -174,21 +183,21 @@ class Precommit:
 
         print()
 
-    def print_check_header_and_status(self, check, status):
+    def print_check_header_and_status(self, check: "BaseCheck", status: str) -> None:
         self.print_check_header(check)
         self.print_check_status(status)
         print()
 
-    def print_check_header(self, check):
+    def print_check_header(self, check: "BaseCheck") -> None:
         print(utils.blue("o--[ " + check.get_name() + " ]"))
 
-    def print_check_status(self, status):
+    def print_check_status(self, status: str) -> None:
         print(utils.blue("o--[ ") + status + utils.blue(" ]"))
 
-    def should_run(self, check):
+    def should_run(self, check: "BaseCheck") -> bool:
         return not check.slow or self.check_all
 
-    def get_repository(self):
+    def get_repository(self) -> "Repository":
         staged = get_staged_files()
         staged_deleted = get_staged_for_deletion_files()
         unstaged = get_unstaged_files()
@@ -198,10 +207,10 @@ class Precommit:
 
 
 class Checklist:
-    def __init__(self):
-        self._checks = []
+    def __init__(self) -> None:
+        self._checks: List["BaseCheck"] = []
 
-    def check(self, check):
+    def check(self, check: "BaseCheck") -> None:
         """Registers the pre-commit check."""
         if not isinstance(check, BaseCheck):
             raise UsageError("check must be a subclass of BaseCheck")
@@ -210,12 +219,14 @@ class Checklist:
 
 
 class BaseCheck:
-    def __init__(self, slow=False, include=None, exclude=None):
+    def __init__(
+        self, slow: bool = False, include: List[str] = [], exclude: List[str] = []
+    ) -> None:
         """
         Parameters:
           slow: Whether the check is slow and should not be run by default.
           include: A list of patterns for file paths that the check should run on. If
-            left as None, then the check runs on all files.
+            left as the empty list, then the check runs on all files.
           exclude: A list of patterns for file paths that the check should NOT run on.
             Takes precedence over `include`, i.e. if a file path matches a pattern in
             `include` and in `exclude`, the file path will be excluded.
@@ -230,16 +241,18 @@ class BaseCheck:
         self.include = include if include is not None else []
         self.exclude = exclude if exclude is not None else []
 
-    def check(self, repository, *, stream_output):
+    def check(
+        self, repository: "Repository", *, stream_output: bool
+    ) -> Optional["Problem"]:
         raise NotImplementedError
 
-    def get_name(self):
+    def get_name(self) -> str:
         return self.__class__.__name__
 
-    def is_fixable(self):
+    def is_fixable(self) -> bool:
         return False
 
-    def filter(self, paths):
+    def filter(self, paths: List[str]) -> List[str]:
         if self.include:
             filtered = [
                 p
@@ -259,7 +272,7 @@ class BaseCheck:
         return filtered
 
 
-def decode_git_path(path):
+def decode_git_path(path: str) -> str:
     """
     Converts a path string as Git displays it to a UTF-8 encoded string.
 
@@ -276,29 +289,34 @@ def decode_git_path(path):
 
 
 class Problem:
-    def __init__(self, autofix=None, message=None):
+    def __init__(
+        self, autofix: Optional[List[str]] = None, message: str = None
+    ) -> None:
         self.autofix = autofix
         self.message = message
 
 
-def get_staged_files():
+def get_staged_files() -> List[str]:
     return _read_files_from_git(["--cached", "--diff-filter=d"])
 
 
-def get_staged_for_deletion_files():
+def get_staged_for_deletion_files() -> List[str]:
     return _read_files_from_git(["--cached", "--diff-filter=D"])
 
 
-def get_unstaged_files():
+def get_unstaged_files() -> List[str]:
     return _read_files_from_git([])
 
 
-def _read_files_from_git(args):
+def _read_files_from_git(args: List[str]) -> List[str]:
     result = run(["git", "diff", "--name-only"] + args, stream_output=False)
     return [decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()]
 
 
-def run(cmd, *, stream_output):
+CommandResult = namedtuple("CommandResult", ["returncode", "stdout"])
+
+
+def run(cmd: List[str], *, stream_output: bool) -> CommandResult:
     """
     Runs a shell command.
 
@@ -333,11 +351,10 @@ def run(cmd, *, stream_output):
         return CommandResult(returncode=returncode, stdout=None)
 
 
-CommandResult = namedtuple("CommandResult", ["returncode", "stdout"])
-
-
 class Repository:
-    def __init__(self, staged, staged_deleted, unstaged):
+    def __init__(
+        self, staged: List[str], staged_deleted: List[str], unstaged: List[str]
+    ) -> None:
         self.staged = staged
         self.staged_deleted = staged_deleted
         self.unstaged = unstaged

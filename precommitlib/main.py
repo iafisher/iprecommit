@@ -18,7 +18,7 @@ from . import utils
 from .lib import Checklist, Precommit
 
 
-def main():
+def main() -> None:
     args = parse_args(sys.argv[1:])
     configure_globals(args)
 

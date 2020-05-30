@@ -11,12 +11,12 @@ import sys
 VERBOSE = False
 
 
-def plural(n, word, suffix="s"):
+def plural(n: int, word: str, suffix: str = "s") -> str:
     """Returns the numeral and the proper plural form of the word."""
     return f"{n} {word}" if n == 1 else f"{n} {word}{suffix}"
 
 
-def error(message):
+def error(message: str) -> None:
     """
     Prints an error message and exits the program.
     """
@@ -24,28 +24,28 @@ def error(message):
     sys.exit(1)
 
 
-def turn_off_colors():
+def turn_off_colors() -> None:
     """Turns off colored output globally for the program."""
     global _NO_COLOR
     _NO_COLOR = True
 
 
-def red(text):
+def red(text: str) -> str:
     """Returns a string that will display as red using ANSI color codes."""
     return _colored(text, _COLOR_RED)
 
 
-def blue(text):
+def blue(text: str) -> str:
     """Returns a string that will display as blue using ANSI color codes."""
     return _colored(text, _COLOR_BLUE)
 
 
-def green(text):
+def green(text: str) -> str:
     """Returns a string that will display as green using ANSI color codes."""
     return _colored(text, _COLOR_GREEN)
 
 
-def _colored(text, color):
+def _colored(text: str, color: str) -> str:
     return f"\033[{color}m{text}\033[{_COLOR_RESET}m" if not _NO_COLOR else text
 
 
