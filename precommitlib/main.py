@@ -231,6 +231,7 @@ Flags:
     --color         Turn on colorized output, overriding any environment settings.
     --no-color      Turn off colorized output.
     --verbose       Emit verbose output.
+    -w, --working   Run on unstaged as well as staged changes.
     -h, --help      Display a help message and exit.
 
 Written by Ian Fisher. http://github.com/iafisher/precommit"""
