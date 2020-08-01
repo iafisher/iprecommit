@@ -237,6 +237,19 @@ def RustFormat(args: List[str] = [], *, include: List[str] = [], **kwargs) -> Ba
     )
 
 
+def TypeScriptFormat(
+    args: List[str] = [], *, include: List[str] = [], **kwargs
+) -> BaseCheck:
+    return Command(
+        "TypeScriptFormat",
+        ["tsfmt", "--verify"] + args,
+        pass_files=True,
+        include=["*.ts"] + include,
+        fix=["tsfmt", "-r"],
+        **kwargs,
+    )
+
+
 def _stream(msg: str) -> None:
     """
     Prints the message.
