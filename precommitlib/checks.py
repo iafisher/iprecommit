@@ -218,7 +218,7 @@ def PipFreeze(venv, **kwargs):
 def JavaScriptLint(*, include: List[str] = [], **kwargs) -> BaseCheck:
     return Command(
         "JavaScriptLint",
-        ["npx", "eslint"],
+        ["npx", "eslint", "--max-warnings", "0"],
         pass_files=True,
         include=["*.js"] + include,
         fix=["npx", "eslint", "--fix"],
