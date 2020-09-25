@@ -10,7 +10,7 @@ o--[ passed! ]
 
 o--[ PythonFormat ]
 |  would reformat bad_python_format.py
-|  All done! 💥 💔 💥
+|  Oh no! 💥 💔 💥
 |  1 file would be reformatted.
 o--[ failed! ]
 
