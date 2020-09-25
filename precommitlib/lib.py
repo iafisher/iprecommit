@@ -56,7 +56,12 @@ class Precommit:
             if self.working
             else repository.staged
         )
-        if not (files or repository.staged_deleted):
+        deleted_files = (
+            repository.unstaged_deleted + repository.staged_deleted
+            if self.working
+            else repository.staged_deleted
+        )
+        if not (files or deleted_files):
             print("No files to check.")
             return False
 
@@ -92,7 +97,12 @@ class Precommit:
             if self.working
             else repository.staged
         )
-        if not (files or repository.staged_deleted):
+        deleted_files = (
+            repository.unstaged_deleted + repository.staged_deleted
+            if self.working
+            else repository.staged_deleted
+        )
+        if not (files or deleted_files):
             print("No files to fix.")
 
         for check in self._checks:
@@ -197,10 +207,14 @@ class Precommit:
 
     def get_repository(self) -> "Repository":
         staged = get_staged_files()
-        staged_deleted = get_staged_for_deletion_files()
+        staged_deleted = get_staged_deleted_files()
         unstaged = get_unstaged_files()
+        unstaged_deleted = get_unstaged_deleted_files()
         return Repository(
-            staged=staged, staged_deleted=staged_deleted, unstaged=unstaged
+            staged=staged,
+            staged_deleted=staged_deleted,
+            unstaged=unstaged,
+            unstaged_deleted=unstaged_deleted,
         )
 
 
@@ -296,12 +310,16 @@ def get_staged_files() -> List[str]:
     return _read_files_from_git(["--cached", "--diff-filter=d"])
 
 
-def get_staged_for_deletion_files() -> List[str]:
+def get_staged_deleted_files() -> List[str]:
     return _read_files_from_git(["--cached", "--diff-filter=D"])
 
 
 def get_unstaged_files() -> List[str]:
-    return _read_files_from_git([])
+    return _read_files_from_git(["--diff-filter=d"])
+
+
+def get_unstaged_deleted_files() -> List[str]:
+    return _read_files_from_git(["--diff-filter=D"])
 
 
 def _read_files_from_git(args: List[str]) -> List[str]:
@@ -355,11 +373,16 @@ def run(
 
 class Repository:
     def __init__(
-        self, staged: List[str], staged_deleted: List[str], unstaged: List[str]
+        self,
+        staged: List[str],
+        staged_deleted: List[str],
+        unstaged: List[str],
+        unstaged_deleted: List[str],
     ) -> None:
         self.staged = staged
         self.staged_deleted = staged_deleted
         self.unstaged = unstaged
+        self.unstaged_deleted = unstaged_deleted
 
 
 class UsageError(Exception):
