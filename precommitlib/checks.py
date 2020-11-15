@@ -226,6 +226,20 @@ def JavaScriptLint(*, include: List[str] = [], **kwargs) -> BaseCheck:
     )
 
 
+def JavaScriptPrettierFormat(
+    *, local_install=False, include: List[str] = [], **kwargs
+) -> BaseCheck:
+    cmd = ["npx", "prettier", "--check"] if local_install else ["prettier", "--check"]
+    return Command(
+        "JavaScriptPrettierFormat",
+        cmd,
+        pass_files=True,
+        include=["*.js"] + include,
+        fix=["npx", "prettier", "--write"],
+        **kwargs,
+    )
+
+
 def RustFormat(args: List[str] = [], *, include: List[str] = [], **kwargs) -> BaseCheck:
     return Command(
         "RustFormat",
