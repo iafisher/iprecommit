@@ -36,6 +36,7 @@ class Precommit:
         self.working = working
 
         self.num_of_checks = 0
+        self.num_of_skipped_checks = 0
         self.num_of_problems = 0
         self.num_of_fixable_problems = 0
 
@@ -67,6 +68,7 @@ class Precommit:
 
         for check in self._checks:
             if not self.should_run(check):
+                self.num_of_skipped_checks += 1
                 if utils.VERBOSE:
                     self.print_check_header_and_status(check, "skipped")
                 continue
@@ -110,6 +112,7 @@ class Precommit:
                 continue
 
             if not self.should_run(check):
+                self.num_of_skipped_checks += 1
                 if utils.VERBOSE:
                     self.print_check_header_and_status(check, "skipped")
                 continue
@@ -146,11 +149,16 @@ class Precommit:
                 else:
                     n = utils.blue(f"{self.num_of_fixable_problems} of them")
 
-                print(f"Fix {n} with '{utils.blue('precommit fix')}'.", end="")
+                print(f"Fix {n} with `{utils.blue('precommit fix')}`.", end="")
 
             print()
         else:
             print(f"{utils.green('No issues')} detected.")
+
+        if self.num_of_skipped_checks > 0:
+            n = utils.yellow(utils.plural(self.num_of_skipped_checks, "check"))
+            print(f"Skipped {n}", end=". ")
+            print(f"Run all checks with `{utils.blue('precommit --all')}`.")
 
     def print_summary_for_fix(self) -> None:
         print()

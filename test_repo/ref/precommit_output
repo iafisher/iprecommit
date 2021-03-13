@@ -27,4 +27,4 @@ o--[ PipFreeze ]
 o--[ passed! ]
 
 
-Ran 7 checks. Detected 3 issues. Fix 2 of them with 'precommit fix'.
+Ran 7 checks. Detected 3 issues. Fix 2 of them with `precommit fix`.

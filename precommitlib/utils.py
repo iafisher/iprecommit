@@ -45,6 +45,11 @@ def green(text: str) -> str:
     return _colored(text, _COLOR_GREEN)
 
 
+def yellow(text: str) -> str:
+    """Returns a string that will display as yellow using ANSI color codes."""
+    return _colored(text, _COLOR_YELLOW)
+
+
 def _colored(text: str, color: str) -> str:
     return f"\033[{color}m{text}\033[{_COLOR_RESET}m" if not _NO_COLOR else text
 
@@ -52,5 +57,6 @@ def _colored(text: str, color: str) -> str:
 _COLOR_RED = "91"
 _COLOR_BLUE = "94"
 _COLOR_GREEN = "92"
+_COLOR_YELLOW = "93"
 _COLOR_RESET = "0"
 _NO_COLOR = False
