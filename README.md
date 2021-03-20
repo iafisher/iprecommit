@@ -108,6 +108,8 @@ precommit.check(checks.Command("FileCheck", ["check_file"], pass_files=True, sep
 
 This will invoke `check_file` on each Python file with staged changes.
 
+If you want to implement the logic of your check in Python rather than invoke a shell command, then look at the built-in checks in `precommitlib/checks.py` in this repository for guidance. `DoNotSubmit` is a good example of a simple custom check.
+
 
 ## Development
 If you're interested in using this tool, I encourage you to fork your own copy and tailor it to your personal workflow and preferences.
@@ -118,7 +120,7 @@ Run the test suite with `./functional_test`, which simulates an actual user sess
 
 
 ## Missing features
-You can see features that I've considered but ultimately rejected by looking at [the GitHub issues marked 'wontfix'](https://github.com/iafisher/precommit/issues?q=is%3Aissue+label%3Awontfix). Some notable ones include:
+You can see features that I've considered but ultimately rejected by looking at [the issues marked 'wontfix' on GitHub](https://github.com/iafisher/precommit/issues?q=is%3Aissue+label%3Awontfix). Some notable ones include:
 
 - Support for non-UTF-8 file paths
 - Support for customizing the name of `precommit.py`
