@@ -100,12 +100,14 @@ class Command(BaseCheck):
         shell: bool = False,
         pass_files: bool = False,
         separately: bool = False,
+        working_directory: str = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self.name = name
         self.cmd = cmd
         self.fix = fix
+        self.working_directory = working_directory
 
         if separately is True and pass_files is False:
             raise UsageError("if `separately` is True, `pass_files` must also be True")
@@ -124,7 +126,12 @@ class Command(BaseCheck):
                 else:
                     cmd = self.cmd + [path]
 
-                r = run(cmd, shell=self.shell, stream_output=stream_output)
+                r = run(
+                    cmd,
+                    shell=self.shell,
+                    stream_output=stream_output,
+                    working_directory=self.working_directory,
+                )
                 if r.returncode != 0:
                     problem = True
 
@@ -139,7 +146,12 @@ class Command(BaseCheck):
             else:
                 cmd = self.cmd + args
 
-            r = run(cmd, shell=self.shell, stream_output=stream_output)
+            r = run(
+                cmd,
+                shell=self.shell,
+                stream_output=stream_output,
+                working_directory=self.working_directory,
+            )
             if r.returncode != 0:
                 autofix = self.fix + args if self.fix else None
                 return Problem(autofix=autofix)

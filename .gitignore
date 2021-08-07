@@ -6,3 +6,5 @@ __pycache__
 *.swp
 *~
 .mypy_cache
+/build
+/dist

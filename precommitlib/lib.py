@@ -339,7 +339,11 @@ CommandResult = namedtuple("CommandResult", ["returncode", "stdout"])
 
 
 def run(
-    cmd: Union[List[str], str], *, shell: bool = False, stream_output: bool
+    cmd: Union[List[str], str],
+    *,
+    shell: bool = False,
+    stream_output: bool,
+    working_directory: str = None,
 ) -> CommandResult:
     """
     Runs a shell command.
@@ -368,7 +372,11 @@ def run(
         # Print the prefix before each line of the command's output by piping it to
         # sed.
         ps = subprocess.Popen(
-            cmd, shell=shell, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            cmd,
+            shell=shell,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            cwd=working_directory,
         )
         subprocess.run(
             ["sed", "-e", "s/^/" + utils.blue("|  ") + "/"],
