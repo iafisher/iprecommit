@@ -355,7 +355,8 @@ def run(
     object of type `CommandResult`.
     """
     if utils.VERBOSE:
-        print("Running command: " + " ".join(cmd))
+        cmd_as_string = " ".join(cmd) if isinstance(cmd, list) else cmd
+        print("Running command: " + cmd_as_string)
 
     if not stream_output:
         r = subprocess.run(
