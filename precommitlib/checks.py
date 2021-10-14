@@ -227,7 +227,9 @@ def PipFreeze(venv, **kwargs):
     )
 
 
-def JavaScriptLint(*, include: List[str] = [], **kwargs) -> BaseCheck:
+def JavaScriptLint(
+    args: List[str] = [], *, include: List[str] = [], **kwargs
+) -> BaseCheck:
     return Command(
         "JavaScriptLint",
         ["npx", "eslint", "--max-warnings", "0"],
@@ -239,12 +241,12 @@ def JavaScriptLint(*, include: List[str] = [], **kwargs) -> BaseCheck:
 
 
 def JavaScriptPrettierFormat(
-    *, local_install=False, include: List[str] = [], **kwargs
+    args: List[str] = [], *, local_install=False, include: List[str] = [], **kwargs
 ) -> BaseCheck:
     cmd = ["npx", "prettier", "--check"] if local_install else ["prettier", "--check"]
     return Command(
         "JavaScriptPrettierFormat",
-        cmd,
+        cmd + args,
         pass_files=True,
         include=["*.js"] + include,
         fix=["npx", "prettier", "--write"],
