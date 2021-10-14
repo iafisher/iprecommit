@@ -232,7 +232,7 @@ def JavaScriptLint(
 ) -> BaseCheck:
     return Command(
         "JavaScriptLint",
-        ["npx", "eslint", "--max-warnings", "0"],
+        ["npx", "eslint", "--max-warnings", "0"] + args,
         pass_files=True,
         include=["*.js"] + include,
         fix=["npx", "eslint", "--fix"],
