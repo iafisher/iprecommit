@@ -235,7 +235,7 @@ def JavaScriptLint(
         ["npx", "eslint", "--max-warnings", "0"] + args,
         pass_files=True,
         include=["*.js"] + include,
-        fix=["npx", "eslint", "--fix"],
+        fix=["npx", "eslint", "--fix"] + args,
         **kwargs,
     )
 
@@ -249,7 +249,7 @@ def JavaScriptPrettierFormat(
         cmd + args,
         pass_files=True,
         include=["*.js"] + include,
-        fix=["npx", "prettier", "--write"],
+        fix=["npx", "prettier", "--write"] + args,
         **kwargs,
     )
 
@@ -273,7 +273,7 @@ def TypeScriptFormat(
         ["tsfmt", "--verify"] + args,
         pass_files=True,
         include=["*.ts"] + include,
-        fix=["tsfmt", "-r"],
+        fix=["tsfmt", "-r"] + args,
         **kwargs,
     )
 
