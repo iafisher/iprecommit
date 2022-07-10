@@ -33,6 +33,9 @@ def init(precommit):
     # Check Rust format with rustfmt.
     precommit.check(checks.RustFormat())
 
+    # Check C/C++ format with clang-format.
+    precommit.check(checks.ClangFormat())
+
     # Run a custom command.
     # precommit.check(checks.Command("UnitTests", ["./test"]))
 

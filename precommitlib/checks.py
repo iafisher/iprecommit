@@ -278,6 +278,17 @@ def TypeScriptFormat(
     )
 
 
+def ClangFormat(args: List[str] = [], include: List[str] = [], **kwargs) -> BaseCheck:
+    return Command(
+        "ClangFormat",
+        ["clang-format", "-Werror", "--dry-run"] + args,
+        pass_files=True,
+        include=["*.c", "*.cc", "*.cpp", "*.h"] + include,
+        fix=["clang-format", "-i"] + args,
+        **kwargs,
+    )
+
+
 def _stream(msg: str) -> None:
     """
     Prints the message.
