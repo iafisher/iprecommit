@@ -8,7 +8,6 @@ import argparse
 import importlib.util
 import os
 import pkg_resources
-import shutil
 import stat
 import subprocess
 import sys
@@ -77,6 +76,11 @@ def main() -> None:
         action="store_true",
         help="Overwrite an existing pre-commit hook.",
     )
+    parser_init.add_argument(
+        "languages",
+        nargs="*",
+        help="Select pre-configured checks. Options: c, cpp, javascript, python, rust, typescript. By default, all are included.",
+    )
     parser_init.set_defaults(func=main_init)
 
     parser_fix = subparsers.add_parser("fix", help="Fix pre-commit violations.")
@@ -112,17 +116,83 @@ def add_no_color_flag(parser):
     )
 
 
+C_CPP_TEMPLATE = """\
+    # Check C/C++ format with clang-format.
+    precommit.check(checks.ClangFormat())
+"""
+
+
+TEMPLATES = {
+    "c": C_CPP_TEMPLATE,
+    "cpp": C_CPP_TEMPLATE,
+    "python": """\
+    # Check Python format with black.
+    precommit.check(checks.PythonFormat())
+
+    # Lint Python code with flake8.
+    precommit.check(checks.PythonLint())
+
+    # Check the order of Python imports with isort.
+    precommit.check(checks.PythonImportOrder())
+
+    # Check that requirements.txt matches pip freeze.
+    precommit.check(checks.PipFreeze(venv=".venv"))
+
+    # Check Python static type annotations with mypy.
+    # precommit.check(checks.PythonTypes())
+    """,
+    "javascript": """\
+    # Lint JavaScript code with ESLint.
+    precommit.check(checks.JavaScriptLint())
+    """,
+    "rust": """\
+    # Check Rust format with rustfmt.
+    precommit.check(checks.RustFormat())
+    """,
+    "typescript": """\
+    # Check TypeScript format with tsfmt.
+    precommit.check(checks.TypeScriptFormat())
+    """,
+}
+
+
 def main_init(args):
     hookpath = os.path.join(".git", "hooks", "pre-commit")
     if not args.force and os.path.exists(hookpath):
         utils.error(f"{hookpath} already exists. Re-run with --force to overwrite it.")
 
-    if not os.path.exists("precommit.py"):
-        # Courtesy of https://setuptools.readthedocs.io/en/latest/pkg_resources.html
-        template_path = pkg_resources.resource_filename(
-            __name__, "precommit.py.template"
-        )
-        shutil.copyfile(template_path, "precommit.py")
+    if not args.force and os.path.exists("precommit.py"):
+        utils.error("precommit.py already exists. Re-run with --force to overwrite it.")
+
+    # Courtesy of https://setuptools.readthedocs.io/en/latest/pkg_resources.html
+    template_path = pkg_resources.resource_filename(__name__, "precommit.py.template")
+
+    with open(template_path, "r", encoding="utf-8") as f:
+        template = f.read()
+
+    if args.languages:
+        builder = []
+        for language in args.languages:
+            if language not in TEMPLATES:
+                print(
+                    f"Warning: language {language!r} not recognized.", file=sys.stderr
+                )
+                continue
+
+            builder.append(TEMPLATES[language])
+    else:
+        # By default, include all languages.
+        builder = list(TEMPLATES.values())
+
+    if builder:
+        sub = "\n" + "\n".join(builder)
+    else:
+        sub = ""
+
+    template = template.format(sub)
+
+    with open("precommit.py", "w", encoding="utf-8") as f:
+        f.write(template)
 
     with open(hookpath, "w", encoding="utf-8") as f:
         f.write("#!/bin/sh\n\nprecommit --all\n")
