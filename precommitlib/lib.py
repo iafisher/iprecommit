@@ -3,9 +3,6 @@ The main library for the precommit tool.
 
 Holds the machinery for running pre-commit checks and fixes and reporting the results.
 The checks themselves are defined in checks.py.
-
-Author:  Ian Fisher (iafisher@fastmail.com)
-Version: May 2020
 """
 import ast
 import fnmatch

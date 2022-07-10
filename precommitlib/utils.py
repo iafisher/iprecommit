@@ -1,8 +1,5 @@
 """
 Utility functions and constants for the precommit tool.
-
-Author:  Ian Fisher (iafisher@fastmail.com)
-Version: May 2020
 """
 import sys
 

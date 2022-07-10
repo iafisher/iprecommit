@@ -8,9 +8,6 @@ for inspiration.
 
 If your check can be formulated as a shell command, you can just write a function that
 wraps the `Command` class. This module contains many examples of that.
-
-Author:  Ian Fisher (iafisher@fastmail.com)
-Version: May 2020
 """
 import os
 import shlex

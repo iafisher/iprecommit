@@ -3,10 +3,8 @@ The command-line interface to the precommit tool.
 
 Most of the tool's implementation lives in lib.py, and the definitions of the pre-commit
 checks live in checks.py.
-
-Author:  Ian Fisher (iafisher@fastmail.com)
-Version: May 2020
 """
+import argparse
 import importlib.util
 import os
 import pkg_resources
@@ -14,30 +12,109 @@ import shutil
 import stat
 import subprocess
 import sys
-from collections import namedtuple
 
 from . import utils
 from .lib import Checklist, Precommit
 
 
-def main() -> None:
-    args = parse_args(sys.argv[1:])
-    configure_globals(args)
+DESCRIPTION = """\
+A simple tool to manage git pre-commit hooks.
 
+Initialize the pre-commit checks (once per repo):
+
+    precommit init
+
+Run the pre-commit checks manually:
+
+    precommit
+
+Fix pre-commit violations:
+
+    precommit fix
+
+"""
+
+
+def main() -> None:
+    argparser = argparse.ArgumentParser(
+        description=DESCRIPTION,
+        # Prevent argparse from auto-formatting the description.
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    argparser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Emit verbose output.",
+    )
+    add_no_color_flag(argparser)
+
+    subparsers = argparser.add_subparsers(metavar="subcmd")
+
+    parser_check = subparsers.add_parser(
+        "check", help="Check for pre-commit violations."
+    )
+    parser_check.add_argument(
+        "--all",
+        action="store_true",
+        help="Run all pre-commit checks, including slow ones.",
+    )
+    parser_check.add_argument(
+        "-w",
+        "--working",
+        action="store_true",
+        help="Run on unstaged as well as staged changes.",
+    )
+    parser_check.set_defaults(func=main_check)
+    add_no_color_flag(parser_check)
+
+    parser_init = subparsers.add_parser(
+        "init", help="Initialize the git pre-commit hook."
+    )
+    parser_init.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Overwrite an existing pre-commit hook.",
+    )
+    parser_init.set_defaults(func=main_init)
+
+    parser_fix = subparsers.add_parser("fix", help="Fix pre-commit violations.")
+    parser_fix.add_argument(
+        "--all",
+        action="store_true",
+        help="Run all pre-commit checks, including slow ones.",
+    )
+    parser_fix.add_argument(
+        "-w",
+        "--working",
+        action="store_true",
+        help="Run on unstaged as well as staged changes.",
+    )
+    parser_fix.set_defaults(func=main_fix)
+    add_no_color_flag(parser_fix)
+
+    args, remaining = argparser.parse_known_args()
+    if not hasattr(args, "func"):
+        # If no subcommand was supplied, default to the 'check' command.
+        parser_check.parse_args(namespace=args)
+
+    configure_globals(args)
     chdir_to_git_root()
-    if args.subcommand == "help" or args.flags["--help"]:
-        main_help(args)
-    elif args.subcommand == "init":
-        main_init(args)
-    elif args.subcommand == "fix":
-        main_fix(args)
-    else:
-        main_check(args)
+    args.func(args)
+
+
+def add_no_color_flag(parser):
+    parser.add_argument(
+        "--no-color",
+        action="store_true",
+        help="Turn off colorized output.",
+    )
 
 
 def main_init(args):
     hookpath = os.path.join(".git", "hooks", "pre-commit")
-    if not args.flags["--force"] and os.path.exists(hookpath):
+    if not args.force and os.path.exists(hookpath):
         utils.error(f"{hookpath} already exists. Re-run with --force to overwrite it.")
 
     if not os.path.exists("precommit.py"):
@@ -60,10 +137,6 @@ def main_fix(args):
     precommit.fix()
 
 
-def main_help(args):
-    print(HELP)
-
-
 def main_check(args):
     precommit = get_precommit(args)
     found_problems = precommit.check()
@@ -82,87 +155,6 @@ def chdir_to_git_root():
     os.chdir(gitroot.stdout.decode("ascii").strip())
 
 
-SUBCOMMANDS = {"init", "fix", "help", "check"}
-SHORT_FLAGS = {"-f": "--force", "-h": "--help", "-w": "--working"}
-FLAGS = {
-    "--color": set(),
-    "--no-color": set(),
-    "--help": set(),
-    "--verbose": {"fix", "check"},
-    "--all": {"fix", "check"},
-    "--force": {"init"},
-    "--working": {"fix", "check"},
-}
-Args = namedtuple("Args", ["subcommand", "positional", "flags"])
-
-
-def parse_args(args):
-    """
-    Parses the argument list into an `Args` object.
-
-    Exits the program with an error message if the arguments are invalid.
-    """
-    positional = []
-    flags = {}
-    force_positional = False
-    for arg in sys.argv[1:]:
-        if arg == "--":
-            force_positional = True
-            continue
-        elif not force_positional and arg.startswith("-"):
-            if arg in SHORT_FLAGS:
-                flags[SHORT_FLAGS[arg]] = True
-            else:
-                flags[arg] = True
-        else:
-            positional.append(arg)
-
-    if positional:
-        subcommand = positional[0]
-        positional = positional[1:]
-    else:
-        subcommand = "check"
-
-    args = Args(subcommand=subcommand, flags=flags, positional=positional)
-
-    errormsg = check_args(args)
-    if errormsg:
-        utils.error(errormsg)
-
-    for flag in FLAGS:
-        if flag not in args.flags:
-            args.flags[flag] = False
-
-    return args
-
-
-def check_args(args):
-    """
-    Checks that the command-line arguments are valid.
-    """
-    if len(args.positional) > 0:
-        return "precommit does not take positional arguments"
-
-    if args.subcommand not in SUBCOMMANDS:
-        return f"unknown subcommand: {args.subcommand}"
-
-    if "--no-color" in args.flags and "--color" in args.flags:
-        return "--color and --no-color are incompatible"
-
-    for flag in args.flags:
-        try:
-            valid_subcommands = FLAGS[flag]
-        except KeyError:
-            return f"unknown flag: {flag}"
-        else:
-            # If `FLAGS[flag]` is the empty set, then it means the flag is valid for
-            # any subcommand.
-            if valid_subcommands and args.subcommand not in valid_subcommands:
-                return f"flag {flag} not valid for {args.subcommand} subcommand"
-
-    return None
-
-
 def configure_globals(args):
     """
     Configure global settings based on the command-line arguments.
@@ -170,17 +162,11 @@ def configure_globals(args):
     # Check for the NO_COLOR environment variable and for a non-terminal standard output
     # before handling command-line arguments so that it can be overridden by explicitly
     # specifying --color.
-    no_color = "NO_COLOR" in os.environ or not sys.stdout.isatty()
-
-    if args.flags["--color"]:
-        no_color = False
-    elif args.flags["--no-color"]:
-        no_color = True
-
+    no_color = "NO_COLOR" in os.environ or not sys.stdout.isatty() or args.no_color
     if no_color:
         utils.turn_off_colors()
 
-    utils.VERBOSE = args.flags["--verbose"]
+    utils.VERBOSE = args.verbose
 
 
 def get_precommit(args):
@@ -207,31 +193,7 @@ def get_precommit(args):
 
         precommit = Precommit(
             checklist._checks,
-            check_all=args.flags["--all"],
-            working=args.flags["--working"],
+            check_all=args.all,
+            working=args.working,
         )
         return precommit
-
-
-HELP = """\
-precommit: simple git pre-commit hook management.
-
-Usage: precommit [flags] [subcommand]
-
-Subcommands:
-    If left blank, subcommand defaults to 'check'.
-
-    check           Check for precommit failures.
-    fix             Apply any available fixes for problems that 'check' finds.
-    init            Initialize
-    help            Display a help message and exit.
-
-Flags:
-    --all           Run all pre-commit checks, including slow ones.
-    --color         Turn on colorized output, overriding any environment settings.
-    --no-color      Turn off colorized output.
-    --verbose       Emit verbose output.
-    -w, --working   Run on unstaged as well as staged changes.
-    -h, --help      Display a help message and exit.
-
-Written by Ian Fisher. http://github.com/iafisher/precommit"""

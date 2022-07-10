@@ -29,8 +29,6 @@ precommit fix
 
 Pass the `--working` flag to `precommit` and `precommit fix` to operate on both staged and unstaged changes.
 
-Always invoke `precommit.py` through the `precommit` command. Don't run it directly.
-
 
 ## User guide
 ### Precommit file format

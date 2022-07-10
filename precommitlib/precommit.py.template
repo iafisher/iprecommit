@@ -41,3 +41,14 @@ def init(precommit):
 
     # Run a custom command on each file.
     # precommit.check(checks.Command("FileCheck", ["check_file"], pass_files=True))
+
+
+if __name__ == "__main__":
+    import sys
+
+    print(
+        "Use the 'precommit' command to run pre-commit checks. "
+        + "Running this file does nothing.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
