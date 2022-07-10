@@ -1,4 +1,4 @@
-from precommitlib import checks
+from iprecommit import checks
 
 
 def init(precommit):

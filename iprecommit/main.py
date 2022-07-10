@@ -195,7 +195,7 @@ def main_init(args):
         f.write(template)
 
     with open(hookpath, "w", encoding="utf-8") as f:
-        f.write("#!/bin/sh\n\nprecommit --all\n")
+        f.write("#!/bin/sh\n\niprecommit --all\n")
 
     # Make the hook executable by everyone.
     st = os.stat(hookpath)

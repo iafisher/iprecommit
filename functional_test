@@ -66,12 +66,12 @@ git init
 git add bad_python_format.py to_be_removed.txt
 git commit -m "Initial commit"
 
-status "Installing development version of iafisher-precommit."
+status "Installing development version of iprecommit."
 source .venv/bin/activate
 pip3 install "$d"
 
 status "Running tests"
-precommit init
+iprecommit init
 
 # Modify a file to fail the "no staged and unstaged changes" check.
 echo -e "\n\n" >> bad_python_format.py
@@ -82,31 +82,31 @@ echo -e "\n\n" >> bad_python_format.py
 rm to_be_removed.txt
 git add to_be_removed.txt
 
-echo "Checking output of 'precommit'"
-precommit --no-color &> precommit_output || true
+echo "Checking output of 'iprecommit'"
+iprecommit --no-color &> precommit_output || true
 git diff --no-index ref/precommit_output precommit_output
 
 echo "Checking output of 'git commit'"
 NO_COLOR=true git commit -m "Test commit" &> git_precommit_output || true
 git diff --no-index ref/precommit_output git_precommit_output
 
-echo "Checking output of 'precommit fix'"
-precommit fix --no-color &> precommit_fix_output || true
+echo "Checking output of 'iprecommit fix'"
+iprecommit fix --no-color &> precommit_fix_output || true
 git diff --no-index ref/precommit_fix_output precommit_fix_output
 git diff --no-index ref/fixed_python_format.py bad_python_format.py
 
 # Modify bad_python_format.py to have bad format again.
 git reset HEAD bad_python_format.py > /dev/null
 git checkout -- bad_python_format.py
-# Unstaged change to bad_python_format.py so that precommit picks up on it.
+# Unstaged change to bad_python_format.py so that iprecommit picks up on it.
 echo -e "\n\n" >> bad_python_format.py
 
-echo "Checking output of 'precommit -w'"
-precommit -w --no-color &> precommit_output || true
+echo "Checking output of 'iprecommit -w'"
+iprecommit -w --no-color &> precommit_output || true
 git diff --no-index ref/precommit_working_output precommit_output
 
-echo "Checking output of 'precommit fix -w'"
-precommit fix -w --no-color &> precommit_fix_output || true
+echo "Checking output of 'iprecommit fix -w'"
+iprecommit fix -w --no-color &> precommit_fix_output || true
 git diff --no-index ref/precommit_fix_working_output precommit_fix_output
 git diff --no-index ref/fixed_python_format.py bad_python_format.py
 
