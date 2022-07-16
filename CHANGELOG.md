@@ -8,7 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/iprecommit/issues).
 
 ## Unreleased
-Nothing yet.
+### Changed
+- The error message for when a `precommit.py` file cannot be found now identifies the directory where `iprecommit` looked for it.
+
+### Fixed
+- A misleading error message is no longer printed for import errors of `precommit.py` files. Instead, the Python backtrace is printed.
 
 ## [0.1.1] - 2022-07-10
 First official release

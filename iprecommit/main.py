@@ -240,7 +240,8 @@ def configure_globals(args):
 
 
 def get_precommit(args):
-    path = os.path.join(os.getcwd(), "precommit.py")
+    cwd = os.getcwd()
+    path = os.path.join(cwd, "precommit.py")
     try:
         # Courtesy of https://stackoverflow.com/questions/67631/
         # We could add the current directory to `sys.path` and use a regular import
@@ -252,9 +253,10 @@ def get_precommit(args):
         spec = importlib.util.spec_from_file_location("precommit", path)
         precommit_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(precommit_module)
-    except (FileNotFoundError, ImportError):
+    except FileNotFoundError:
         utils.error(
-            "could not find precommit.py. You can create it with 'precommit init'."
+            f"did not find precommit.py in {cwd}. "
+            + "You can create it with 'iprecommit init'."
         )
     else:
         # Call the user's code to initialize the checklist.
