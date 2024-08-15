@@ -4,13 +4,20 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
+from typing import Dict, NoReturn, Optional
 
 from iprecommit.lib import red, yellow
 
 
-def main():
+def main() -> None:
     argparser = argparse.ArgumentParser(description="Manage Git pre-commit hooks.")
     subparsers = argparser.add_subparsers()
+
+    argparser_fix = subparsers.add_parser("fix", help="Fix pre-commit failures.")
+    argparser_fix.add_argument(
+        "--unstaged", action="store_true", help="Fix failures in unstaged changes."
+    )
+    argparser_fix.set_defaults(func=main_fix)
 
     argparser_install = subparsers.add_parser(
         "install", help="Install the pre-commit hook in the Git repository."
@@ -42,7 +49,7 @@ def main():
     args.func(args)
 
 
-def main_install(args):
+def main_install(args) -> None:
     ensure_in_git_root()
 
     hookpath = normalize_hook_path(args.hook)
@@ -75,23 +82,40 @@ def main_install(args):
         bail("Failed to install the pre-commit hook.")
 
 
-def main_run(args):
+def main_run(args) -> None:
+    if args.unstaged:
+        env = dict(IPRECOMMIT_UNSTAGED="1")
+    else:
+        env = None
+
+    run_with_env(env)
+
+
+def main_fix(args) -> None:
+    env = dict(IPRECOMMIT_FIX="1")
+    if args.unstaged:
+        env["IPRECOMMIT_UNSTAGED"] = "1"
+
+    run_with_env(env)
+
+
+def run_with_env(extended_env: Optional[Dict[str, str]]) -> None:
     ensure_in_git_root()
 
     git_hookpath = Path(".git") / "hooks" / "pre-commit"
     if not os.path.lexists(git_hookpath):
         bail("No pre-commit hook is installed. Run `iprecommit install` first.")
 
-    if args.unstaged:
+    if extended_env is not None:
         env = os.environ.copy()
-        env["IPRECOMMIT_UNSTAGED"] = "1"
+        env.update(extended_env)
     else:
         env = None
 
     subprocess.run(git_hookpath, env=env)
 
 
-def main_uninstall(_args):
+def main_uninstall(_args) -> None:
     ensure_in_git_root()
 
     git_hookpath = Path(".git") / "hooks" / "pre-commit"
@@ -107,13 +131,13 @@ def main_uninstall(_args):
         bail("Failed to uninstall the pre-commit hook.")
 
 
-def ensure_in_git_root():
+def ensure_in_git_root() -> None:
     # TODO(2024-08-15): loosen this requirement to just being in the git repo
     if not Path(".git").exists():
         bail("You must be in the root of a Git repository.")
 
 
-def normalize_hook_path(pathstr):
+def normalize_hook_path(pathstr: str) -> Path:
     repository_path = Path(".").absolute()
     user_path = Path(pathstr).absolute()
 
@@ -123,12 +147,12 @@ def normalize_hook_path(pathstr):
         return user_path
 
 
-def bail(msg):
+def bail(msg: str) -> NoReturn:
     print(f"{red('Error:')} {msg}", file=sys.stderr)
     sys.exit(1)
 
 
-def warn(msg):
+def warn(msg: str) -> None:
     print(f"{yellow('Warning:')} {msg}")
 
 

@@ -24,32 +24,48 @@ class Changes:
 
 
 @dataclass
-class Failure:
+class Message:
     message: str
+    path: Path
 
 
 class BaseCheck(abc.ABC):
     @abc.abstractmethod
-    def check(self, changes: Changes) -> List[Failure]:
+    def check(self, changes: Changes) -> List[Message]:
         pass
+
+    def fix(self, changes: Changes) -> List[Message]:
+        return []
 
 
 class Precommit:
     def __init__(self) -> None:
-        include_unstaged = os.environ.get("IPRECOMMIT_UNSTAGED") == "1"
-        self.changes = _get_changes(include_unstaged=include_unstaged)
+        iprecommit_unstaged = os.environ.get("IPRECOMMIT_UNSTAGED") == "1"
+        iprecommit_fix = os.environ.get("IPRECOMMIT_FIX") == "1"
+
+        self.in_fix_mode = iprecommit_fix
+        self.changes = _get_changes(include_unstaged=iprecommit_unstaged)
         self.num_failed_checks = 0
 
         atexit.register(self.atexit)
 
     def check(self, checker: BaseCheck, *, label: str = "") -> None:
-        failures = checker.check(self.changes)
-        if len(failures) > 0:
+        if self.in_fix_mode:
+            self._fix(checker, label=label)
+            return
+
+        messages = checker.check(self.changes)
+        if len(messages) > 0:
             self.num_failed_checks += 1
             self.print_failure(
                 label or checker.__class__.__name__,
-                "\n".join(f.message for f in failures),
+                "\n".join(m.message for m in messages),
             )
+
+    def _fix(self, checker: BaseCheck, *, label: str = "") -> None:
+        messages = checker.fix(self.changes)
+        for m in messages:
+            self.print_fix(label or checker.__class__.__name__, m.path)
 
     def command(
         self,
@@ -71,13 +87,16 @@ class Precommit:
         )
         if result.returncode != 0:
             self.num_failed_checks += 1
-            self.print_failure(" ".join(map(str, args)), result.stdout)
+            self.print_failure(label or " ".join(map(str, args)), result.stdout)
 
     def print_failure(self, label: str, message: str) -> None:
         print(f"{red('failed:')} {label}")
         if message:
             print(textwrap.indent(message, "  "))
             print()
+
+    def print_fix(self, label: str, path: Path) -> None:
+        print(f"{cyan('fixed:')} {label}: {path}")
 
     def atexit(self):
         if self.num_failed_checks > 0:
@@ -91,8 +110,12 @@ def red(s: str) -> str:
     return f"\033[31m{s}\033[0m"
 
 
-def yellow(s):
+def yellow(s: str) -> str:
     return f"\033[33m{s}\033[0m"
+
+
+def cyan(s: str) -> str:
+    return f"\033[36m{s}\033[0m"
 
 
 def _get_changes(*, include_unstaged: bool) -> Changes:
