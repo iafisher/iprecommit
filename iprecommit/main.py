@@ -5,7 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from .lib import red, yellow
+from iprecommit.lib import red, yellow
 
 
 def main():
@@ -24,6 +24,14 @@ def main():
         help="Path to the hook script",
     )
     argparser_install.set_defaults(func=main_install)
+
+    argparser_run = subparsers.add_parser(
+        "run", help="Run the pre-commit checks manually."
+    )
+    argparser_run.add_argument(
+        "--unstaged", action="store_true", help="Include unstaged changes."
+    )
+    argparser_run.set_defaults(func=main_run)
 
     argparser_uninstall = subparsers.add_parser(
         "uninstall", help="Uninstall the pre-commit hook from the Git repository."
@@ -67,6 +75,22 @@ def main_install(args):
         bail("Failed to install the pre-commit hook.")
 
 
+def main_run(args):
+    ensure_in_git_root()
+
+    git_hookpath = Path(".git") / "hooks" / "pre-commit"
+    if not os.path.lexists(git_hookpath):
+        bail("No pre-commit hook is installed. Run `iprecommit install` first.")
+
+    if args.unstaged:
+        env = os.environ.copy()
+        env["IPRECOMMIT_UNSTAGED"] = "1"
+    else:
+        env = None
+
+    subprocess.run(git_hookpath, env=env)
+
+
 def main_uninstall(_args):
     ensure_in_git_root()
 
@@ -84,6 +108,7 @@ def main_uninstall(_args):
 
 
 def ensure_in_git_root():
+    # TODO(2024-08-15): loosen this requirement to just being in the git repo
     if not Path(".git").exists():
         bail("You must be in the root of a Git repository.")
 
@@ -105,3 +130,7 @@ def bail(msg):
 
 def warn(msg):
     print(f"{yellow('Warning:')} {msg}")
+
+
+if __name__ == "__main__":
+    main()

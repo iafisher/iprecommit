@@ -1,12 +1,13 @@
 import abc
 import ast
 import atexit
+import fnmatch
 import os
 import subprocess
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional
+from typing import List
 
 
 @dataclass
@@ -14,6 +15,12 @@ class Changes:
     added_files: List[Path]
     modified_files: List[Path]
     deleted_files: List[Path]
+
+    def filter(self, pattern: str) -> List[Path]:
+        r = self.added_files + self.modified_files
+        if pattern:
+            r = [p for p in r if fnmatch.fnmatch(p, pattern)]
+        return r
 
 
 @dataclass
@@ -44,18 +51,33 @@ class Precommit:
                 "\n".join(f.message for f in failures),
             )
 
-    def command(self, args: List[str], *, label: str = "") -> None:
+    def command(
+        self,
+        args: List[str],
+        *,
+        pass_files: bool = False,
+        pattern: str = "",
+        label: str = "",
+    ) -> None:
+        if pass_files:
+            files = self.changes.filter(pattern)
+            if len(files) == 0:
+                return
+
+            args.extend(files)
+
         result = subprocess.run(
             args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
         )
         if result.returncode != 0:
             self.num_failed_checks += 1
-            self.print_failure(" ".join(args), result.stdout)
+            self.print_failure(" ".join(map(str, args)), result.stdout)
 
     def print_failure(self, label: str, message: str) -> None:
         print(f"{red('failed:')} {label}")
         if message:
             print(textwrap.indent(message, "  "))
+            print()
 
     def atexit(self):
         if self.num_failed_checks > 0:
