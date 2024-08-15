@@ -43,7 +43,7 @@ def main_uninstall(_args):
     ensure_in_git_root()
 
     git_hookpath = Path(".git") / "hooks" / "pre-commit"
-    if not git_hookpath.exists():
+    if not os.path.lexists(git_hookpath):
         bail("There is no existing pre-commit hook to uninstall.")
 
     result = subprocess.run(
