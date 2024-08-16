@@ -21,6 +21,9 @@ class NewlineAtEndOfFile(BaseCheck):
     def fix(self, changes: Changes) -> List[Message]:
         messages = self.check(changes)
         for message in messages:
+            if message.path is None:
+                continue
+
             with open(message.path, "a") as f:
                 f.write("\n")
 
@@ -50,7 +53,7 @@ class PythonBlack(BaseCommand):
         super().__init__(["black", "--check"], pass_files=True)
 
     def fix(self, changes: Changes) -> List[Message]:
-        subprocess.run(["black"] + changes.as_list())
+        subprocess.run(["black"] + [str(p) for p in changes.as_list()])
         return [Message("", p) for p in changes.as_list()]
 
     def get_intrinsic_filters(self) -> Tuple[List[str], List[str]]:

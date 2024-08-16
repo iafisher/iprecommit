@@ -48,12 +48,12 @@ def _apply_filter(
     r = [
         f
         for f in files
-        if not pattern_list or any(fnmatch.fnmatch(f, p) for p in pattern_list)
+        if not pattern_list or any(fnmatch.fnmatch(str(f), p) for p in pattern_list)
     ]
     r = [
         f
         for f in r
-        if not exclude_list or all(not fnmatch.fnmatch(f, p) for p in exclude_list)
+        if not exclude_list or all(not fnmatch.fnmatch(str(f), p) for p in exclude_list)
     ]
     return r
 
@@ -188,7 +188,7 @@ class Precommit:
     def print_skipped(self, label: str) -> None:
         print(f"{yellow('skipped:')} {label}")
 
-    def print_fix(self, label: str, path: Path) -> None:
+    def print_fix(self, label: str, path: Optional[Path]) -> None:
         print(f"{cyan('fixed:')} {label}: {path}")
 
     def atexit(self):

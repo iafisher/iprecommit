@@ -12,6 +12,9 @@ iprecommit = "iprecommit.main:main"
 [tool.poetry.dependencies]
 python = "^3.11"
 
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.11.1"
+
 [project.urls]
 Homepage = "https://github.com/iafisher/iprecommit/"
 Repository = "https://github.com/iafisher/iprecommit/"
