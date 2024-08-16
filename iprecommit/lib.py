@@ -8,7 +8,7 @@ import subprocess
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Union
+from typing import List
 
 
 @dataclass
@@ -74,11 +74,10 @@ class BaseCheck(abc.ABC):
 
 class Precommit:
     def __init__(self) -> None:
-        iprecommit_unstaged = os.environ.get("IPRECOMMIT_UNSTAGED") == "1"
-        iprecommit_fix = os.environ.get("IPRECOMMIT_FIX") == "1"
+        env_config = get_environment_config()
 
-        self.in_fix_mode = iprecommit_fix
-        self.changes = _get_changes(include_unstaged=iprecommit_unstaged)
+        self.in_fix_mode = env_config.fix
+        self.changes = _get_changes(include_unstaged=env_config.unstaged)
         self.num_failed_checks = 0
 
         atexit.register(self.atexit)
@@ -168,6 +167,34 @@ class Precommit:
             print()
             print(f"{msg}. Commit aborted.")
             os._exit(1)
+
+
+@dataclass
+class EnvironmentConfig:
+    unstaged: bool
+    fix: bool
+
+
+def get_environment_config() -> EnvironmentConfig:
+    return EnvironmentConfig(
+        unstaged=get_binary_envvar_or_warn("IPRECOMMIT_UNSTAGED"),
+        fix=get_binary_envvar_or_warn("IPRECOMMIT_FIX"),
+    )
+
+
+def get_binary_envvar_or_warn(name: str) -> bool:
+    envvar = os.environ.get(name)
+    if envvar is None or envvar == "0":
+        return False
+    elif envvar == "1":
+        return True
+    else:
+        warn(f"{name} is defined but ignored because its value is not '1' or '0'.")
+        return False
+
+
+def warn(msg: str) -> None:
+    print(f"{yellow('Warning:')} {msg}")
 
 
 def red(s: str) -> str:

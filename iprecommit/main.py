@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Dict, NoReturn, Optional, Tuple
 
-from iprecommit.lib import red, yellow
+from iprecommit.lib import red, warn
 
 
 DEFAULT_HOOK_PATH = "hooks/precommit.py"
@@ -223,10 +223,6 @@ def normalize_path_to_script(pathstr: str) -> Path:
 def bail(msg: str) -> NoReturn:
     print(f"{red('Error:')} {msg}", file=sys.stderr)
     sys.exit(1)
-
-
-def warn(msg: str) -> None:
-    print(f"{yellow('Warning:')} {msg}")
 
 
 if __name__ == "__main__":
