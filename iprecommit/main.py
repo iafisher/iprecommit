@@ -1,4 +1,5 @@
 import argparse
+import importlib.metadata
 import os
 import stat
 import subprocess
@@ -13,7 +14,13 @@ DEFAULT_HOOK_PATH = "hooks/precommit.py"
 
 
 def main() -> None:
-    argparser = argparse.ArgumentParser(description="Manage Git pre-commit hooks.")
+    argparser = argparse.ArgumentParser(
+        prog="iprecommit", description="Manage Git pre-commit hooks."
+    )
+
+    version = importlib.metadata.version("iprecommit")
+    argparser.add_argument("--version", action="version", version=version)
+
     subparsers = argparser.add_subparsers(metavar="subcommand")
 
     argparser_fix = subparsers.add_parser("fix", help="Fix pre-commit failures.")
