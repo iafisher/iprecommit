@@ -1,2 +1,25 @@
+[tool.poetry]
+name = "iprecommit"
+version = "0.2"
+description = "Dead-simple Git pre-commit hooks"
+authors = ["Ian Fisher <ian@iafisher.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.scripts]
+iprecommit = "iprecommit.main:main"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+[project.urls]
+Homepage = "https://github.com/iafisher/iprecommit/"
+Repository = "https://github.com/iafisher/iprecommit/"
+Issues = "https://github.com/iafisher/iprecommit/issues"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.black]
 exclude = 'test_repo|\.git|\.venv'
