@@ -1,6 +1,6 @@
 [flake8]
 max-line-length = 88
-exclude = .git, __pycache__, __init__.py
+exclude = .git, __pycache__, __init__.py, test_repo/, .venv/
 # Ignore errors that black handles or creates (e.g., E203).
 ignore =
     # E203 whitespace before ':'
