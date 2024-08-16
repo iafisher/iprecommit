@@ -83,6 +83,7 @@ rm to_be_removed.txt
 git add to_be_removed.txt
 
 export NO_COLOR=true
+export IPRECOMMIT_FANCY_OUTPUT=0
 
 echo "Checking output of 'iprecommit run --staged'"
 iprecommit run --staged &> precommit_output || true

@@ -100,6 +100,7 @@ class Precommit:
     def __init__(self) -> None:
         env_config = get_environment_config()
 
+        self.fancy_output = env_config.fancy_output
         self.in_fix_mode = env_config.fix
         self.changes = _get_changes(include_unstaged=env_config.unstaged)
         self.num_failed_checks = 0
@@ -130,7 +131,15 @@ class Precommit:
             self._fix(checker, changes, label=label)
             return
 
+        self.print_running(label)
         messages = checker.check(changes)
+
+        if self.fancy_output:
+            # clear to beginning of line
+            print("\033[1K", end="")
+            # return cursor to beginning of line
+            print("\r", end="")
+            sys.stdout.flush()
 
         if len(messages) > 0:
             self.num_failed_checks += 1
@@ -162,6 +171,11 @@ class Precommit:
             label=label,
         )
 
+    def print_running(self, label: str) -> None:
+        if self.fancy_output:
+            print(f"{cyan('running:')} {label}", end="")
+            sys.stdout.flush()
+
     def print_failure(self, label: str, message: str) -> None:
         print(f"{red('failed:')} {label}")
         if message:
@@ -187,26 +201,33 @@ class Precommit:
 
 @dataclass
 class EnvironmentConfig:
+    # run on unstaged as well as staged files
     unstaged: bool
+    # run in 'fix' mode instead of 'check' mode
     fix: bool
+    # enable fancy output (disabled in functional test so that output can be more easily diffed)
+    fancy_output: bool
 
 
 def get_environment_config() -> EnvironmentConfig:
     return EnvironmentConfig(
         unstaged=get_binary_envvar_or_warn("IPRECOMMIT_UNSTAGED"),
         fix=get_binary_envvar_or_warn("IPRECOMMIT_FIX"),
+        fancy_output=get_binary_envvar_or_warn("IPRECOMMIT_FANCY_OUTPUT", default=True),
     )
 
 
-def get_binary_envvar_or_warn(name: str) -> bool:
+def get_binary_envvar_or_warn(name: str, *, default=False) -> bool:
     envvar = os.environ.get(name)
-    if envvar is None or envvar == "0":
+    if envvar is None:
+        return default
+    elif envvar == "0":
         return False
     elif envvar == "1":
         return True
     else:
         warn(f"{name} is defined but ignored because its value is not '1' or '0'.")
-        return False
+        return default
 
 
 def warn(msg: str) -> None:
