@@ -73,7 +73,7 @@ class BaseCheck(abc.ABC):
         return []
 
     # returns (pattern, exclude)
-    def get_filters(self) -> Tuple[List[str], List[str]]:
+    def get_intrinsic_filters(self) -> Tuple[List[str], List[str]]:
         return ([], [])
 
 
@@ -117,7 +117,7 @@ class Precommit:
         if not label:
             label = checker.__class__.__name__
 
-        checker_pattern, checker_exclude = checker.get_filters()
+        checker_pattern, checker_exclude = checker.get_intrinsic_filters()
         pattern += checker_pattern
         exclude += checker_exclude
 

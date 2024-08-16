@@ -53,5 +53,5 @@ class PythonBlack(BaseCommand):
         subprocess.run(["black"] + changes.as_list())
         return [Message("", p) for p in changes.as_list()]
 
-    def get_filters(self) -> Tuple[List[str], List[str]]:
+    def get_intrinsic_filters(self) -> Tuple[List[str], List[str]]:
         return ["*.py"], []
