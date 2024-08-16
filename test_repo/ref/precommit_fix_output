@@ -1,14 +1,5 @@
-o--[ NoStagedAndUnstagedChanges ]
-o--[ fixed! ]
+reformatted bad_python_format.py
 
-o--[ PythonFormat ]
-|  reformatted bad_python_format.py
-|  All done! ✨ 🍰 ✨
-|  1 file reformatted.
-o--[ fixed! ]
-
-o--[ PythonImportOrder ]
-o--[ passed! ]
-
-
-Ran 3 fixable checks. Detected 2 issues. Fixed 2 of them.
+All done! ✨ 🍰 ✨
+1 file reformatted.
+fixed: PythonBlack: bad_python_format.py

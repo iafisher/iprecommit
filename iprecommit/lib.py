@@ -9,7 +9,7 @@ import sys
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Optional, Tuple
 
 
 @dataclass
@@ -61,7 +61,7 @@ def _apply_filter(
 @dataclass
 class Message:
     message: str
-    path: Path
+    path: Optional[Path]
 
 
 class BaseCheck(abc.ABC):
@@ -71,6 +71,29 @@ class BaseCheck(abc.ABC):
 
     def fix(self, changes: Changes) -> List[Message]:
         return []
+
+    # returns (pattern, exclude)
+    def get_filters(self) -> Tuple[List[str], List[str]]:
+        return ([], [])
+
+
+class BaseCommand(BaseCheck):
+    def __init__(self, args, *, pass_files: bool = False) -> None:
+        self.args = args
+        self.pass_files = pass_files
+
+    def check(self, changes: Changes) -> List[Message]:
+        args = self.args[:]
+        if self.pass_files:
+            args.extend(changes.as_list())
+
+        result = subprocess.run(
+            args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        )
+        if result.returncode != 0:
+            return [Message(result.stdout, None)]
+        else:
+            return []
 
 
 class Precommit:
@@ -94,13 +117,17 @@ class Precommit:
         if not label:
             label = checker.__class__.__name__
 
-        if self.in_fix_mode:
-            self._fix(checker, label=label)
-            return
+        checker_pattern, checker_exclude = checker.get_filters()
+        pattern += checker_pattern
+        exclude += checker_exclude
 
         changes = self.changes.filtered(pattern, exclude=exclude)
         if changes.is_empty():
             self.print_skipped(label)
+            return
+
+        if self.in_fix_mode:
+            self._fix(checker, changes, label=label)
             return
 
         messages = checker.check(changes)
@@ -111,8 +138,8 @@ class Precommit:
         else:
             self.print_success(label)
 
-    def _fix(self, checker: BaseCheck, *, label: str) -> None:
-        messages = checker.fix(self.changes)
+    def _fix(self, checker: BaseCheck, changes: Changes, *, label: str) -> None:
+        messages = checker.fix(changes)
         for m in messages:
             self.print_fix(label, m.path)
 
@@ -126,26 +153,14 @@ class Precommit:
         label: str = "",
     ) -> None:
         if not label:
-            label = " ".join(shlex.quote(str(a)) for a in args)
+            label = "Command: " + " ".join(shlex.quote(str(a)) for a in args)
 
-        if pass_files:
-            changes = self.changes.filtered(
-                pattern, exclude=exclude, include_deleted=False
-            )
-            if changes.is_empty():
-                self.print_skipped(label)
-                return
-
-            args.extend(changes.as_list())
-
-        result = subprocess.run(
-            args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+        return self.check(
+            BaseCommand(args, pass_files=pass_files),
+            pattern=pattern,
+            exclude=exclude,
+            label=label,
         )
-        if result.returncode != 0:
-            self.num_failed_checks += 1
-            self.print_failure(label, result.stdout)
-        else:
-            self.print_success(label)
 
     def print_failure(self, label: str, message: str) -> None:
         print(f"{red('failed:')} {label}")

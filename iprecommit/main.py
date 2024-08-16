@@ -78,7 +78,7 @@ pre.check(checks.NewlineAtEndOfFile())
 def main_init(args) -> None:
     ensure_in_git_root()
     path_to_git_hook, path_to_script = check_paths(
-        args.hook, force=args.force, script_must_exist=True
+        args.hook, force=args.force, script_must_exist=False
     )
 
     if path_to_script.exists():

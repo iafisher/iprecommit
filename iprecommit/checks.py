@@ -1,6 +1,7 @@
-from typing import List
+import subprocess
+from typing import List, Tuple
 
-from .lib import BaseCheck, Changes, Message
+from .lib import BaseCheck, BaseCommand, Changes, Message
 
 
 class NewlineAtEndOfFile(BaseCheck):
@@ -42,3 +43,15 @@ class NoDoNotSubmit(BaseCheck):
                         )
 
         return failures
+
+
+class PythonBlack(BaseCommand):
+    def __init__(self) -> None:
+        super().__init__(["black", "--check"], pass_files=True)
+
+    def fix(self, changes: Changes) -> List[Message]:
+        subprocess.run(["black"] + changes.as_list())
+        return [Message("", p) for p in changes.as_list()]
+
+    def get_filters(self) -> Tuple[List[str], List[str]]:
+        return ["*.py"], []
