@@ -8,7 +8,7 @@ import subprocess
 import textwrap
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 
 @dataclass
@@ -17,11 +17,44 @@ class Changes:
     modified_files: List[Path]
     deleted_files: List[Path]
 
-    def filter(self, pattern: str) -> List[Path]:
-        r = self.added_files + self.modified_files
-        if pattern:
-            r = [p for p in r if fnmatch.fnmatch(p, pattern)]
-        return r
+    def filtered(
+        self, patterns: List[str], *, exclude: List[str], include_deleted: bool = True
+    ) -> "Changes":
+        return Changes(
+            added_files=_apply_filter(self.added_files, patterns, exclude),
+            modified_files=_apply_filter(self.modified_files, patterns, exclude),
+            deleted_files=(
+                _apply_filter(self.deleted_files, patterns, exclude)
+                if include_deleted
+                else []
+            ),
+        )
+
+    def is_empty(self) -> bool:
+        return (
+            len(self.added_files) == 0
+            and len(self.modified_files) == 0
+            and len(self.deleted_files) == 0
+        )
+
+    def as_list(self) -> List[Path]:
+        return self.added_files + self.modified_files + self.deleted_files
+
+
+def _apply_filter(
+    files: List[Path], pattern_list: List[str], exclude_list: List[str]
+) -> List[Path]:
+    r = [
+        f
+        for f in files
+        if not pattern_list or any(fnmatch.fnmatch(f, p) for p in pattern_list)
+    ]
+    r = [
+        f
+        for f in r
+        if not exclude_list or all(not fnmatch.fnmatch(f, p) for p in exclude_list)
+    ]
+    return r
 
 
 @dataclass
@@ -50,7 +83,14 @@ class Precommit:
 
         atexit.register(self.atexit)
 
-    def check(self, checker: BaseCheck, *, label: str = "") -> None:
+    def check(
+        self,
+        checker: BaseCheck,
+        *,
+        pattern: List[str] = [],
+        exclude: List[str] = [],
+        label: str = "",
+    ) -> None:
         if not label:
             label = checker.__class__.__name__
 
@@ -58,7 +98,12 @@ class Precommit:
             self._fix(checker, label=label)
             return
 
-        messages = checker.check(self.changes)
+        changes = self.changes.filtered(pattern, exclude=exclude)
+        if changes.is_empty():
+            self.print_skipped(label)
+            return
+
+        messages = checker.check(changes)
 
         if len(messages) > 0:
             self.num_failed_checks += 1
@@ -76,19 +121,22 @@ class Precommit:
         args: List[str],
         *,
         pass_files: bool = False,
-        pattern: str = "",
+        pattern: List[str] = [],
+        exclude: List[str] = [],
         label: str = "",
     ) -> None:
         if not label:
             label = " ".join(shlex.quote(str(a)) for a in args)
 
         if pass_files:
-            files = self.changes.filter(pattern)
-            if len(files) == 0:
+            changes = self.changes.filtered(
+                pattern, exclude=exclude, include_deleted=False
+            )
+            if changes.is_empty():
                 self.print_skipped(label)
                 return
 
-            args.extend(files)
+            args.extend(changes.as_list())
 
         result = subprocess.run(
             args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
