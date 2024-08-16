@@ -18,7 +18,7 @@ def main() -> None:
 
     argparser_fix = subparsers.add_parser("fix", help="Fix pre-commit failures.")
     argparser_fix.add_argument(
-        "--unstaged", action="store_true", help="Fix failures in unstaged changes."
+        "--staged", action="store_true", help="Only fix failures in staged changes."
     )
     argparser_fix.set_defaults(func=main_fix)
 
@@ -50,7 +50,7 @@ def main() -> None:
         "run", help="Run the pre-commit checks manually."
     )
     argparser_run.add_argument(
-        "--unstaged", action="store_true", help="Include unstaged changes."
+        "--staged", action="store_true", help="Only check staged changes."
     )
     argparser_run.set_defaults(func=main_run)
 
@@ -156,17 +156,17 @@ def check_path_to_git_hook(git_hookpath: Path, *, force: bool) -> None:
 
 
 def main_run(args) -> None:
-    if args.unstaged:
-        env = dict(IPRECOMMIT_UNSTAGED="1")
-    else:
+    if args.staged:
         env = None
+    else:
+        env = dict(IPRECOMMIT_UNSTAGED="1")
 
     run_with_env(env)
 
 
 def main_fix(args) -> None:
     env = dict(IPRECOMMIT_FIX="1")
-    if args.unstaged:
+    if not args.staged:
         env["IPRECOMMIT_UNSTAGED"] = "1"
 
     run_with_env(env)

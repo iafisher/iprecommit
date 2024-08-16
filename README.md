@@ -27,7 +27,7 @@ Some pre-commit issues can be fixed automatically. To do so, run
 iprecommit fix
 ```
 
-Pass the `--unstaged` flag to `iprecommit run` and `iprecommit fix` to operate on both staged and unstaged changes.
+By default, `iprecommit run` and `iprecommit fix` operate on both staged and unstaged changes. To only consider staged changes, pass the `--staged` flag. (Note that the real pre-commit check only looks at staged changes.)
 
 
 ## User guide
