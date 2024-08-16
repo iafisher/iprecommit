@@ -3,6 +3,7 @@ import ast
 import atexit
 import fnmatch
 import os
+import shlex
 import subprocess
 import textwrap
 from dataclasses import dataclass
@@ -50,22 +51,25 @@ class Precommit:
         atexit.register(self.atexit)
 
     def check(self, checker: BaseCheck, *, label: str = "") -> None:
+        if not label:
+            label = checker.__class__.__name__
+
         if self.in_fix_mode:
             self._fix(checker, label=label)
             return
 
         messages = checker.check(self.changes)
+
         if len(messages) > 0:
             self.num_failed_checks += 1
-            self.print_failure(
-                label or checker.__class__.__name__,
-                "\n".join(m.message for m in messages),
-            )
+            self.print_failure(label, "\n".join(m.message for m in messages))
+        else:
+            self.print_success(label)
 
-    def _fix(self, checker: BaseCheck, *, label: str = "") -> None:
+    def _fix(self, checker: BaseCheck, *, label: str) -> None:
         messages = checker.fix(self.changes)
         for m in messages:
-            self.print_fix(label or checker.__class__.__name__, m.path)
+            self.print_fix(label, m.path)
 
     def command(
         self,
@@ -75,9 +79,13 @@ class Precommit:
         pattern: str = "",
         label: str = "",
     ) -> None:
+        if not label:
+            label = " ".join(shlex.quote(str(a)) for a in args)
+
         if pass_files:
             files = self.changes.filter(pattern)
             if len(files) == 0:
+                self.print_skipped(label)
                 return
 
             args.extend(files)
@@ -87,13 +95,21 @@ class Precommit:
         )
         if result.returncode != 0:
             self.num_failed_checks += 1
-            self.print_failure(label or " ".join(map(str, args)), result.stdout)
+            self.print_failure(label, result.stdout)
+        else:
+            self.print_success(label)
 
     def print_failure(self, label: str, message: str) -> None:
         print(f"{red('failed:')} {label}")
         if message:
             print(textwrap.indent(message, "  "))
             print()
+
+    def print_success(self, label: str) -> None:
+        print(f"{green('passed:')} {label}")
+
+    def print_skipped(self, label: str) -> None:
+        print(f"{yellow('skipped:')} {label}")
 
     def print_fix(self, label: str, path: Path) -> None:
         print(f"{cyan('fixed:')} {label}: {path}")
@@ -116,6 +132,10 @@ def yellow(s: str) -> str:
 
 def cyan(s: str) -> str:
     return f"\033[36m{s}\033[0m"
+
+
+def green(s: str) -> str:
+    return f"\033[32m{s}\033[0m"
 
 
 def _get_changes(*, include_unstaged: bool) -> Changes:
