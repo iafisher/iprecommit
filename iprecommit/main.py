@@ -4,20 +4,34 @@ import stat
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, NoReturn, Optional
+from typing import Dict, NoReturn, Optional, Tuple
 
 from iprecommit.lib import red, yellow
 
 
+DEFAULT_HOOK_PATH = "hooks/precommit.py"
+
+
 def main() -> None:
     argparser = argparse.ArgumentParser(description="Manage Git pre-commit hooks.")
-    subparsers = argparser.add_subparsers()
+    subparsers = argparser.add_subparsers(metavar="subcommand")
 
     argparser_fix = subparsers.add_parser("fix", help="Fix pre-commit failures.")
     argparser_fix.add_argument(
         "--unstaged", action="store_true", help="Fix failures in unstaged changes."
     )
     argparser_fix.set_defaults(func=main_fix)
+
+    argparser_init = subparsers.add_parser(
+        "init", help="Initialize a new pre-commit hook."
+    )
+    argparser_init.add_argument(
+        "--hook", default=DEFAULT_HOOK_PATH, help="Where to create the hook script"
+    )
+    argparser_init.add_argument(
+        "--force", action="store_true", help="Overwrite an existing pre-commit hook"
+    )
+    argparser_init.set_defaults(func=main_init)
 
     argparser_install = subparsers.add_parser(
         "install", help="Install the pre-commit hook in the Git repository."
@@ -27,7 +41,7 @@ def main() -> None:
     )
     argparser_install.add_argument(
         "--hook",
-        default="hooks/precommit.py",
+        default=DEFAULT_HOOK_PATH,
         help="Path to the hook script",
     )
     argparser_install.set_defaults(func=main_install)
@@ -49,30 +63,73 @@ def main() -> None:
     args.func(args)
 
 
+PRECOMMIT_TEMPLATE = """\
+#!/usr/bin/env python
+from iprecommit import Precommit, checks
+
+pre = Precommit()
+pre.check(checks.NoDoNotSubmit())
+pre.check(checks.NewlineAtEndOfFile())
+# run a command:
+#   pre.command(["black", "--check"], pass_files=True, pattern="*.py")
+"""
+
+
+def main_init(args) -> None:
+    ensure_in_git_root()
+    path_to_git_hook, path_to_script = check_paths(
+        args.hook, force=args.force, script_must_exist=True
+    )
+
+    if path_to_script.exists():
+        if args.force:
+            warn(f"Overwriting existing file at {path_to_script}.")
+        else:
+            bail(
+                f"{path_to_script} already exists.\n\n"
+                + "Re-run with `--force` to replace with a template, or run `install` to install existing hook."
+            )
+
+    path_to_script.parent.mkdir(parents=True, exist_ok=True)
+    path_to_script.write_text(PRECOMMIT_TEMPLATE)
+    stat_result = path_to_script.stat()
+    path_to_script.chmod(stat_result.st_mode | stat.S_IXUSR)
+
+    create_symlink(path_to_git_hook, path_to_script, force=args.force)
+
+
 def main_install(args) -> None:
     ensure_in_git_root()
+    path_to_git_hook, path_to_script = check_paths(
+        args.hook, force=args.force, script_must_exist=True
+    )
+    create_symlink(path_to_git_hook, path_to_script, force=args.force)
 
-    hookpath = normalize_hook_path(args.hook)
-    if not hookpath.exists():
-        bail(f"{hookpath} does not exist.")
 
-    if not hookpath.stat().st_mode & stat.S_IXUSR:
-        bail(f"{hookpath} is not an executable file.")
+# returns (path to git hook, path to script)
+def check_paths(
+    pathstr_to_script: str, *, force: bool, script_must_exist: bool
+) -> Tuple[Path, Path]:
+    path_to_git_hook = Path(".git") / "hooks" / "pre-commit"
+    check_path_to_git_hook(path_to_git_hook, force=force)
 
-    git_hookpath = Path(".git") / "hooks" / "pre-commit"
-    if git_hookpath.exists():
-        if args.force:
-            warn("Overwriting existing pre-commit hook.")
-        else:
-            bail("A pre-commit hook already exists. Re-run with --force to overwrite.")
+    path_to_script = normalize_path_to_script(pathstr_to_script)
+    if script_must_exist:
+        check_path_to_script(path_to_script)
 
+    return path_to_git_hook, path_to_script
+
+
+def create_symlink(
+    path_to_git_hook: Path, path_to_script: Path, *, force: bool
+) -> None:
     hookpath_string = (
-        str(hookpath)
-        if hookpath.is_absolute()
-        else os.path.join("..", "..", str(hookpath))
+        str(path_to_script)
+        if path_to_script.is_absolute()
+        else os.path.join("..", "..", str(path_to_script))
     )
     result = subprocess.run(
-        ["ln", "-s" + ("f" if args.force else ""), hookpath_string, git_hookpath],
+        ["ln", "-s" + ("f" if force else ""), hookpath_string, path_to_git_hook],
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
@@ -80,6 +137,22 @@ def main_install(args) -> None:
         print(result.stdout, file=sys.stderr)
         print(file=sys.stderr)
         bail("Failed to install the pre-commit hook.")
+
+
+def check_path_to_script(hookpath: Path) -> None:
+    if not hookpath.exists():
+        bail(f"{hookpath} does not exist.")
+
+    if not hookpath.stat().st_mode & stat.S_IXUSR:
+        bail(f"{hookpath} is not an executable file.")
+
+
+def check_path_to_git_hook(git_hookpath: Path, *, force: bool) -> None:
+    if git_hookpath.exists():
+        if force:
+            warn("Overwriting existing pre-commit hook.")
+        else:
+            bail("A pre-commit hook already exists. Re-run with --force to overwrite.")
 
 
 def main_run(args) -> None:
@@ -137,7 +210,7 @@ def ensure_in_git_root() -> None:
         bail("You must be in the root of a Git repository.")
 
 
-def normalize_hook_path(pathstr: str) -> Path:
+def normalize_path_to_script(pathstr: str) -> Path:
     repository_path = Path(".").absolute()
     user_path = Path(pathstr).absolute()
 
