@@ -169,7 +169,12 @@ class Precommit:
             return
 
         self.print_running(label)
-        messages = checker.check(changes)
+        try:
+            messages = checker.check(changes)
+        except Exception as e:
+            if self.fancy_output:
+                print()
+            raise e
 
         if self.fancy_output:
             # clear to beginning of line
