@@ -38,8 +38,11 @@ class Changes:
             and len(self.deleted_files) == 0
         )
 
-    def as_list(self) -> List[Path]:
-        return self.added_files + self.modified_files + self.deleted_files
+    def as_list(self, *, include_deleted: bool = True) -> List[Path]:
+        if include_deleted:
+            return self.added_files + self.modified_files + self.deleted_files
+        else:
+            return self.added_files + self.modified_files
 
 
 def _apply_filter(
@@ -78,22 +81,56 @@ class BaseCheck(abc.ABC):
 
 
 class BaseCommand(BaseCheck):
-    def __init__(self, args, *, pass_files: bool = False) -> None:
-        self.args = args
+    def __init__(
+        self,
+        args,
+        *,
+        pass_files: bool = False,
+        separately: bool = False,
+        include_deleted: bool = False,
+        invert_returncode: bool = False,
+    ) -> None:
+        if separately and not pass_files:
+            raise IPrecommitConfigError("separately=True requires pass_files=True")
+
+        if include_deleted and not pass_files:
+            raise IPrecommitConfigError("include_deleted=True requires pass_files=True")
+
+        self.args = list(args)
         self.pass_files = pass_files
+        self.separately = separately
+        self.include_deleted = include_deleted
+        self.invert_returncode = invert_returncode
 
     def check(self, changes: Changes) -> List[Message]:
         args = self.args[:]
         if self.pass_files:
-            args.extend(changes.as_list())
-
-        result = subprocess.run(
-            args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-        )
-        if result.returncode != 0:
-            return [Message(result.stdout, None)]
+            if self.separately:
+                list_of_arglists = []
+                for changed_file in changes.as_list(
+                    include_deleted=self.include_deleted
+                ):
+                    list_of_arglists.append(list(args) + [changed_file])
+            else:
+                args.extend(changes.as_list())
+                list_of_arglists = [args]
         else:
-            return []
+            list_of_arglists = [args]
+
+        messages = []
+        for arglist in list_of_arglists:
+            result = subprocess.run(
+                arglist, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            )
+            if self.invert_returncode:
+                failed = result.returncode == 0
+            else:
+                failed = result.returncode != 0
+
+            if failed:
+                messages.append(Message(result.stdout, None))
+
+        return messages
 
 
 class Precommit:
@@ -157,6 +194,8 @@ class Precommit:
         args: List[str],
         *,
         pass_files: bool = False,
+        separately: bool = False,
+        invert_returncode: bool = False,
         pattern: List[str] = [],
         exclude: List[str] = [],
         label: str = "",
@@ -165,7 +204,12 @@ class Precommit:
             label = "Command: " + " ".join(shlex.quote(str(a)) for a in args)
 
         return self.check(
-            BaseCommand(args, pass_files=pass_files),
+            BaseCommand(
+                args,
+                pass_files=pass_files,
+                separately=separately,
+                invert_returncode=invert_returncode,
+            ),
             pattern=pattern,
             exclude=exclude,
             label=label,
@@ -314,3 +358,11 @@ def _decode_git_path(path):
         return Path(ast.literal_eval("b" + path).decode("utf-8"))
     else:
         return Path(path)
+
+
+class IPrecommitError(Exception):
+    pass
+
+
+class IPrecommitConfigError(Exception):
+    pass

@@ -7,3 +7,4 @@ failed: PythonBlack
   1 file would be reformatted.
 
 
+failed: Command: grep -q TODO

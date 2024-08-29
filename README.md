@@ -45,7 +45,7 @@ pre.command(["black", "--check"], pass_files=True, pattern=["*.py"])
 
 `iprecommit` comes with some built-in checks, such as `NoDoNotSubmit()` and `NewlineAtEndOfFile()`. You can also use `pre.command(...)` to define your own checks based on shell commands. These checks will pass as long as the shell command returns an exit code of 0.
 
-By default, `pre.command(...)` will just invoke the command. If you need to pass file names to the command, specify `pass_files=True`. Only changed files will be passed. You can constrain the files to be passed using `pattern`, which takes a list of glob patterns interpreted the same way as `fnmatch.fnmatch`, and `exclude`.
+By default, `pre.command(...)` will just invoke the command. If you need to pass file names to the command, specify `pass_files=True`. Only changed files will be passed. You can constrain the files to be passed using `pattern`, which takes a list of glob patterns interpreted the same way as `fnmatch.fnmatch`, and `exclude`. If you need your command to be invoked one file at a time, pass `separately=True`.
 
 ### Writing your own checks
 `iprecommit` comes with some useful checks out of the box, but sometimes you need to write your own checks. Doing so is straightforward.

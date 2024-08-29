@@ -63,7 +63,7 @@ cd "$working/test_repo"
 
 status "Initializing git repository."
 git init
-git add bad_python_format.py to_be_removed.txt
+git add bad_python_format.py to_be_removed.txt includes_todo.txt
 git commit -m "Initial commit"
 
 status "Installing development version of iprecommit."
@@ -73,10 +73,10 @@ pip3 install "$d"
 status "Running tests"
 iprecommit install
 
-# Modify a file to fail the "no staged and unstaged changes" check.
+# Modify files so that they are checked.
 echo -e "\n\n" >> bad_python_format.py
-git add bad_python_format.py
-echo -e "\n\n" >> bad_python_format.py
+echo -e "\n\n" >> includes_todo.txt
+git add bad_python_format.py includes_todo.txt
 
 # Remove a file (regression test for #23).
 rm to_be_removed.txt
