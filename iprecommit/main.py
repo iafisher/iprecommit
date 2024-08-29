@@ -117,7 +117,7 @@ def main_install(args) -> None:
 def check_paths(
     pathstr_to_script: str, *, force: bool, script_must_exist: bool
 ) -> Tuple[Path, Path]:
-    path_to_git_hook = Path(".git") / "hooks" / "pre-commit"
+    path_to_git_hook = get_git_hooks_path() / "pre-commit"
     check_path_to_git_hook(path_to_git_hook, force=force)
 
     path_to_script = normalize_path_to_script(pathstr_to_script)
@@ -182,7 +182,7 @@ def main_fix(args) -> None:
 def run_with_env(extended_env: Optional[Dict[str, str]]) -> None:
     ensure_in_git_root()
 
-    git_hookpath = Path(".git") / "hooks" / "pre-commit"
+    git_hookpath = get_git_hooks_path() / "pre-commit"
     if not os.path.lexists(git_hookpath):
         bail("No pre-commit hook is installed. Run `iprecommit install` first.")
 
@@ -198,7 +198,7 @@ def run_with_env(extended_env: Optional[Dict[str, str]]) -> None:
 def main_uninstall(_args) -> None:
     ensure_in_git_root()
 
-    git_hookpath = Path(".git") / "hooks" / "pre-commit"
+    git_hookpath = get_git_hooks_path() / "pre-commit"
     if not os.path.lexists(git_hookpath):
         bail("There is no existing pre-commit hook to uninstall.")
 
@@ -225,6 +225,17 @@ def normalize_path_to_script(pathstr: str) -> Path:
         return user_path.relative_to(repository_path)
     else:
         return user_path
+
+
+def get_git_hooks_path() -> Path:
+    # TODO: cache this result?
+    result = subprocess.run(
+        ["git", "config", "core.hooksPath"], capture_output=True, text=True
+    )
+    if result.returncode != 0 or not result.stdout:
+        return Path(".git") / "hooks"
+    else:
+        return Path(result.stdout.rstrip("\n"))
 
 
 def bail(msg: str) -> NoReturn:
