@@ -202,6 +202,11 @@ def main_uninstall(_args) -> None:
     if not os.path.lexists(git_hookpath):
         bail("There is no existing pre-commit hook to uninstall.")
 
+    if not git_hookpath.is_symlink():
+        bail(
+            "The existing pre-commit hook is not managed by iprecommit (not a symlink)."
+        )
+
     result = subprocess.run(
         ["rm", git_hookpath], stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
