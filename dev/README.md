@@ -9,3 +9,16 @@
 6. Run `git pull --tags`.
 7. Run `poetry build`.
 8. Run `poetry publish`.
+
+## Running tests
+Unit tests:
+
+```shell
+$ pytest
+```
+
+Functional test:
+
+```shell
+$ ./functional_test
+```
