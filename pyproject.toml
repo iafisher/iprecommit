@@ -25,6 +25,3 @@ Issues = "https://github.com/iafisher/iprecommit/issues"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
-
-[tool.black]
-exclude = 'test_repo|\.git|\.venv'

@@ -10,10 +10,11 @@ Then, initialize a pre-commit check in your git repository:
 
 ```shell
 cd path/to/some/git/repo
-iprecommit init
+iprecommit template
+iprecommit install
 ```
 
-`iprecommit init` will create a file called `hooks/precommit.py`, and install it as a Git pre-commit check. You can customize the location with the `--hook` flag.
+`iprecommit template` will create a file called `precommit.py`, and `iprecommit install` will install it as a Git pre-commit check.
 
 Now, whenever you run `git commit`, the checks in `precommit.py` will be run automatically. You can also run the pre-commit checks manually:
 
@@ -21,13 +22,13 @@ Now, whenever you run `git commit`, the checks in `precommit.py` will be run aut
 iprecommit run
 ```
 
-Some pre-commit issues can be fixed automatically. To do so, run
+Some pre-commit issues can be fixed automatically:
 
 ```shell
 iprecommit fix
 ```
 
-By default, `iprecommit run` and `iprecommit fix` operate on both staged and unstaged changes. To only consider staged changes, pass the `--staged` flag. (Note that the real pre-commit check only looks at staged changes.)
+By default, `iprecommit run` and `iprecommit fix` operate only on staged changes. To only consider unstaged changes as well, pass the `--unstaged` flag.
 
 
 ## User guide
@@ -40,19 +41,33 @@ from iprecommit import Precommit, checks
 pre = Precommit()
 pre.check(checks.NoDoNotSubmit())
 pre.check(checks.NewlineAtEndOfFile())
-pre.command(["black", "--check"], pass_files=True, pattern=["*.py"])
+pre.sh("black", "--check", pass_files=True, base_pattern="*.py")
 ```
 
-`iprecommit` comes with some built-in checks, such as `NoDoNotSubmit()` and `NewlineAtEndOfFile()`. You can also use `pre.command(...)` to define your own checks based on shell commands. These checks will pass as long as the shell command returns an exit code of 0.
+`iprecommit` comes with some built-in checks, such as `NoDoNotSubmit()` and `NewlineAtEndOfFile()`. You can also use `pre.sh(...)` to define your own checks based on shell commands. These checks will pass as long as the shell command returns an exit code of 0.
 
-By default, `pre.command(...)` will just invoke the command. If you need to pass file names to the command, specify `pass_files=True`. Only changed files will be passed. You can constrain the files to be passed using `pattern`, which takes a list of glob patterns interpreted the same way as `fnmatch.fnmatch`, and `exclude`. If you need your command to be invoked one file at a time, pass `separately=True`.
+You can also define your own checks in Python:
 
-### Writing your own checks
-`iprecommit` comes with some useful checks out of the box, but sometimes you need to write your own checks. Doing so is straightforward.
+```python
+class NoTypos(checks.Base):
+    typos = {
+        "programing": "programming"
+    }
 
-Checks are Python classes that inherit from `BaseCheck`. They must provide a single function, `check`, which takes a parameter of type `Changes` and returns a list of `Message` objects.
+    def check(self, changes):
+        for path in changes.added_paths + changes.modified_paths:
+            text = path.read_text()
+            for typo in self.typos:
+                if typo in text:
+                    return False
+            
+        return True
+    
+    def fix(self, changes):
+        for path in changes.added_paths + changes.modified_paths:
+            text = path.read_text()
+            for typo, fixed in self.typos.items():
+                text = text.replace(typo, fixed)
 
-- The `Changes` object has three fields: `added_files`, `modified_files`, and `deleted_files`, each of which is a list of `Path` objects.
-- The `Message` object has two fields: `message` and `path`. Currently, `path` is not printed, so if the exact file path is important, you should include it in the human-readable `message` field so that the user knows what file it is talking about.
-
-`check` should return one `Message` for each failure it identifies. If it returns an empty list, the pre-commit check is considered to have passed.
+            path.write_text(text)
+```

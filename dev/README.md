@@ -11,14 +11,12 @@
 8. Run `poetry publish`.
 
 ## Running tests
-Unit tests:
-
 ```shell
 $ pytest
 ```
 
-Functional test:
-
-```shell
-$ ./functional_test
-```
+## Filtering logic
+- A check class can define a `base_pattern`, e.g. `*.py` for `PythonFormat`.
+- Users can define a list of `Include` and `Exclude` patterns. Later patterns override earlier ones.
+  - e.g., if `patterns` is `[Include("*.py"), Exclude("dist/*.py"), Include("dist/main.py")]`, then
+    `a.py` is included, `dist/a.py` is excluded, and `dist/main.py` is included.
