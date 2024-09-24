@@ -77,10 +77,10 @@ class Base:
 
     def name(self) -> str:
         return self.__class__.__name__
-    
+
     def base_pattern(self) -> Optional[str]:
         return None
-    
+
     def patterns(self) -> List[Pattern]:
         return []
 
@@ -88,8 +88,8 @@ class Base:
 class NoDoNotSubmit(Base):
     def check(self, changes: Changes) -> bool:
         for path in changes.added_paths + changes.modified_paths:
-            # TODO: report bad path
-            if "DO NOT SUBMIT" in path.read_text():
+            if "DO NOT " + "SUBMIT" in path.read_text():
+                print(path)
                 return False
 
         return True
@@ -104,14 +104,16 @@ class NewlineAtEndOfFile(Base):
                 return False
 
         return True
-    
+
 
 class ShellCommandPasses(Base):
     cmd: List[str]
     pass_files: bool
     _base_pattern: Optional[str]
 
-    def __init__(self, cmd, *, pass_files: bool, base_pattern: Optional[str] = None) -> None:
+    def __init__(
+        self, cmd, *, pass_files: bool, base_pattern: Optional[str] = None
+    ) -> None:
         self.cmd = list(str(arg) for arg in cmd)
         self.pass_files = pass_files
         self._base_pattern = base_pattern
@@ -123,7 +125,7 @@ class ShellCommandPasses(Base):
 
         proc = subprocess.run(cmd)
         return proc.returncode == 0
-    
+
     def name(self):
         return " ".join(map(shlex.quote, self.cmd))
 

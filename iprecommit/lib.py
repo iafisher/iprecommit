@@ -49,8 +49,14 @@ class Precommit:
         else:
             print(f"iprecommit: {checker.name()}: passed")
 
-    def sh(self, *cmd, pass_files: bool = False, base_pattern: Optional[str] = None) -> None:
-        return self.check(checks.ShellCommandPasses(cmd, pass_files=pass_files, base_pattern=base_pattern))
+    def sh(
+        self, *cmd, pass_files: bool = False, base_pattern: Optional[str] = None
+    ) -> None:
+        return self.check(
+            checks.ShellCommandPasses(
+                cmd, pass_files=pass_files, base_pattern=base_pattern
+            )
+        )
 
     def _fix(self, checker: checks.Base, changes: Changes) -> None:
         if not hasattr(checker, "fix"):

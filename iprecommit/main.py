@@ -16,10 +16,14 @@ def main() -> None:
     lib._create_subparser(subparsers, "uninstall")
 
     argparser_template = lib._create_subparser(subparsers, "template")
-    argparser_template.add_argument("--force", action="store_true", help="Overwrite existing precommit.py file.")
+    argparser_template.add_argument(
+        "--force", action="store_true", help="Overwrite existing precommit.py file."
+    )
 
     argparser_install = lib._create_subparser(subparsers, "install")
-    argparser_install.add_argument("--force", action="store_true", help="Overwrite existing pre-commit hook.")
+    argparser_install.add_argument(
+        "--force", action="store_true", help="Overwrite existing pre-commit hook."
+    )
 
     argparser_run = lib._create_subparser(subparsers, "run")
     lib._add_run_flags(argparser_run)
@@ -82,7 +86,6 @@ def main_template(args):
 
     # TODO: add option for custom path
     p.write_text(PRECOMMIT_TEMPLATE)
-    
 
 
 def main_install(args):
@@ -128,7 +131,7 @@ def change_to_git_root() -> None:
         if (d / ".git").exists():
             os.chdir(d)
             return
-        
+
         dn = d.parent
         if d == dn:
             raise lib.IPrecommitError("iprecommit must be run in a Git repository.")

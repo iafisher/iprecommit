@@ -24,6 +24,8 @@ class Base(unittest.TestCase):
     def _create_repo(self, precommit=None, install_hook=True):
         os.chdir(self.tmpdir)
 
+        # TODO: share some set-up between test cases
+
         run_shell(["git", "init"])
         print("test: initialized git repo")
 
@@ -56,6 +58,7 @@ class TestEndToEnd(Base):
         expected_stdout = textwrap.dedent(
             """\
         iprecommit: NoDoNotSubmit: running
+        includes_do_not_submit.txt
         iprecommit: NoDoNotSubmit: failed
         iprecommit: NewlineAtEndOfFile: running
         iprecommit: NewlineAtEndOfFile: passed
@@ -81,6 +84,7 @@ class TestEndToEnd(Base):
         expected_stdout = textwrap.dedent(
             """\
         iprecommit: NoDoNotSubmit: running
+        includes_do_not_submit.txt
         iprecommit: NoDoNotSubmit: failed
         iprecommit: NewlineAtEndOfFile: running
         iprecommit: NewlineAtEndOfFile: passed
@@ -95,7 +99,7 @@ class TestEndToEnd(Base):
         self._create_repo()
         p = Path("example.txt")
         commit_file(p, "...\n")
-        p.write_text("DO NOT SUBMIT")
+        p.write_text("DO NOT " + "SUBMIT")
 
         proc = run_shell(
             [".venv/bin/iprecommit", "run", "--unstaged"],
@@ -105,6 +109,7 @@ class TestEndToEnd(Base):
         expected_stdout = textwrap.dedent(
             """\
         iprecommit: NoDoNotSubmit: running
+        example.txt
         iprecommit: NoDoNotSubmit: failed
         iprecommit: NewlineAtEndOfFile: running
         iprecommit: NewlineAtEndOfFile: failed
@@ -136,6 +141,7 @@ class TestEndToEnd(Base):
         expected_stderr = textwrap.dedent(
             """\
         iprecommit: NoDoNotSubmit: running
+        includes_do_not_submit.txt
         iprecommit: NoDoNotSubmit: failed
         iprecommit: NewlineAtEndOfFile: running
         iprecommit: NewlineAtEndOfFile: passed
@@ -199,7 +205,9 @@ class TestEndToEnd(Base):
 
         copy_and_stage_file("assets/bad_python_format.py")
 
-        proc = run_shell([".venv/bin/iprecommit", "run"], check=False, capture_stdout=True)
+        proc = run_shell(
+            [".venv/bin/iprecommit", "run"], check=False, capture_stdout=True
+        )
         expected_stdout = textwrap.dedent(
             """\
             iprecommit: black --check: running
@@ -216,8 +224,13 @@ class TestEndToEnd(Base):
 
         Path(".git/hooks/pre-commit").write_text("...\n")
 
-        proc = run_shell([".venv/bin/iprecommit", "install"], check=False, capture_stderr=True)
-        self.assertEqual(proc.stderr, "Error: pre-commit hook already exists. Re-run with --force to overwrite.\n")
+        proc = run_shell(
+            [".venv/bin/iprecommit", "install"], check=False, capture_stderr=True
+        )
+        self.assertEqual(
+            proc.stderr,
+            "Error: pre-commit hook already exists. Re-run with --force to overwrite.\n",
+        )
         self.assertEqual(proc.returncode, 1)
 
         run_shell([".venv/bin/iprecommit", "install", "--force"])
@@ -226,14 +239,21 @@ class TestEndToEnd(Base):
     def test_template_does_not_overwrite(self):
         self._create_repo(precommit="assets/precommit_inline_command.py")
 
-        proc = run_shell([".venv/bin/iprecommit", "template"], check=False, capture_stderr=True)
-        self.assertEqual(proc.stderr, "Error: precommit.py already exists. Re-run with --force to overwrite.\n")
+        proc = run_shell(
+            [".venv/bin/iprecommit", "template"], check=False, capture_stderr=True
+        )
+        self.assertEqual(
+            proc.stderr,
+            "Error: precommit.py already exists. Re-run with --force to overwrite.\n",
+        )
         self.assertEqual(proc.returncode, 1)
 
     # TODO: init and install as one command?
     # TODO: test uninstall will check for iprecommit
     # TODO: customize hook location
     # TODO: pass_files=True, separately=True
+    # TODO: filter checks by command-line argument to `run`
+    # TODO: slow=True and --fast command-line argument
 
     def ensure_black_is_installed(self):
         self.assertIsNotNone(
