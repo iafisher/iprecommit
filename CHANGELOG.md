@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/iprecommit/issues).
 
+## [0.3.0] - 2024-09-23
+API redesigned, again.
+
 ## [0.2.2] - 2024-08-15
 - `PythonBlack()` check is added.
 - `NO_COLOR` environment variable is respected.

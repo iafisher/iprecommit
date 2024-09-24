@@ -3,7 +3,7 @@
 ## Publish a new version
 1. Bump `version` in `pyproject.toml`.
 2. Add a new section to `CHANGELOG.md`.
-3. Make a commit with message `Version X.Y.Z`.
+3. Make a commit with message `version X.Y.Z`.
 4. Push to GitHub.
 5. Create a release on GitHub titled `Version X.Y.Z`, creating a tag called `vX.Y.Z`.
 6. Run `git pull --tags`.
