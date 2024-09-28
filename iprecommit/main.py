@@ -61,6 +61,7 @@ pre.check(checks.NewlineAtEndOfFile())
 # run a command:
 #   pre.sh("./run_tests", "--verbose")
 #   pre.sh("black", "--check", pass_files=True, base_pattern="*.py")
+pre.main()
 """
 
 

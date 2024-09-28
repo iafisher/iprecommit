@@ -4,26 +4,32 @@ import atexit
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, NoReturn, Optional
+from typing import List, NoReturn, Optional, Tuple
 
 from . import checks
 from .checks import Changes
+
+
+@dataclass
+class CheckerConfig:
+    patterns: Optional[List[checks.Pattern]]
 
 
 class Precommit:
     num_failed_checks: int
     unstaged: bool
     fix_mode: bool
+    called_main: bool
+    checkers: List[Tuple[checks.Base, CheckerConfig]]
 
     def __init__(self) -> None:
         self.num_failed_checks = 0
         self.unstaged = False
         self.fix_mode = False
-
-        self._parse_args()
-        self.changes = _get_git_changes(include_unstaged=self.unstaged)
-
+        self.called_main = False
+        self.checkers = []
         atexit.register(self._atexit)
 
     # TODO: `skip` argument
@@ -32,27 +38,15 @@ class Precommit:
     ) -> None:
         if isinstance(checker, type):
             raise IPrecommitError(
-                "You passed a class to `Precommit.check`, not an object. Did you forget the parentheses?"
+                "You passed a class to `{self.__class__.__name__}.check`, not an object. Did you forget the parentheses?"
             )
 
-        changes = self.changes.filter(
-            checker.base_pattern(), checker.patterns() + (patterns or [])
-        )
-        if changes.empty():
-            self._skipped(checker.name())
-            return
+        if self.called_main:
+            raise IPrecommitError(
+                "You called `{self.__class__.__name__}.check` after `main`. This check will never be run."
+            )
 
-        if self.fix_mode:
-            self._fix(checker, changes)
-            return
-
-        # TODO: colored output
-        print(f"iprecommit: {checker.name()}: running")
-        if not checker.check(changes):
-            print(f"iprecommit: {checker.name()}: failed")
-            self.num_failed_checks += 1
-        else:
-            print(f"iprecommit: {checker.name()}: passed")
+        self.checkers.append((checker, CheckerConfig(patterns=patterns)))
 
     def sh(
         self, *cmd, pass_files: bool = False, base_pattern: Optional[str] = None
@@ -62,6 +56,38 @@ class Precommit:
                 cmd, pass_files=pass_files, base_pattern=base_pattern
             )
         )
+
+    def main(self) -> None:
+        self.called_main = True
+        self._parse_args()
+        all_changes = _get_git_changes(include_unstaged=self.unstaged)
+
+        for checker, config in self.checkers:
+            changes = all_changes.filter(
+                checker.base_pattern(), checker.patterns() + (config.patterns or [])
+            )
+            if changes.empty():
+                self._skipped(checker.name())
+                return
+
+            if self.fix_mode:
+                self._fix(checker, changes)
+                return
+
+            # TODO: colored output
+            print(f"iprecommit: {checker.name()}: running")
+            if not checker.check(changes):
+                print(f"iprecommit: {checker.name()}: failed")
+                self.num_failed_checks += 1
+            else:
+                print(f"iprecommit: {checker.name()}: passed")
+
+        if not self.fix_mode and self.num_failed_checks > 0:
+            # TODO: colored output
+            print()
+            print(f"{self.num_failed_checks} failed. Commit aborted.")
+            sys.stdout.flush()
+            sys.exit(1)
 
     def _fix(self, checker: checks.Base, changes: Changes) -> None:
         if not hasattr(checker, "fix"):
@@ -99,10 +125,10 @@ class Precommit:
             sys.exit(1)
 
     def _atexit(self) -> None:
-        if not self.fix_mode and self.num_failed_checks > 0:
-            # TODO: colored output
-            print()
-            print(f"{self.num_failed_checks} failed. Commit aborted.")
+        if not self.called_main:
+            warn(
+                f"The pre-commit hook exited without running. Did you forget to call `{self.__class__.__name__}.main()`?"
+            )
             sys.stdout.flush()
             # use _exit() to avoid recursively invoking ourselves as an atexit hook
             os._exit(1)

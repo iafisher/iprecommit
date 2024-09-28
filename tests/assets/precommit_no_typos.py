@@ -2,9 +2,7 @@ from iprecommit import Precommit, checks
 
 
 class NoTypos(checks.Base):
-    typos = {
-        "programing": "programming"
-    }
+    typos = {"programing": "programming"}
 
     def check(self, changes):
         for path in changes.added_paths + changes.modified_paths:
@@ -12,9 +10,9 @@ class NoTypos(checks.Base):
             for typo in self.typos:
                 if typo in text:
                     return False
-            
+
         return True
-    
+
     def fix(self, changes):
         for path in changes.added_paths + changes.modified_paths:
             text = path.read_text()
@@ -26,3 +24,4 @@ class NoTypos(checks.Base):
 
 pre = Precommit()
 pre.check(NoTypos())
+pre.main()
