@@ -172,5 +172,8 @@ def warn(msg: str) -> None:
     print(f"Warning: {msg}", file=sys.stderr)
 
 
+ENV_HOOK_PATH = "IPRECOMMIT_HOOK_PATH"
+
+
 class IPrecommitError(Exception):
     pass
