@@ -47,16 +47,12 @@ class Base(unittest.TestCase):
         run_shell(["git", "init"])
         print("test: initialized git repo")
 
-        if precommit is None:
-            run_shell([".venv/bin/iprecommit", "template"])
-            assert Path("precommit.py").exists()
-            print("test: created precommit.py template")
-        else:
-            shutil.copy(os.path.join(owndir, precommit), "precommit.py")
-
         if install_hook:
-            run_shell([".venv/bin/iprecommit", "install"])
+            run_shell([".venv/bin/iprecommit", "init"])
             print("test: installed pre-commit hook")
+
+        if precommit is not None:
+            shutil.copy(os.path.join(owndir, precommit), "precommit.py")
 
 
 class TestEndToEnd(Base):
@@ -239,15 +235,16 @@ class TestEndToEnd(Base):
         Path(".git/hooks/pre-commit").write_text("...\n")
 
         proc = run_shell(
-            [".venv/bin/iprecommit", "install"], check=False, capture_stderr=True
+            [".venv/bin/iprecommit", "init"], check=False, capture_stderr=True
         )
         self.assertEqual(
             proc.stderr,
             "Error: pre-commit hook already exists. Re-run with --force to overwrite.\n",
         )
         self.assertEqual(proc.returncode, 1)
+        # TODO: make sure precommit.py isn't created, either
 
-        run_shell([".venv/bin/iprecommit", "install", "--force"])
+        run_shell([".venv/bin/iprecommit", "init", "--force"])
         self.assertIn("iprecommit", Path(".git/hooks/pre-commit").read_text())
 
     def test_uninstall_fails_if_hook_does_not_exist(self):
@@ -276,11 +273,13 @@ class TestEndToEnd(Base):
 
         self.assertTrue(hook_path.exists())
 
-    def test_template_does_not_overwrite(self):
-        self._create_repo(precommit="assets/precommit_inline_command.py")
+    def test_init_does_not_overwrite(self):
+        self._create_repo(
+            precommit="assets/precommit_inline_command.py", install_hook=False
+        )
 
         proc = run_shell(
-            [".venv/bin/iprecommit", "template"], check=False, capture_stderr=True
+            [".venv/bin/iprecommit", "init"], check=False, capture_stderr=True
         )
         self.assertEqual(
             proc.stderr,

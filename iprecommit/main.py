@@ -14,14 +14,9 @@ def main() -> None:
     argparser = argparse.ArgumentParser()
     subparsers = argparser.add_subparsers()
 
-    argparser_template = lib._create_subparser(subparsers, "template")
-    argparser_template.add_argument(
-        "--force", action="store_true", help="Overwrite existing precommit.py file."
-    )
-
-    argparser_install = lib._create_subparser(subparsers, "install")
-    argparser_install.add_argument(
-        "--force", action="store_true", help="Overwrite existing pre-commit hook."
+    argparser_init = lib._create_subparser(subparsers, "init")
+    argparser_init.add_argument(
+        "--force", action="store_true", help="Overwrite existing files."
     )
 
     argparser_uninstall = lib._create_subparser(subparsers, "uninstall")
@@ -43,10 +38,8 @@ def main() -> None:
 
 
 def _main(argparser, args) -> None:
-    if args.subcmd == "template":
-        main_template(args)
-    elif args.subcmd == "install":
-        main_install(args)
+    if args.subcmd == "init":
+        main_init(args)
     elif args.subcmd == "run":
         run_precommit_py("run")
     elif args.subcmd == "fix":
@@ -79,7 +72,7 @@ set -e
 """
 
 
-def main_template(args):
+def main_init(args):
     change_to_git_root()
 
     p = Path("precommit.py")
@@ -91,10 +84,6 @@ def main_template(args):
 
     # TODO: add option for custom path
     p.write_text(PRECOMMIT_TEMPLATE)
-
-
-def main_install(args):
-    change_to_git_root()
 
     py_prefix = Path(sys.prefix)
     try:
