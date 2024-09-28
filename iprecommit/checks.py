@@ -47,7 +47,8 @@ class Changes:
         return (
             len(self.added_paths) == 0
             and len(self.modified_paths) == 0
-            and len(self.deleted_paths) == 0
+            # TODO: what if a check needs to access deleted paths?
+            # and len(self.deleted_paths) == 0
         )
 
 
