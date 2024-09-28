@@ -15,6 +15,8 @@
 $ pytest
 ```
 
+To debug, it's helpful to place a breakpoint (`import pdb; pdb.set_trace()`) and print `self.tmpdir`. Then, you can `cd` to that directory in the shell and manually inspect the state of the repository with `git`, run `iprecommit`, etc.
+
 ## Filtering logic
 - A check class can define a `base_pattern`, e.g. `*.py` for `PythonFormat`.
 - Users can define a list of `Include` and `Exclude` patterns. Later patterns override earlier ones.

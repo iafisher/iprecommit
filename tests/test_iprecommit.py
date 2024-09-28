@@ -316,9 +316,41 @@ class TestEndToEnd(Base):
         self.assertEqual(proc.stderr, expected_stderr)
         self.assertNotEqual(proc.returncode, 0)
 
+    def test_pre_push(self):
+        self._create_repo(precommit="assets/precommit_pre_push.py")
+        commit_file(Path("example.txt"), "DO NOT " + "SUBMIT\n")
+
+        with tempfile.TemporaryDirectory() as bare_repo_dir:
+            os.chdir(bare_repo_dir)
+            run_shell(["git", "init", "--bare"])
+            os.chdir(self.tmpdir)
+            run_shell(["git", "remote", "add", "origin", bare_repo_dir])
+
+            proc = run_shell(
+                ["git", "push", "-u", "origin", "master"],
+                check=False,
+                capture_stdout=True,
+            )
+            expected_stdout = textwrap.dedent(
+                f"""\
+            iprecommit: NoDoNotSubmit: running
+            example.txt
+            iprecommit: NoDoNotSubmit: failed
+
+            1 failed. Push aborted.
+            """
+            )
+            self.assertEqual(proc.stdout, expected_stdout)
+            self.assertNotEqual(proc.returncode, 0)
+
+            # make sure nothing was pushed
+            proc = run_shell(["git", "log", "origin/master"], check=False)
+            self.assertNotEqual(proc.returncode, 0)
+
     # TODO: pass_files=True, separately=True
     # TODO: filter checks by command-line argument to `run`
     # TODO: slow=True and --fast command-line argument
+    # TODO: test nasty file names
 
     def ensure_black_is_installed(self):
         self.assertIsNotNone(

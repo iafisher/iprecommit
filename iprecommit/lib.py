@@ -16,7 +16,7 @@ class PreCommitConfig:
     patterns: Optional[List[checks.Pattern]]
 
 
-class PreCommitChecks:
+class Checks:
     checkers: List[Tuple[checks.BasePreCommit, PreCommitConfig]]
     parent: "Pre"
 
@@ -64,12 +64,16 @@ class CLIArgs:
     unstaged: bool
     fix_mode: bool
     commit_msg: Optional[str]
+    remote: Optional[str]
 
     def serialize(self) -> List[str]:
         subcmd = "fix" if self.fix_mode else "run"
         if self.hook_name == "commit-msg":
             assert self.commit_msg is not None
             return [subcmd, self.hook_name, self.commit_msg]
+        elif self.hook_name == "pre-push":
+            assert self.remote is not None
+            return [subcmd, self.hook_name, self.remote]
         else:
             return [subcmd, self.hook_name] + (["--unstaged"] if self.unstaged else [])
 
@@ -90,7 +94,7 @@ class CLIArgs:
             raise IPrecommitError
 
         # TODO: define in one place the valid git hooks
-        if hook_name not in ("pre-commit", "commit-msg"):
+        if hook_name not in ("pre-commit", "pre-push", "commit-msg"):
             raise IPrecommitError
 
         fix_mode = subcmd == "fix"
@@ -103,6 +107,18 @@ class CLIArgs:
                 unstaged=False,
                 fix_mode=fix_mode,
                 commit_msg=args[2],
+                remote=None,
+            )
+        elif hook_name == "pre-push":
+            if len(args) < 3:
+                raise IPrecommitError
+
+            return cls(
+                hook_name=hook_name,
+                unstaged=False,
+                fix_mode=fix_mode,
+                commit_msg=None,
+                remote=args[2],
             )
         else:
             unstaged = "--unstaged" in flags
@@ -111,20 +127,23 @@ class CLIArgs:
                 unstaged=unstaged,
                 fix_mode=fix_mode,
                 commit_msg=None,
+                remote=None,
             )
 
 
 class Pre:
     num_failed_checks: int
     called_main: bool
-    commit: PreCommitChecks
+    commit: Checks
+    push: Checks
     commit_msg: CommitMsgChecks
 
     def __init__(self) -> None:
         self.num_failed_checks = 0
         self.called_main = False
 
-        self.commit = PreCommitChecks(self)
+        self.commit = Checks(self)
+        self.push = Checks(self)
         self.commit_msg = CommitMsgChecks(self)
 
         atexit.register(self._atexit)
@@ -136,13 +155,32 @@ class Pre:
             self._main_pre_commit(args)
         elif args.hook_name == "commit-msg":
             self._main_commit_msg(args)
+        elif args.hook_name == "pre-push":
+            self._main_pre_push(args)
         else:
             raise IPrecommitImpossibleError()
 
     def _main_pre_commit(self, args: CLIArgs) -> None:
         all_changes = _get_git_changes(include_unstaged=args.unstaged)
+        self._main_pre(args, self.commit.checkers, all_changes)
+        if not args.fix_mode:
+            self._summary("Commit")
 
-        for checker, config in self.commit.checkers:
+    def _main_pre_push(self, args: CLIArgs) -> None:
+        assert args.remote is not None
+        current_branch = _get_git_current_branch()
+        last_commit_pushed = _get_git_last_commit_pushed(args.remote, current_branch)
+        all_changes = _get_git_changes(include_unstaged=False, since=last_commit_pushed)
+        self._main_pre(args, self.push.checkers, all_changes)
+        self._summary("Push")
+
+    def _main_pre(
+        self,
+        args: CLIArgs,
+        checkers: List[Tuple[checks.BasePreCommit, PreCommitConfig]],
+        all_changes: checks.Changes,
+    ) -> None:
+        for checker, config in checkers:
             changes = all_changes.filter(
                 checker.base_pattern(), checker.patterns() + (config.patterns or [])
             )
@@ -161,9 +199,6 @@ class Pre:
             else:
                 self._print_status(checker, "passed")
 
-        if not args.fix_mode:
-            self._summary()
-
     def _main_commit_msg(self, args: CLIArgs) -> None:
         assert args.commit_msg is not None
         try:
@@ -180,13 +215,13 @@ class Pre:
                 self._print_status(checker, "passed")
 
         if not args.fix_mode:
-            self._summary()
+            self._summary("Commit")
 
-    def _summary(self) -> None:
+    def _summary(self, action: str) -> None:
         if self.num_failed_checks > 0:
             # TODO: colored output
             print()
-            print(f"{self.num_failed_checks} failed. Commit aborted.")
+            print(f"{self.num_failed_checks} failed. {action} aborted.")
             sys.stdout.flush()
             sys.exit(1)
 
@@ -216,15 +251,13 @@ class Pre:
 
     def _parse_args(self) -> CLIArgs:
         argv = sys.argv[1:]
+        argv = sys.argv[1:]
         try:
             return CLIArgs.deserialize(argv)
         except IPrecommitError:
             bail(
                 "precommit.py should not be run directly. Use `iprecommit run` instead."
             )
-
-    def _cli_args_error(self) -> NoReturn:
-        bail("precommit.py should not be run directly. Use `iprecommit run` instead.")
 
     def _atexit(self) -> None:
         if not self.called_main:
@@ -236,10 +269,45 @@ class Pre:
             os._exit(1)
 
 
-def _get_git_changes(*, include_unstaged: bool) -> Changes:
-    added_paths = _git_diff_filter("A", include_unstaged=include_unstaged)
-    modified_paths = _git_diff_filter("M", include_unstaged=include_unstaged)
-    deleted_paths = _git_diff_filter("D", include_unstaged=include_unstaged)
+def _get_git_current_branch() -> str:
+    # TODO: can a git branch name be non-UTF8?
+    result = subprocess.run(
+        ["git", "branch", "--show-current"], capture_output=True, text=True
+    )
+    return result.stdout.strip()
+
+
+def _get_git_last_commit_pushed(remote: str, branch: str) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", f"{remote}/{branch}"], capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        return result.stdout.strip()
+    else:
+        # the empty commit allows us to diff from beginning of git history
+        # this is the case when no commits have been pushed to the remote
+        return _get_git_diff_empty_commit()
+
+
+def _get_git_diff_empty_commit() -> str:
+    # courtesy of https://stackoverflow.com/questions/40883798
+    # TODO: handle error code
+    result = subprocess.run(
+        ["git", "hash-object", "-t", "tree", "/dev/null"],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def _get_git_changes(*, include_unstaged: bool, since: Optional[str] = None) -> Changes:
+    added_paths = _git_diff_filter("A", include_unstaged=include_unstaged, since=since)
+    modified_paths = _git_diff_filter(
+        "M", include_unstaged=include_unstaged, since=since
+    )
+    deleted_paths = _git_diff_filter(
+        "D", include_unstaged=include_unstaged, since=since
+    )
     return Changes(
         added_paths=added_paths,
         modified_paths=modified_paths,
@@ -247,12 +315,21 @@ def _get_git_changes(*, include_unstaged: bool) -> Changes:
     )
 
 
-def _git_diff_filter(filter_string, *, include_unstaged: bool):
+def _git_diff_filter(
+    filter_string, *, include_unstaged: bool, since: Optional[str] = None
+):
+    if since is not None:
+        ref = since
+    elif include_unstaged:
+        ref = "HEAD"
+    else:
+        ref = "--cached"
+
     result = subprocess.run(
         [
             "git",
             "diff",
-            "HEAD" if include_unstaged else "--cached",
+            ref,
             "--name-only",
             f"--diff-filter={filter_string}",
         ],
@@ -267,6 +344,7 @@ def _decode_git_path(path):
     # quotes. This function reverses that transformation and decodes the resulting bytes
     # as UTF-8.
     # TODO: find the code in git that does this
+    # TODO: use -z flag so this is not necessary
     if path.startswith('"') and path.endswith('"'):
         # TODO(2020-04-16): Do I need to add "b" and then decode, or can I just eval?
         # TODO: less hacky way to do this?
