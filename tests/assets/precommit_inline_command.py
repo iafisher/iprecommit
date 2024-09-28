@@ -1,6 +1,6 @@
-from iprecommit import Precommit
+from iprecommit import Pre
 
 
-pre = Precommit()
-pre.sh("black", "--check", pass_files="True", base_pattern="*.py")
+pre = Pre()
+pre.commit.sh("black", "--check", pass_files="True", base_pattern="*.py")
 pre.main()

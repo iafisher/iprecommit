@@ -1,1 +1,1 @@
-from .lib import Precommit
+from .lib import Pre

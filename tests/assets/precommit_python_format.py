@@ -1,5 +1,5 @@
-from iprecommit import Precommit, checks
+from iprecommit import Pre, checks
 
-pre = Precommit()
-pre.check(checks.PythonFormat())
+pre = Pre()
+pre.commit.check(checks.PythonFormat())
 pre.main()

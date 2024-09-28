@@ -63,13 +63,7 @@ def _filter_paths(paths, base_pattern, patterns):
     return [item for item, include_me in pairs if include_me]
 
 
-@dataclass
-class Settings:
-    base_pattern: Optional[str]
-    patterns: List[Pattern]
-
-
-class Base:
+class BasePreCommit:
     # TODO: use abc.ABC?
 
     def check(self, changes: Changes) -> bool:
@@ -85,7 +79,7 @@ class Base:
         return []
 
 
-class NoDoNotSubmit(Base):
+class NoDoNotSubmit(BasePreCommit):
     def check(self, changes: Changes) -> bool:
         for path in changes.added_paths + changes.modified_paths:
             if "DO NOT " + "SUBMIT" in path.read_text():
@@ -95,7 +89,7 @@ class NoDoNotSubmit(Base):
         return True
 
 
-class NewlineAtEndOfFile(Base):
+class NewlineAtEndOfFile(BasePreCommit):
     def check(self, changes: Changes) -> bool:
         for path in changes.added_paths + changes.modified_paths:
             # TODO: report bad path
@@ -106,7 +100,7 @@ class NewlineAtEndOfFile(Base):
         return True
 
 
-class ShellCommandPasses(Base):
+class ShellCommandPasses(BasePreCommit):
     cmd: List[str]
     pass_files: bool
     _base_pattern: Optional[str]
@@ -133,7 +127,7 @@ class ShellCommandPasses(Base):
         return self._base_pattern
 
 
-class PythonFormat(Base):
+class PythonFormat(BasePreCommit):
     def check(self, changes: Changes) -> bool:
         proc = subprocess.run(
             ["black", "--check"] + changes.added_paths + changes.modified_paths  # type: ignore

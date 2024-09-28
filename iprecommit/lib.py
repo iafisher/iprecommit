@@ -1,4 +1,3 @@
-import argparse
 import ast
 import atexit
 import os
@@ -13,40 +12,36 @@ from .checks import Changes
 
 
 @dataclass
-class CheckerConfig:
+class PreCommitConfig:
     patterns: Optional[List[checks.Pattern]]
 
 
-class Precommit:
-    num_failed_checks: int
-    unstaged: bool
-    fix_mode: bool
-    called_main: bool
-    checkers: List[Tuple[checks.Base, CheckerConfig]]
+class PreCommitChecks:
+    checkers: List[Tuple[checks.BasePreCommit, PreCommitConfig]]
+    parent: "Pre"
 
-    def __init__(self) -> None:
-        self.num_failed_checks = 0
-        self.unstaged = False
-        self.fix_mode = False
-        self.called_main = False
+    def __init__(self, parent: "Pre") -> None:
         self.checkers = []
-        atexit.register(self._atexit)
+        self.parent = parent
 
     # TODO: `skip` argument
     def check(
-        self, checker: checks.Base, *, patterns: Optional[List[checks.Pattern]] = None
+        self,
+        checker: checks.BasePreCommit,
+        *,
+        patterns: Optional[List[checks.Pattern]] = None,
     ) -> None:
         if isinstance(checker, type):
             raise IPrecommitError(
-                "You passed a class to `{self.__class__.__name__}.check`, not an object. Did you forget the parentheses?"
+                "You passed a class to `check`, not an object. Did you forget the parentheses?"
             )
 
-        if self.called_main:
+        if self.parent.called_main:
             raise IPrecommitError(
-                "You called `{self.__class__.__name__}.check` after `main`. This check will never be run."
+                "You called `check` after `main`. This check will never be run."
             )
 
-        self.checkers.append((checker, CheckerConfig(patterns=patterns)))
+        self.checkers.append((checker, PreCommitConfig(patterns=patterns)))
 
     def sh(
         self, *cmd, pass_files: bool = False, base_pattern: Optional[str] = None
@@ -57,12 +52,39 @@ class Precommit:
             )
         )
 
+
+@dataclass
+class CLIArgs:
+    hook_name: str
+    unstaged: bool
+    fix_mode: bool
+
+
+class Pre:
+    num_failed_checks: int
+    called_main: bool
+    commit: PreCommitChecks
+
+    def __init__(self) -> None:
+        self.num_failed_checks = 0
+        self.called_main = False
+
+        self.commit = PreCommitChecks(self)
+
+        atexit.register(self._atexit)
+
     def main(self) -> None:
         self.called_main = True
-        self._parse_args()
-        all_changes = _get_git_changes(include_unstaged=self.unstaged)
+        args = self._parse_args()
+        if args.hook_name == "pre-commit":
+            self._main_pre_commit(args)
+        else:
+            raise IPrecommitImpossibleError()
 
-        for checker, config in self.checkers:
+    def _main_pre_commit(self, args: CLIArgs) -> None:
+        all_changes = _get_git_changes(include_unstaged=args.unstaged)
+
+        for checker, config in self.commit.checkers:
             changes = all_changes.filter(
                 checker.base_pattern(), checker.patterns() + (config.patterns or [])
             )
@@ -70,7 +92,7 @@ class Precommit:
                 self._skipped(checker.name())
                 return
 
-            if self.fix_mode:
+            if args.fix_mode:
                 self._fix(checker, changes)
                 return
 
@@ -82,14 +104,14 @@ class Precommit:
             else:
                 print(f"iprecommit: {checker.name()}: passed")
 
-        if not self.fix_mode and self.num_failed_checks > 0:
+        if not args.fix_mode and self.num_failed_checks > 0:
             # TODO: colored output
             print()
             print(f"{self.num_failed_checks} failed. Commit aborted.")
             sys.stdout.flush()
             sys.exit(1)
 
-    def _fix(self, checker: checks.Base, changes: Changes) -> None:
+    def _fix(self, checker: checks.BasePreCommit, changes: Changes) -> None:
         if not hasattr(checker, "fix"):
             self._skipped(checker.name())
             return
@@ -101,28 +123,31 @@ class Precommit:
     def _skipped(self, name: str) -> None:
         print(f"iprecommit: {name}: skipped")
 
-    def _parse_args(self) -> None:
-        argparser = argparse.ArgumentParser()
-        argparser.set_defaults(subcmd="")
-        subparsers = argparser.add_subparsers()
+    def _parse_args(self) -> CLIArgs:
+        # since precommit.py is meant to be invoked through `iprecommit run`, we only do minimal
+        # error-checking here (e.g., we ignore unknown arguments), assuming that `iprecommit` will
+        # pass us something valid
 
-        # TODO: these 4 lines should be shared with main.py
-        argparser_run = _create_subparser(subparsers, "run")
-        _add_run_flags(argparser_run)
+        argv = sys.argv[1:]
+        if not len(argv) >= 2:
+            self._cli_args_error()
 
-        argparser_fix = _create_subparser(subparsers, "fix")
-        _add_fix_flags(argparser_fix)
+        hook_name = argv[0]
+        subcmd = argv[1]
+        flags = argv[2:]
 
-        args = argparser.parse_args()
+        if hook_name not in ("pre-commit",):
+            self._cli_args_error()
 
-        if args.subcmd == "run":
-            self.unstaged = args.unstaged
-        elif args.subcmd == "fix":
-            self.unstaged = args.unstaged
-            self.fix_mode = True
-        else:
-            argparser.print_usage()
-            sys.exit(1)
+        if subcmd not in ("run", "fix"):
+            self._cli_args_error()
+
+        fix_mode = subcmd == "fix"
+        unstaged = "--unstaged" in flags
+        return CLIArgs(hook_name=hook_name, unstaged=unstaged, fix_mode=fix_mode)
+
+    def _cli_args_error(self) -> NoReturn:
+        bail("precommit.py should not be run directly. Use `iprecommit run` instead.")
 
     def _atexit(self) -> None:
         if not self.called_main:
@@ -179,6 +204,7 @@ def _create_subparser(subparsers, name):
     return argparser
 
 
+# TODO: these no longer need to be shared and can be moved back to `main.py`
 def _add_run_flags(argparser):
     argparser.add_argument("--unstaged", action="store_true")
 
@@ -203,3 +229,11 @@ ENV_HOOK_PATH = "IPRECOMMIT_HOOK_PATH"
 
 class IPrecommitError(Exception):
     pass
+
+
+# Not a subclass of `IPrecommitError` so we don't accidentally catch it.
+class IPrecommitImpossibleError(Exception):
+    def __init__(self) -> None:
+        super().__init__(
+            "This error should never happen. If you see it, please contact an iprecommit developer."
+        )

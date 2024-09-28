@@ -53,11 +53,11 @@ def _main(argparser, args) -> None:
 
 
 PRECOMMIT_TEMPLATE = """\
-from iprecommit import Precommit, checks
+from iprecommit import Pre, checks
 
-pre = Precommit()
-pre.check(checks.NoDoNotSubmit())
-pre.check(checks.NewlineAtEndOfFile())
+pre = Pre()
+pre.commit.check(checks.NoDoNotSubmit())
+pre.commit.check(checks.NewlineAtEndOfFile())
 # run a command:
 #   pre.sh("./run_tests", "--verbose")
 #   pre.sh("black", "--check", pass_files=True, base_pattern="*.py")
@@ -134,7 +134,7 @@ def run_precommit_py(subcmd: str) -> None:
     # TODO: less hacky way to do this?
     # TODO: what if sys.executable is None?
     path = os.environ.get(lib.ENV_HOOK_PATH, "precommit.py")
-    proc = subprocess.run([sys.executable, path, subcmd] + sys.argv[2:])
+    proc = subprocess.run([sys.executable, path, "pre-commit", subcmd] + sys.argv[2:])
     sys.exit(proc.returncode)
 
 

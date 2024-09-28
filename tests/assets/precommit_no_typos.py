@@ -1,7 +1,7 @@
-from iprecommit import Precommit, checks
+from iprecommit import Pre, checks
 
 
-class NoTypos(checks.Base):
+class NoTypos(checks.BasePreCommit):
     typos = {"programing": "programming"}
 
     def check(self, changes):
@@ -22,6 +22,6 @@ class NoTypos(checks.Base):
             path.write_text(text)
 
 
-pre = Precommit()
-pre.check(NoTypos())
+pre = Pre()
+pre.commit.check(NoTypos())
 pre.main()
