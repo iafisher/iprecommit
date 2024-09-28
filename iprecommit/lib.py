@@ -195,7 +195,7 @@ class Pre:
                 checker.base_pattern(), checker.patterns() + (config.patterns or [])
             )
             if changes.empty():
-                self._print_status(checker, "skipped")
+                self._print_status(checker, yellow("skipped"))
                 continue
 
             if args.fix_mode:
@@ -204,10 +204,10 @@ class Pre:
 
             self._print_status(checker, "running")
             if not checker.check(changes):
-                self._print_status(checker, "failed")
+                self._print_status(checker, red("failed"))
                 self.num_failed_checks += 1
             else:
-                self._print_status(checker, "passed")
+                self._print_status(checker, green("passed"))
 
     def _main_commit_msg(self, args: CLIArgs) -> None:
         assert args.commit_msg is not None
@@ -219,19 +219,19 @@ class Pre:
         for checker in self.commit_msg.checkers:
             self._print_status(checker, "running")
             if not checker.check(text):
-                self._print_status(checker, "failed")
+                self._print_status(checker, red("failed"))
                 self.num_failed_checks += 1
             else:
-                self._print_status(checker, "passed")
+                self._print_status(checker, green("passed"))
 
         if not args.fix_mode:
             self._summary("Commit")
 
     def _summary(self, action: str) -> None:
         if self.num_failed_checks > 0:
-            # TODO: colored output
             print()
-            print(f"{self.num_failed_checks} failed. {action} aborted.")
+            s = f"{self.num_failed_checks} failed"
+            print(f"{red(s)}. {action} aborted.")
             sys.stdout.flush()
             sys.exit(1)
 
@@ -245,8 +245,7 @@ class Pre:
         self._print_status(checker, "finished")
 
     def _print_status(self, checker: checks.Named, status: str) -> None:
-        # TODO: colored output
-        print(f"iprecommit: {checker.name()}: {status}")
+        print(f"{cyan('iprecommit')}: {checker.name()}: {status}")
 
     def _validate_check_args(self, checker: Any) -> None:
         if isinstance(checker, type):
@@ -364,17 +363,60 @@ def _decode_git_path(path):
 
 
 def bail(msg: str) -> NoReturn:
-    # TODO: color
-    print(f"Error: {msg}", file=sys.stderr)
+    print(f"{red('Error')}: {msg}", file=sys.stderr)
     sys.exit(1)
 
 
 def warn(msg: str) -> None:
-    # TODO: color
-    print(f"Warning: {msg}", file=sys.stderr)
+    print(f"{yellow('Warning')}: {msg}", file=sys.stderr)
 
 
 ENV_HOOK_PATH = "IPRECOMMIT_HOOK_PATH"
+
+
+def red(s: str) -> str:
+    return _colored(s, 31)
+
+
+def yellow(s: str) -> str:
+    return _colored(s, 33)
+
+
+def cyan(s: str) -> str:
+    return _colored(s, 36)
+
+
+def green(s: str) -> str:
+    return _colored(s, 32)
+
+
+def _colored(s: str, code: int) -> str:
+    if not _has_color():
+        return s
+
+    return f"\033[{code}m{s}\033[0m"
+
+
+# don't access directly; use _has_color() instead
+#
+# once set, this may be reset back to `None` if the module is re-imported elsewhere
+_COLOR = None
+
+
+def _has_color() -> bool:
+    global _COLOR
+
+    if _COLOR is not None:
+        return _COLOR
+
+    _COLOR = not (
+        # https://no-color.org/
+        "NO_COLOR" in os.environ
+        or not os.isatty(sys.stdout.fileno())
+        or not os.isatty(sys.stderr.fileno())
+    )
+
+    return _COLOR
 
 
 class IPrecommitError(Exception):
