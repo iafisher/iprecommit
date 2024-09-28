@@ -15,26 +15,37 @@ owndir = Path(__file__).absolute().parent
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.tmpdir_obj = tempfile.TemporaryDirectory()
-        self.tmpdir = self.tmpdir_obj.name
-        print(f"test: created temporary dir: {self.tmpdir}")
-
-    def tearDown(self):
-        self.tmpdir_obj.cleanup()
-
-    def _create_repo(self, precommit=None, install_hook=True):
         os.chdir(self.tmpdir)
+        for path in os.listdir():
+            if path != ".venv":
+                if os.path.isdir(path):
+                    shutil.rmtree(path)
+                else:
+                    os.remove(path)
 
-        # TODO: share some set-up between test cases
+    @classmethod
+    def setUpClass(cls):
+        cls.tmpdir_obj = tempfile.TemporaryDirectory()
+        cls.tmpdir = cls.tmpdir_obj.name
+        print(f"test: created temporary dir: {cls.tmpdir}")
 
-        run_shell(["git", "init"])
-        print("test: initialized git repo")
+        os.chdir(cls.tmpdir)
 
         run_shell(["python3", "-m", "venv", ".venv"])
         print("test: created virtualenv")
 
         run_shell([".venv/bin/pip", "install", str(owndir.parent)])
         print("test: installed iprecommit library")
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmpdir_obj.cleanup()
+
+    def _create_repo(self, precommit=None, install_hook=True):
+        os.chdir(self.tmpdir)
+
+        run_shell(["git", "init"])
+        print("test: initialized git repo")
 
         if precommit is None:
             run_shell([".venv/bin/iprecommit", "template"])
