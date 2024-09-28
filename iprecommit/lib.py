@@ -5,7 +5,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List, NoReturn, Optional
 
 from . import checks
 from .checks import Changes
@@ -30,6 +30,11 @@ class Precommit:
     def check(
         self, checker: checks.Base, *, patterns: Optional[List[checks.Pattern]] = None
     ) -> None:
+        if isinstance(checker, type):
+            raise IPrecommitError(
+                "You passed a class to `Precommit.check`, not an object. Did you forget the parentheses?"
+            )
+
         changes = self.changes.filter(
             checker.base_pattern(), checker.patterns() + (patterns or [])
         )
@@ -154,6 +159,17 @@ def _add_run_flags(argparser):
 
 def _add_fix_flags(argparser):
     argparser.add_argument("--unstaged", action="store_true")
+
+
+def bail(msg: str) -> NoReturn:
+    # TODO: color
+    print(f"Error: {msg}", file=sys.stderr)
+    sys.exit(1)
+
+
+def warn(msg: str) -> None:
+    # TODO: color
+    print(f"Warning: {msg}", file=sys.stderr)
 
 
 class IPrecommitError(Exception):

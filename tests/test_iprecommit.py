@@ -47,12 +47,12 @@ class Base(unittest.TestCase):
         run_shell(["git", "init"])
         print("test: initialized git repo")
 
+        if precommit is not None:
+            shutil.copy(os.path.join(owndir, precommit), "precommit.py")
+
         if install_hook:
             run_shell([".venv/bin/iprecommit", "init"])
             print("test: installed pre-commit hook")
-
-        if precommit is not None:
-            shutil.copy(os.path.join(owndir, precommit), "precommit.py")
 
 
 class TestEndToEnd(Base):
@@ -242,7 +242,7 @@ class TestEndToEnd(Base):
             "Error: pre-commit hook already exists. Re-run with --force to overwrite.\n",
         )
         self.assertEqual(proc.returncode, 1)
-        # TODO: make sure precommit.py isn't created, either
+        self.assertFalse(Path("precommit.py").exists())
 
         run_shell([".venv/bin/iprecommit", "init", "--force"])
         self.assertIn("iprecommit", Path(".git/hooks/pre-commit").read_text())
@@ -273,21 +273,6 @@ class TestEndToEnd(Base):
 
         self.assertTrue(hook_path.exists())
 
-    def test_init_does_not_overwrite(self):
-        self._create_repo(
-            precommit="assets/precommit_inline_command.py", install_hook=False
-        )
-
-        proc = run_shell(
-            [".venv/bin/iprecommit", "init"], check=False, capture_stderr=True
-        )
-        self.assertEqual(
-            proc.stderr,
-            "Error: precommit.py already exists. Re-run with --force to overwrite.\n",
-        )
-        self.assertEqual(proc.returncode, 1)
-
-    # TODO: init and install as one command?
     # TODO: customize hook location
     # TODO: pass_files=True, separately=True
     # TODO: filter checks by command-line argument to `run`

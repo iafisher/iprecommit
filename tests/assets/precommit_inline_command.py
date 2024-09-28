@@ -1,4 +1,4 @@
-from iprecommit import Precommit, checks
+from iprecommit import Precommit
 
 
 pre = Precommit()
