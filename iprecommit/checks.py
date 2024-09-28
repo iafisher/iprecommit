@@ -63,12 +63,12 @@ def _filter_paths(paths, base_pattern, patterns):
     return [item for item, include_me in pairs if include_me]
 
 
-class Base:
+class Named:
     def name(self) -> str:
         return self.__class__.__name__
 
 
-class BasePreCommit(Base):
+class Base(Named):
     # TODO: use abc.ABC?
 
     def check(self, changes: Changes) -> bool:
@@ -81,12 +81,12 @@ class BasePreCommit(Base):
         return []
 
 
-class BaseCommitMsg(Base):
+class CommitMsg(Named):
     def check(self, text: str) -> bool:
         raise NotImplementedError
 
 
-class NoDoNotSubmit(BasePreCommit):
+class NoDoNotSubmit(Base):
     def check(self, changes: Changes) -> bool:
         for path in changes.added_paths + changes.modified_paths:
             if "DO NOT " + "SUBMIT" in path.read_text():
@@ -96,7 +96,7 @@ class NoDoNotSubmit(BasePreCommit):
         return True
 
 
-class NewlineAtEndOfFile(BasePreCommit):
+class NewlineAtEndOfFile(Base):
     def check(self, changes: Changes) -> bool:
         for path in changes.added_paths + changes.modified_paths:
             # TODO: report bad path
@@ -107,7 +107,7 @@ class NewlineAtEndOfFile(BasePreCommit):
         return True
 
 
-class ShellCommandPasses(BasePreCommit):
+class ShellCommandPasses(Base):
     cmd: List[str]
     pass_files: bool
     _base_pattern: Optional[str]
@@ -134,7 +134,7 @@ class ShellCommandPasses(BasePreCommit):
         return self._base_pattern
 
 
-class PythonFormat(BasePreCommit):
+class PythonFormat(Base):
     def check(self, changes: Changes) -> bool:
         proc = subprocess.run(
             ["black", "--check"] + changes.added_paths + changes.modified_paths  # type: ignore
@@ -148,12 +148,12 @@ class PythonFormat(BasePreCommit):
         return "*.py"
 
 
-class CommitMessageIsCapitalized(BaseCommitMsg):
+class CommitMessageIsCapitalized(CommitMsg):
     def check(self, text: str) -> bool:
         return not (text and text[0].isalpha() and text[0].islower())
 
 
-class CommitMessageIsNonEmpty(BaseCommitMsg):
+class CommitMessageIsNonEmpty(CommitMsg):
     def check(self, text: str) -> bool:
         return len(text.strip()) > 0
 

@@ -12,12 +12,12 @@ from .checks import Changes
 
 
 @dataclass
-class PreCommitConfig:
+class CheckConfig:
     patterns: Optional[List[checks.Pattern]]
 
 
 class Checks:
-    checkers: List[Tuple[checks.BasePreCommit, PreCommitConfig]]
+    checkers: List[Tuple[checks.Base, CheckConfig]]
     parent: "Pre"
 
     def __init__(self, parent: "Pre") -> None:
@@ -27,12 +27,17 @@ class Checks:
     # TODO: `skip` argument
     def check(
         self,
-        checker: checks.BasePreCommit,
+        checker: checks.Base,
         *,
         patterns: Optional[List[checks.Pattern]] = None,
     ) -> None:
         self.parent._validate_check_args(checker)
-        self.checkers.append((checker, PreCommitConfig(patterns=patterns)))
+        if not isinstance(checker, checks.Base):
+            raise IPrecommitError(
+                "The argument to `check` must be a subclass of `checks.Base`."
+            )
+
+        self.checkers.append((checker, CheckConfig(patterns=patterns)))
 
     def sh(
         self, *cmd, pass_files: bool = False, base_pattern: Optional[str] = None
@@ -45,7 +50,7 @@ class Checks:
 
 
 class CommitMsgChecks:
-    checkers: List[checks.BaseCommitMsg]
+    checkers: List[checks.CommitMsg]
     parent: "Pre"
 
     def __init__(self, parent: "Pre") -> None:
@@ -53,8 +58,13 @@ class CommitMsgChecks:
         self.parent = parent
 
     # TODO: `skip` argument
-    def check(self, checker: checks.BaseCommitMsg) -> None:
+    def check(self, checker: checks.CommitMsg) -> None:
         self.parent._validate_check_args(checker)
+        if not isinstance(checker, checks.CommitMsg):
+            raise IPrecommitError(
+                "The argument to `check` must be a subclass of `checks.CommitMsg`."
+            )
+
         self.checkers.append(checker)
 
 
@@ -177,7 +187,7 @@ class Pre:
     def _main_pre(
         self,
         args: CLIArgs,
-        checkers: List[Tuple[checks.BasePreCommit, PreCommitConfig]],
+        checkers: List[Tuple[checks.Base, CheckConfig]],
         all_changes: checks.Changes,
     ) -> None:
         for checker, config in checkers:
@@ -225,7 +235,7 @@ class Pre:
             sys.stdout.flush()
             sys.exit(1)
 
-    def _fix(self, checker: checks.BasePreCommit, changes: Changes) -> None:
+    def _fix(self, checker: checks.Base, changes: Changes) -> None:
         if not hasattr(checker, "fix"):
             self._print_status(checker, "skipped")
             return
@@ -234,7 +244,7 @@ class Pre:
         checker.fix(changes)
         self._print_status(checker, "finished")
 
-    def _print_status(self, checker: checks.Base, status: str) -> None:
+    def _print_status(self, checker: checks.Named, status: str) -> None:
         # TODO: colored output
         print(f"iprecommit: {checker.name()}: {status}")
 

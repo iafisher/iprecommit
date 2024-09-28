@@ -1,7 +1,7 @@
 from iprecommit import Pre, checks
 
 
-class NoTypos(checks.BasePreCommit):
+class NoTypos(checks.Base):
     typos = {"programing": "programming"}
 
     def check(self, changes):
