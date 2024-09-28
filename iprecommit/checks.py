@@ -121,7 +121,7 @@ class ShellCommandPasses(Base):
     def check(self, changes: Changes) -> bool:
         cmd = self.cmd
         if self.pass_files:
-            cmd = cmd + changes.added_paths + changes.modified_paths
+            cmd = cmd + changes.added_paths + changes.modified_paths  # type: ignore
 
         proc = subprocess.run(cmd)
         return proc.returncode == 0
@@ -136,12 +136,12 @@ class ShellCommandPasses(Base):
 class PythonFormat(Base):
     def check(self, changes: Changes) -> bool:
         proc = subprocess.run(
-            ["black", "--check"] + changes.added_paths + changes.modified_paths
+            ["black", "--check"] + changes.added_paths + changes.modified_paths  # type: ignore
         )
         return proc.returncode == 0
 
     def fix(self, changes: Changes) -> None:
-        subprocess.run(["black"] + changes.added_paths + changes.modified_paths)
+        subprocess.run(["black"] + changes.added_paths + changes.modified_paths)  # type: ignore
 
     def base_pattern(self) -> Optional[str]:
         return "*.py"

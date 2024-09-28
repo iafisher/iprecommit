@@ -98,7 +98,7 @@ class Precommit:
         checker.fix(changes)
         print(f"iprecommit: {checker.name()}: finished")
 
-    def _skipped(self, name: str) -> str:
+    def _skipped(self, name: str) -> None:
         print(f"iprecommit: {name}: skipped")
 
     def _parse_args(self) -> None:
