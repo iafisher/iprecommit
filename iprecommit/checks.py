@@ -63,20 +63,27 @@ def _filter_paths(paths, base_pattern, patterns):
     return [item for item, include_me in pairs if include_me]
 
 
-class BasePreCommit:
+class Base:
+    def name(self) -> str:
+        return self.__class__.__name__
+
+
+class BasePreCommit(Base):
     # TODO: use abc.ABC?
 
     def check(self, changes: Changes) -> bool:
         raise NotImplementedError
-
-    def name(self) -> str:
-        return self.__class__.__name__
 
     def base_pattern(self) -> Optional[str]:
         return None
 
     def patterns(self) -> List[Pattern]:
         return []
+
+
+class BaseCommitMsg(Base):
+    def check(self, text: str) -> bool:
+        raise NotImplementedError
 
 
 class NoDoNotSubmit(BasePreCommit):
@@ -139,3 +146,16 @@ class PythonFormat(BasePreCommit):
 
     def base_pattern(self) -> Optional[str]:
         return "*.py"
+
+
+class CommitMessageIsCapitalized(BaseCommitMsg):
+    def check(self, text: str) -> bool:
+        return not (text and text[0].isalpha() and text[0].islower())
+
+
+class CommitMessageIsNonEmpty(BaseCommitMsg):
+    def check(self, text: str) -> bool:
+        return len(text.strip()) > 0
+
+
+# TODO: CommitMessageLineLength check

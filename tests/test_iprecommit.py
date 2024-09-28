@@ -243,7 +243,7 @@ class TestEndToEnd(Base):
         )
         self.assertEqual(
             proc.stderr,
-            "Error: pre-commit hook already exists. Re-run with --force to overwrite.\n",
+            "Error: .git/hooks/pre-commit already exists. Re-run with --force to overwrite.\n",
         )
         self.assertEqual(proc.returncode, 1)
         self.assertFalse(Path("precommit.py").exists())
@@ -283,7 +283,7 @@ class TestEndToEnd(Base):
         self.assertTrue(p.exists())
 
         copy_and_stage_file("assets/includes_do_not_submit.txt")
-        proc = run_shell(["git", "commit"], check=False, capture_stderr=True)
+        proc = run_shell(["git", "commit", "-m", "."], check=False, capture_stderr=True)
         expected_stderr = textwrap.dedent(
             """\
         iprecommit: NoDoNotSubmit: running
@@ -291,6 +291,24 @@ class TestEndToEnd(Base):
         iprecommit: NoDoNotSubmit: failed
         iprecommit: NewlineAtEndOfFile: running
         iprecommit: NewlineAtEndOfFile: passed
+
+        1 failed. Commit aborted.
+        """
+        )
+        self.assertEqual(proc.stderr, expected_stderr)
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_commit_msg(self):
+        self._create_repo(precommit="assets/precommit_commit_msg.py")
+
+        copy_and_stage_file("assets/example.txt")
+        proc = run_shell(
+            ["git", "commit", "-m", "lowercase"], check=False, capture_stderr=True
+        )
+        expected_stderr = textwrap.dedent(
+            """\
+        iprecommit: CommitMessageIsCapitalized: running
+        iprecommit: CommitMessageIsCapitalized: failed
 
         1 failed. Commit aborted.
         """

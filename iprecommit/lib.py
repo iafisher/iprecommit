@@ -5,7 +5,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, NoReturn, Optional, Tuple
+from typing import Any, List, NoReturn, Optional, Self, Tuple
 
 from . import checks
 from .checks import Changes
@@ -31,16 +31,7 @@ class PreCommitChecks:
         *,
         patterns: Optional[List[checks.Pattern]] = None,
     ) -> None:
-        if isinstance(checker, type):
-            raise IPrecommitError(
-                "You passed a class to `check`, not an object. Did you forget the parentheses?"
-            )
-
-        if self.parent.called_main:
-            raise IPrecommitError(
-                "You called `check` after `main`. This check will never be run."
-            )
-
+        self.parent._validate_check_args(checker)
         self.checkers.append((checker, PreCommitConfig(patterns=patterns)))
 
     def sh(
@@ -53,23 +44,88 @@ class PreCommitChecks:
         )
 
 
+class CommitMsgChecks:
+    checkers: List[checks.BaseCommitMsg]
+    parent: "Pre"
+
+    def __init__(self, parent: "Pre") -> None:
+        self.checkers = []
+        self.parent = parent
+
+    # TODO: `skip` argument
+    def check(self, checker: checks.BaseCommitMsg) -> None:
+        self.parent._validate_check_args(checker)
+        self.checkers.append(checker)
+
+
 @dataclass
 class CLIArgs:
     hook_name: str
     unstaged: bool
     fix_mode: bool
+    commit_msg: Optional[str]
+
+    def serialize(self) -> List[str]:
+        subcmd = "fix" if self.fix_mode else "run"
+        if self.hook_name == "commit-msg":
+            assert self.commit_msg is not None
+            return [subcmd, self.hook_name, self.commit_msg]
+        else:
+            return [subcmd, self.hook_name] + (["--unstaged"] if self.unstaged else [])
+
+    @classmethod
+    def deserialize(cls, args: List[str]) -> Self:
+        # since precommit.py is meant to be invoked through `iprecommit run`, we only do minimal
+        # error-checking here (e.g., we ignore unknown arguments), assuming that `iprecommit` will
+        # pass us something valid
+
+        if len(args) < 2:
+            raise IPrecommitError
+
+        subcmd = args[0]
+        hook_name = args[1]
+        flags = args[2:]
+
+        if subcmd not in ("run", "fix"):
+            raise IPrecommitError
+
+        # TODO: define in one place the valid git hooks
+        if hook_name not in ("pre-commit", "commit-msg"):
+            raise IPrecommitError
+
+        fix_mode = subcmd == "fix"
+        if hook_name == "commit-msg":
+            if len(args) < 3:
+                raise IPrecommitError
+
+            return cls(
+                hook_name=hook_name,
+                unstaged=False,
+                fix_mode=fix_mode,
+                commit_msg=args[2],
+            )
+        else:
+            unstaged = "--unstaged" in flags
+            return cls(
+                hook_name=hook_name,
+                unstaged=unstaged,
+                fix_mode=fix_mode,
+                commit_msg=None,
+            )
 
 
 class Pre:
     num_failed_checks: int
     called_main: bool
     commit: PreCommitChecks
+    commit_msg: CommitMsgChecks
 
     def __init__(self) -> None:
         self.num_failed_checks = 0
         self.called_main = False
 
         self.commit = PreCommitChecks(self)
+        self.commit_msg = CommitMsgChecks(self)
 
         atexit.register(self._atexit)
 
@@ -78,6 +134,8 @@ class Pre:
         args = self._parse_args()
         if args.hook_name == "pre-commit":
             self._main_pre_commit(args)
+        elif args.hook_name == "commit-msg":
+            self._main_commit_msg(args)
         else:
             raise IPrecommitImpossibleError()
 
@@ -89,22 +147,43 @@ class Pre:
                 checker.base_pattern(), checker.patterns() + (config.patterns or [])
             )
             if changes.empty():
-                self._skipped(checker.name())
-                return
+                self._print_status(checker, "skipped")
+                continue
 
             if args.fix_mode:
                 self._fix(checker, changes)
-                return
+                continue
 
-            # TODO: colored output
-            print(f"iprecommit: {checker.name()}: running")
+            self._print_status(checker, "running")
             if not checker.check(changes):
-                print(f"iprecommit: {checker.name()}: failed")
+                self._print_status(checker, "failed")
                 self.num_failed_checks += 1
             else:
-                print(f"iprecommit: {checker.name()}: passed")
+                self._print_status(checker, "passed")
 
-        if not args.fix_mode and self.num_failed_checks > 0:
+        if not args.fix_mode:
+            self._summary()
+
+    def _main_commit_msg(self, args: CLIArgs) -> None:
+        assert args.commit_msg is not None
+        try:
+            text = Path(args.commit_msg).read_text()
+        except FileNotFoundError as e:
+            raise IPrecommitError("could not read commit message file") from e
+
+        for checker in self.commit_msg.checkers:
+            self._print_status(checker, "running")
+            if not checker.check(text):
+                self._print_status(checker, "failed")
+                self.num_failed_checks += 1
+            else:
+                self._print_status(checker, "passed")
+
+        if not args.fix_mode:
+            self._summary()
+
+    def _summary(self) -> None:
+        if self.num_failed_checks > 0:
             # TODO: colored output
             print()
             print(f"{self.num_failed_checks} failed. Commit aborted.")
@@ -113,38 +192,36 @@ class Pre:
 
     def _fix(self, checker: checks.BasePreCommit, changes: Changes) -> None:
         if not hasattr(checker, "fix"):
-            self._skipped(checker.name())
+            self._print_status(checker, "skipped")
             return
 
-        print(f"iprecommit: {checker.name()}: fixing")
+        self._print_status(checker, "fixing")
         checker.fix(changes)
-        print(f"iprecommit: {checker.name()}: finished")
+        self._print_status(checker, "finished")
 
-    def _skipped(self, name: str) -> None:
-        print(f"iprecommit: {name}: skipped")
+    def _print_status(self, checker: checks.Base, status: str) -> None:
+        # TODO: colored output
+        print(f"iprecommit: {checker.name()}: {status}")
+
+    def _validate_check_args(self, checker: Any) -> None:
+        if isinstance(checker, type):
+            raise IPrecommitError(
+                "You passed a class to `check`, not an object. Did you forget the parentheses?"
+            )
+
+        if self.called_main:
+            raise IPrecommitError(
+                "You called `check` after `main`. This check will never be run."
+            )
 
     def _parse_args(self) -> CLIArgs:
-        # since precommit.py is meant to be invoked through `iprecommit run`, we only do minimal
-        # error-checking here (e.g., we ignore unknown arguments), assuming that `iprecommit` will
-        # pass us something valid
-
         argv = sys.argv[1:]
-        if not len(argv) >= 2:
-            self._cli_args_error()
-
-        hook_name = argv[0]
-        subcmd = argv[1]
-        flags = argv[2:]
-
-        if hook_name not in ("pre-commit",):
-            self._cli_args_error()
-
-        if subcmd not in ("run", "fix"):
-            self._cli_args_error()
-
-        fix_mode = subcmd == "fix"
-        unstaged = "--unstaged" in flags
-        return CLIArgs(hook_name=hook_name, unstaged=unstaged, fix_mode=fix_mode)
+        try:
+            return CLIArgs.deserialize(argv)
+        except IPrecommitError:
+            bail(
+                "precommit.py should not be run directly. Use `iprecommit run` instead."
+            )
 
     def _cli_args_error(self) -> NoReturn:
         bail("precommit.py should not be run directly. Use `iprecommit run` instead.")
@@ -196,21 +273,6 @@ def _decode_git_path(path):
         return Path(ast.literal_eval("b" + path).decode("utf-8"))
     else:
         return Path(path)
-
-
-def _create_subparser(subparsers, name):
-    argparser = subparsers.add_parser(name)
-    argparser.set_defaults(subcmd=name)
-    return argparser
-
-
-# TODO: these no longer need to be shared and can be moved back to `main.py`
-def _add_run_flags(argparser):
-    argparser.add_argument("--unstaged", action="store_true")
-
-
-def _add_fix_flags(argparser):
-    argparser.add_argument("--unstaged", action="store_true")
 
 
 def bail(msg: str) -> NoReturn:
