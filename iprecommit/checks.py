@@ -1,5 +1,4 @@
 import fnmatch
-import shlex
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -64,12 +63,7 @@ def _filter_paths(paths, base_pattern, patterns):
     return [item for item, include_me in pairs if include_me]
 
 
-class Named:
-    def name(self) -> str:
-        return self.__class__.__name__
-
-
-class Base(Named):
+class Base:
     # TODO: use abc.ABC?
 
     def check(self, changes: Changes) -> bool:
@@ -82,7 +76,7 @@ class Base(Named):
         return []
 
 
-class CommitMsg(Named):
+class CommitMsg:
     def check(self, text: str) -> bool:
         raise NotImplementedError
 
@@ -128,9 +122,6 @@ class ShellCommandPasses(Base):
         proc = subprocess.run(cmd)
         return proc.returncode == 0
 
-    def name(self):
-        return " ".join(map(shlex.quote, self.cmd))
-
     def base_pattern(self) -> Optional[str]:
         return self._base_pattern
 
@@ -154,7 +145,7 @@ class CommitMessageIsCapitalized(CommitMsg):
         return not (text and text[0].isalpha() and text[0].islower())
 
 
-class CommitMessageIsNonEmpty(CommitMsg):
+class CommitMessageIsNotEmpty(CommitMsg):
     def check(self, text: str) -> bool:
         return len(text.strip()) > 0
 

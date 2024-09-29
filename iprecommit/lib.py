@@ -1,6 +1,7 @@
 import ast
 import atexit
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -14,6 +15,7 @@ from .checks import Changes
 @dataclass
 class CheckConfig:
     patterns: Optional[List[checks.Pattern]]
+    name: Optional[str]
 
 
 class Checks:
@@ -30,6 +32,7 @@ class Checks:
         checker: checks.Base,
         *,
         patterns: Optional[List[checks.Pattern]] = None,
+        name: Optional[str] = None,
     ) -> None:
         self.parent._validate_check_args(checker)
         if not isinstance(checker, checks.Base):
@@ -37,15 +40,25 @@ class Checks:
                 "The argument to `check` must be a subclass of `checks.Base`."
             )
 
-        self.checkers.append((checker, CheckConfig(patterns=patterns)))
+        self.checkers.append((checker, CheckConfig(patterns=patterns, name=name)))
 
     def sh(
-        self, *cmd, pass_files: bool = False, base_pattern: Optional[str] = None
+        self,
+        *cmd,
+        pass_files: bool = False,
+        base_pattern: Optional[str] = None,
+        name: Optional[str] = None,
     ) -> None:
+        if name is None:
+            name = " ".join(map(shlex.quote, cmd))
+
         return self.check(
             checks.ShellCommandPasses(
-                cmd, pass_files=pass_files, base_pattern=base_pattern
-            )
+                cmd,
+                pass_files=pass_files,
+                base_pattern=base_pattern,
+            ),
+            name=name,
         )
 
 
@@ -191,23 +204,25 @@ class Pre:
         all_changes: checks.Changes,
     ) -> None:
         for checker, config in checkers:
+            name = config.name or checker.__class__.__name__
+
             changes = all_changes.filter(
                 checker.base_pattern(), checker.patterns() + (config.patterns or [])
             )
             if changes.empty():
-                self._print_status(checker, yellow("skipped"))
+                self._print_status(name, yellow("skipped"))
                 continue
 
             if args.fix_mode:
-                self._fix(checker, changes)
+                self._fix(checker, changes, name)
                 continue
 
-            self._print_status(checker, "running")
+            self._print_status(name, "running")
             if not checker.check(changes):
-                self._print_status(checker, red("failed"))
+                self._print_status(name, red("failed"))
                 self.num_failed_checks += 1
             else:
-                self._print_status(checker, green("passed"))
+                self._print_status(name, green("passed"))
 
     def _main_commit_msg(self, args: CLIArgs) -> None:
         assert args.commit_msg is not None
@@ -217,12 +232,14 @@ class Pre:
             raise IPrecommitError("could not read commit message file") from e
 
         for checker in self.commit_msg.checkers:
-            self._print_status(checker, "running")
+            name = checker.__class__.__name__
+
+            self._print_status(name, "running")
             if not checker.check(text):
-                self._print_status(checker, red("failed"))
+                self._print_status(name, red("failed"))
                 self.num_failed_checks += 1
             else:
-                self._print_status(checker, green("passed"))
+                self._print_status(name, green("passed"))
 
         if not args.fix_mode:
             self._summary("Commit")
@@ -235,17 +252,16 @@ class Pre:
             sys.stdout.flush()
             sys.exit(1)
 
-    def _fix(self, checker: checks.Base, changes: Changes) -> None:
+    def _fix(self, checker: checks.Base, changes: Changes, name: str) -> None:
         if not hasattr(checker, "fix"):
-            self._print_status(checker, "skipped")
             return
 
-        self._print_status(checker, "fixing")
+        self._print_status(name, "fixing")
         checker.fix(changes)
-        self._print_status(checker, "finished")
+        self._print_status(name, "finished")
 
-    def _print_status(self, checker: checks.Named, status: str) -> None:
-        print(f"{cyan('iprecommit')}: {checker.name()}: {status}")
+    def _print_status(self, name: str, status: str) -> None:
+        print(f"{cyan('iprecommit')}: {name}: {status}")
 
     def _validate_check_args(self, checker: Any) -> None:
         if isinstance(checker, type):
