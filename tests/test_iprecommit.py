@@ -1,4 +1,5 @@
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -364,6 +365,65 @@ class TestEndToEnd(Base):
             # make sure nothing was pushed
             proc = run_shell(["git", "log", "origin/master"], check=False)
             self.assertNotEqual(proc.returncode, 0)
+
+    def test_non_ascii_filename(self):
+        self._create_repo()
+
+        p = Path("á.txt")
+        p.write_text("DO NOT " + "SUBMIT\n")
+        run_shell(["git", "add", str(p)])
+
+        proc = run_shell(
+            [".venv/bin/iprecommit", "run"], check=False, capture_stdout=True
+        )
+        expected_stdout = textwrap.dedent(
+            """\
+        [iprecommit] NoDoNotSubmit: running
+        á.txt
+        [iprecommit] NoDoNotSubmit: failed
+
+
+        [iprecommit] NewlineAtEndOfFile: running
+        [iprecommit] NewlineAtEndOfFile: passed
+
+
+        1 failed. Commit aborted.
+        """
+        )
+        self.assertEqual(proc.stdout, expected_stdout)
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_non_utf8_filename(self):
+        if platform.system() != "Linux":
+            raise unittest.SkipTest("This test only runs on Linux.")
+
+        self._create_repo()
+
+        p = b"\xc0\xaf.test"
+        with open(p, "w") as f:
+            f.write("DO NOT " + "SUBMIT\n")
+
+        run_shell(["git", "add", str(p)])
+
+        proc = run_shell(
+            [".venv/bin/iprecommit", "run"], check=False, capture_stdout=True
+        )
+        expected_stdout = textwrap.dedent(
+            f"""\
+        [iprecommit] NoDoNotSubmit: running
+        {os.fsdecode(p)}
+        [iprecommit] NoDoNotSubmit: failed
+
+
+        [iprecommit] NewlineAtEndOfFile: running
+        [iprecommit] NewlineAtEndOfFile: passed
+
+
+        1 failed. Commit aborted.
+        """
+        )
+        self.assertEqual(proc.stdout, expected_stdout)
+        self.assertNotEqual(proc.returncode, 0)
 
     # TODO: pass_files=True, separately=True
     # TODO: filter checks by command-line argument to `run`

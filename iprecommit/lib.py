@@ -1,4 +1,3 @@
-import ast
 import atexit
 import os
 import shlex
@@ -354,31 +353,10 @@ def _git_diff_filter(
         ref = "--cached"
 
     result = subprocess.run(
-        [
-            "git",
-            "diff",
-            ref,
-            "--name-only",
-            f"--diff-filter={filter_string}",
-        ],
+        ["git", "diff", ref, "--name-only", f"--diff-filter={filter_string}", "-z"],
         capture_output=True,
     )
-    return [_decode_git_path(p) for p in result.stdout.decode("ascii").splitlines()]
-
-
-def _decode_git_path(path):
-    # If the file path contains a non-ASCII character or a literal double quote, Git
-    # backslash-escapes the offending character and encloses the whole path in double
-    # quotes. This function reverses that transformation and decodes the resulting bytes
-    # as UTF-8.
-    # TODO: find the code in git that does this
-    # TODO: use -z flag so this is not necessary
-    if path.startswith('"') and path.endswith('"'):
-        # TODO(2020-04-16): Do I need to add "b" and then decode, or can I just eval?
-        # TODO: less hacky way to do this?
-        return Path(ast.literal_eval("b" + path).decode("utf-8"))
-    else:
-        return Path(path)
+    return [Path(os.fsdecode(p)) for p in result.stdout.split(b"\x00") if p]
 
 
 def bail(msg: str) -> NoReturn:
