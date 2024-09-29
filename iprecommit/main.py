@@ -27,13 +27,17 @@ def main() -> None:
     )
 
     argparser_run = _create_subparser(subparsers, "run")
-    argparser_run.add_argument("--unstaged", action="store_true")
+    argparser_run.add_argument(
+        "--unstaged", action="store_true", help="Also run checks on unstaged files."
+    )
     argparser_run.add_argument("--hook", default="pre-commit")
-    argparser_run.add_argument("--commit-msg")
-    argparser_run.add_argument("--remote")
+    argparser_run.add_argument("--commit-msg", help=argparse.SUPPRESS)
+    argparser_run.add_argument("--remote", help=argparse.SUPPRESS)
 
     argparser_fix = _create_subparser(subparsers, "fix")
-    argparser_fix.add_argument("--unstaged", action="store_true")
+    argparser_fix.add_argument(
+        "--unstaged", action="store_true", help="Also apply fixes to unstaged files."
+    )
     argparser_fix.add_argument("--hook", default="pre-commit")
 
     args = argparser.parse_args()
@@ -56,6 +60,7 @@ def _main(argparser, args) -> None:
         argparser.print_usage()
 
 
+# TODO: example of include/exclude patterns
 PRECOMMIT_TEMPLATE = """\
 from iprecommit import Pre, checks
 

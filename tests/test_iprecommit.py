@@ -68,11 +68,14 @@ class TestEndToEnd(Base):
         )
         expected_stdout = textwrap.dedent(
             """\
-        iprecommit: NoDoNotSubmit: running
+        [iprecommit] NoDoNotSubmit: running
         includes_do_not_submit.txt
-        iprecommit: NoDoNotSubmit: failed
-        iprecommit: NewlineAtEndOfFile: running
-        iprecommit: NewlineAtEndOfFile: passed
+        [iprecommit] NoDoNotSubmit: failed
+
+
+        [iprecommit] NewlineAtEndOfFile: running
+        [iprecommit] NewlineAtEndOfFile: passed
+
 
         1 failed. Commit aborted.
         """
@@ -94,11 +97,14 @@ class TestEndToEnd(Base):
         )
         expected_stdout = textwrap.dedent(
             """\
-        iprecommit: NoDoNotSubmit: running
+        [iprecommit] NoDoNotSubmit: running
         includes_do_not_submit.txt
-        iprecommit: NoDoNotSubmit: failed
-        iprecommit: NewlineAtEndOfFile: running
-        iprecommit: NewlineAtEndOfFile: passed
+        [iprecommit] NoDoNotSubmit: failed
+
+
+        [iprecommit] NewlineAtEndOfFile: running
+        [iprecommit] NewlineAtEndOfFile: passed
+
 
         1 failed. Commit aborted.
         """
@@ -119,11 +125,14 @@ class TestEndToEnd(Base):
         )
         expected_stdout = textwrap.dedent(
             """\
-        iprecommit: NoDoNotSubmit: running
+        [iprecommit] NoDoNotSubmit: running
         example.txt
-        iprecommit: NoDoNotSubmit: failed
-        iprecommit: NewlineAtEndOfFile: running
-        iprecommit: NewlineAtEndOfFile: failed
+        [iprecommit] NoDoNotSubmit: failed
+
+
+        [iprecommit] NewlineAtEndOfFile: running
+        [iprecommit] NewlineAtEndOfFile: failed
+
 
         2 failed. Commit aborted.
         """
@@ -154,11 +163,14 @@ class TestEndToEnd(Base):
         proc = run_shell(["git", "commit", "-m", "."], check=False, capture_stderr=True)
         expected_stderr = textwrap.dedent(
             """\
-        iprecommit: NoDoNotSubmit: running
+        [iprecommit] NoDoNotSubmit: running
         includes_do_not_submit.txt
-        iprecommit: NoDoNotSubmit: failed
-        iprecommit: NewlineAtEndOfFile: running
-        iprecommit: NewlineAtEndOfFile: passed
+        [iprecommit] NoDoNotSubmit: failed
+
+
+        [iprecommit] NewlineAtEndOfFile: running
+        [iprecommit] NewlineAtEndOfFile: passed
+
 
         1 failed. Commit aborted.
         """
@@ -177,8 +189,8 @@ class TestEndToEnd(Base):
         proc = run_shell([".venv/bin/iprecommit", "fix"], capture_stdout=True)
         expected_stdout = textwrap.dedent(
             """\
-        iprecommit: NoTypos: fixing
-        iprecommit: NoTypos: finished
+        [iprecommit] NoTypos: fixing
+        [iprecommit] NoTypos: finished
         """
         )
         self.assertEqual(proc.stdout, expected_stdout)
@@ -200,7 +212,7 @@ class TestEndToEnd(Base):
         )
         expected_stdout = textwrap.dedent(
             """\
-            iprecommit: PythonFormat: skipped
+            [iprecommit] PythonFormat: skipped
             """
         )
         self.assertEqual(proc.stdout, expected_stdout)
@@ -224,8 +236,9 @@ class TestEndToEnd(Base):
         )
         expected_stdout = textwrap.dedent(
             """\
-            iprecommit: black --check: running
-            iprecommit: black --check: failed
+            [iprecommit] black --check: running
+            [iprecommit] black --check: failed
+
 
             1 failed. Commit aborted.
             """
@@ -286,11 +299,14 @@ class TestEndToEnd(Base):
         proc = run_shell(["git", "commit", "-m", "."], check=False, capture_stderr=True)
         expected_stderr = textwrap.dedent(
             """\
-        iprecommit: NoDoNotSubmit: running
+        [iprecommit] NoDoNotSubmit: running
         includes_do_not_submit.txt
-        iprecommit: NoDoNotSubmit: failed
-        iprecommit: NewlineAtEndOfFile: running
-        iprecommit: NewlineAtEndOfFile: passed
+        [iprecommit] NoDoNotSubmit: failed
+
+
+        [iprecommit] NewlineAtEndOfFile: running
+        [iprecommit] NewlineAtEndOfFile: passed
+
 
         1 failed. Commit aborted.
         """
@@ -307,8 +323,9 @@ class TestEndToEnd(Base):
         )
         expected_stderr = textwrap.dedent(
             """\
-        iprecommit: CommitMessageIsCapitalized: running
-        iprecommit: CommitMessageIsCapitalized: failed
+        [iprecommit] CommitMessageIsCapitalized: running
+        [iprecommit] CommitMessageIsCapitalized: failed
+
 
         1 failed. Commit aborted.
         """
@@ -333,9 +350,10 @@ class TestEndToEnd(Base):
             )
             expected_stdout = textwrap.dedent(
                 f"""\
-            iprecommit: NoDoNotSubmit: running
+            [iprecommit] NoDoNotSubmit: running
             example.txt
-            iprecommit: NoDoNotSubmit: failed
+            [iprecommit] NoDoNotSubmit: failed
+
 
             1 failed. Push aborted.
             """

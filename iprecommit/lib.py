@@ -26,7 +26,6 @@ class Checks:
         self.checkers = []
         self.parent = parent
 
-    # TODO: `skip` argument
     def check(
         self,
         checker: checks.Base,
@@ -70,7 +69,6 @@ class CommitMsgChecks:
         self.checkers = []
         self.parent = parent
 
-    # TODO: `skip` argument
     def check(self, checker: checks.CommitMsg) -> None:
         self.parent._validate_check_args(checker)
         if not isinstance(checker, checks.CommitMsg):
@@ -224,6 +222,9 @@ class Pre:
             else:
                 self._print_status(name, green("passed"))
 
+            print()
+            print()
+
     def _main_commit_msg(self, args: CLIArgs) -> None:
         assert args.commit_msg is not None
         try:
@@ -241,12 +242,14 @@ class Pre:
             else:
                 self._print_status(name, green("passed"))
 
+            print()
+            print()
+
         if not args.fix_mode:
             self._summary("Commit")
 
     def _summary(self, action: str) -> None:
         if self.num_failed_checks > 0:
-            print()
             s = f"{self.num_failed_checks} failed"
             print(f"{red(s)}. {action} aborted.")
             sys.stdout.flush()
@@ -261,7 +264,7 @@ class Pre:
         self._print_status(name, "finished")
 
     def _print_status(self, name: str, status: str) -> None:
-        print(f"{cyan('iprecommit')}: {name}: {status}")
+        print(f"{cyan('[iprecommit]')} {name}: {status}")
 
     def _validate_check_args(self, checker: Any) -> None:
         if isinstance(checker, type):
