@@ -68,8 +68,8 @@ pre = Pre()
 pre.commit.check(checks.NoDoNotSubmit())
 pre.commit.check(checks.NewlineAtEndOfFile())
 # run a command:
-#   pre.sh("./run_tests", "--verbose")
-#   pre.sh("black", "--check", pass_files=True, base_pattern="*.py")
+#   pre.commit.sh("./run_tests", "--verbose")
+#   pre.commit.sh("black", "--check", pass_files=True, base_pattern="*.py")
 
 # commit-msg checks
 pre.commit_msg.check(checks.CommitMessageIsNotEmpty())
