@@ -403,7 +403,7 @@ class TestEndToEnd(Base):
         with open(p, "w") as f:
             f.write("DO NOT " + "SUBMIT\n")
 
-        run_shell(["git", "add", str(p)])
+        run_shell(["git", "add", p])
 
         proc = run_shell(
             [".venv/bin/iprecommit", "run"], check=False, capture_stdout=True
@@ -411,7 +411,7 @@ class TestEndToEnd(Base):
         expected_stdout = textwrap.dedent(
             f"""\
         [iprecommit] NoDoNotSubmit: running
-        {os.fsdecode(p)}
+        b'\\xc0\\xaf.test'
         [iprecommit] NoDoNotSubmit: failed
 
 

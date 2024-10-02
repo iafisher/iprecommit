@@ -1,4 +1,5 @@
 import fnmatch
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -85,7 +86,8 @@ class NoDoNotSubmit(Base):
     def check(self, changes: Changes) -> bool:
         for path in changes.added_paths + changes.modified_paths:
             if "DO NOT " + "SUBMIT" in path.read_text():
-                print(path)
+                # TODO: should create a subclass of Path that handles this transparently
+                print_path(path)
                 return False
 
         return True
@@ -151,3 +153,10 @@ class CommitMessageIsNotEmpty(CommitMsg):
 
 
 # TODO: CommitMessageLineLength check
+
+
+def print_path(p: Path) -> None:
+    try:
+        print(p)
+    except UnicodeEncodeError:
+        print(os.fsencode(p))
