@@ -72,8 +72,7 @@ pre.commit.check(checks.NewlineAtEndOfFile())
 #   pre.commit.sh("black", "--check", pass_files=True, base_pattern="*.py")
 
 # commit-msg checks
-pre.commit_msg.check(checks.CommitMessageIsNotEmpty())
-# pre.commit_msg.check(checks.CommitMessageIsCapitalized())
+pre.commit_msg.check(checks.CommitMessageFormat(max_length=72))
 
 pre.main()
 """

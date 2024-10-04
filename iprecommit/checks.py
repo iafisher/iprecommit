@@ -1,6 +1,7 @@
 import fnmatch
 import os
 import subprocess
+import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
@@ -142,17 +143,71 @@ class PythonFormat(Base):
         return "*.py"
 
 
-class CommitMessageIsCapitalized(CommitMsg):
+class CommitMessageFormat(CommitMsg):
+    max_length: Optional[int]
+    max_first_line_length: Optional[int]
+    require_capitalized: bool
+
+    def __init__(
+        self,
+        *,
+        max_length: Optional[int] = None,
+        max_first_line_length: Optional[int] = None,
+        require_capitalized: bool = False,
+    ) -> None:
+        super().__init__()
+        self.max_length = max_length
+        self.max_first_line_length = (
+            max_length
+            if max_first_line_length is None and max_length is not None
+            else max_first_line_length
+        )
+        self.require_capitalized = require_capitalized
+
     def check(self, text: str) -> bool:
-        return not (text and text[0].isalpha() and text[0].islower())
+        if not text:
+            print("commit message is empty")
+            return False
 
+        passed = True
+        first_line, *lines = text.splitlines()
 
-class CommitMessageIsNotEmpty(CommitMsg):
-    def check(self, text: str) -> bool:
-        return len(text.strip()) > 0
+        if not first_line:
+            print("first line should not be blank")
+            passed = False
 
+        if first_line and first_line[0].isspace():
+            print("first line should not start with whitespace")
+            passed = False
 
-# TODO: CommitMessageLineLength check
+        if len(lines) > 0 and lines[0] != "":
+            print("should be a blank line after first line")
+            passed = False
+
+        if self.max_first_line_length is not None:
+            line_ok = self._check_line(1, first_line, self.max_first_line_length)
+            if not line_ok:
+                passed = False
+
+        if self.max_length is not None:
+            for lineno, line in enumerate(lines, start=2):
+                line_ok = self._check_line(lineno, line, self.max_length)
+                if not line_ok:
+                    passed = False
+
+        if self.require_capitalized and (first_line and first_line[0].islower()):
+            print("first line should be capitalized")
+            passed = False
+
+        return passed
+
+    def _check_line(self, lineno: int, line: str, max_length: int) -> bool:
+        if len(line) > max_length:
+            trunc = textwrap.shorten(line, width=15, placeholder="...")
+            print(f"line {lineno} too long: len={len(line)}, max={max_length}: {trunc}")
+            return False
+        else:
+            return True
 
 
 def print_path(p: Path) -> None:

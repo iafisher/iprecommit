@@ -8,6 +8,7 @@ import textwrap
 import unittest
 from pathlib import Path
 
+from iprecommit import checks
 from iprecommit.checks import Exclude, Include, _filter_paths
 
 
@@ -324,8 +325,9 @@ class TestEndToEnd(Base):
         )
         expected_stderr = textwrap.dedent(
             """\
-        [iprecommit] CommitMessageIsCapitalized: running
-        [iprecommit] CommitMessageIsCapitalized: failed
+        [iprecommit] CommitMessageFormat: running
+        first line should be capitalized
+        [iprecommit] CommitMessageFormat: failed
 
 
         1 failed. Commit aborted.
@@ -455,6 +457,29 @@ class TestUnit(unittest.TestCase):
             ),
             ["a.py", "b.txt"],
         )
+
+
+class TestChecks(unittest.TestCase):
+    def test_commit_message_is_not_empty(self):
+        checker = checks.CommitMessageFormat()
+        self.assertFalse(checker.check(""))
+        self.assertTrue(checker.check("test commit"))
+
+    def test_commit_message_is_capitalized(self):
+        checker = checks.CommitMessageFormat(require_capitalized=True)
+        self.assertFalse(checker.check("test commit"))
+        self.assertTrue(checker.check("Test commit"))
+
+    def test_commit_message_line_length(self):
+        checker = checks.CommitMessageFormat(max_first_line_length=5, max_length=7)
+        self.assertFalse(checker.check("123456"))
+        self.assertTrue(checker.check("12345"))
+        self.assertFalse(checker.check("12345\n\n123456789"))
+
+    def test_commit_message_blank_line(self):
+        checker = checks.CommitMessageFormat()
+        self.assertFalse(checker.check("first line\nsecond line"))
+        self.assertTrue(checker.check("first line\n\nsecond line"))
 
 
 def copy_and_stage_file(p):
