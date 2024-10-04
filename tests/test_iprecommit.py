@@ -67,32 +67,29 @@ class Base(unittest.TestCase):
 class TestEndToEnd(Base):
     def test_failed_precommit_run(self):
         self._create_repo()
+        stage_do_not_submit_file()
 
-        copy_and_stage_file("assets/includes_do_not_submit.txt")
-        proc = run_shell(
-            [".venv/bin/iprecommit", "run"], check=False, capture_stdout=True
-        )
-        expected_stdout = textwrap.dedent(
+        proc = iprecommit_run()
+        expected_stdout = S(
             """\
-        [iprecommit] NoDoNotCommit: running
-        includes_do_not_submit.txt
-        [iprecommit] NoDoNotCommit: failed
+            [iprecommit] NoDoNotCommit: running
+            includes_do_not_submit.txt
+            [iprecommit] NoDoNotCommit: failed
 
 
-        [iprecommit] NewlineAtEndOfFile: running
-        [iprecommit] NewlineAtEndOfFile: passed
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: passed
 
 
-        1 failed. Commit aborted.
-        """
+            1 failed. Commit aborted.
+            """
         )
         self.assertEqual(proc.stdout, expected_stdout)
         self.assertNotEqual(proc.returncode, 0)
 
     def test_not_in_git_root(self):
         self._create_repo()
-
-        copy_and_stage_file("assets/includes_do_not_submit.txt")
+        stage_do_not_submit_file()
 
         other_dir = os.path.join(self.tmpdir, "tmp")
         os.mkdir(other_dir)
@@ -101,19 +98,19 @@ class TestEndToEnd(Base):
         proc = run_shell(
             ["../.venv/bin/iprecommit", "run"], check=False, capture_stdout=True
         )
-        expected_stdout = textwrap.dedent(
+        expected_stdout = S(
             """\
-        [iprecommit] NoDoNotCommit: running
-        includes_do_not_submit.txt
-        [iprecommit] NoDoNotCommit: failed
+            [iprecommit] NoDoNotCommit: running
+            includes_do_not_submit.txt
+            [iprecommit] NoDoNotCommit: failed
 
 
-        [iprecommit] NewlineAtEndOfFile: running
-        [iprecommit] NewlineAtEndOfFile: passed
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: passed
 
 
-        1 failed. Commit aborted.
-        """
+            1 failed. Commit aborted.
+            """
         )
         self.assertEqual(proc.stdout, expected_stdout)
         self.assertNotEqual(proc.returncode, 0)
@@ -121,27 +118,23 @@ class TestEndToEnd(Base):
     def test_failed_unstaged_precommit_run(self):
         self._create_repo()
         p = Path("example.txt")
-        commit_file(p, "...\n")
+        create_and_commit_file(p, "...\n")
         p.write_text("DO NOT " + "SUBMIT")
 
-        proc = run_shell(
-            [".venv/bin/iprecommit", "run", "--unstaged"],
-            check=False,
-            capture_stdout=True,
-        )
-        expected_stdout = textwrap.dedent(
+        proc = iprecommit_run("--unstaged")
+        expected_stdout = S(
             """\
-        [iprecommit] NoDoNotCommit: running
-        example.txt
-        [iprecommit] NoDoNotCommit: failed
+            [iprecommit] NoDoNotCommit: running
+            example.txt
+            [iprecommit] NoDoNotCommit: failed
 
 
-        [iprecommit] NewlineAtEndOfFile: running
-        [iprecommit] NewlineAtEndOfFile: failed
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: failed
 
 
-        2 failed. Commit aborted.
-        """
+            2 failed. Commit aborted.
+            """
         )
         self.assertEqual(proc.stdout, expected_stdout)
         self.assertNotEqual(proc.returncode, 0)
@@ -165,21 +158,22 @@ class TestEndToEnd(Base):
             % dict(tmpdir=self.tmpdir),
         )
 
-        copy_and_stage_file("assets/includes_do_not_submit.txt")
+        stage_do_not_submit_file()
+
         proc = run_shell(["git", "commit", "-m", "."], check=False, capture_stderr=True)
-        expected_stderr = textwrap.dedent(
+        expected_stderr = S(
             """\
-        [iprecommit] NoDoNotCommit: running
-        includes_do_not_submit.txt
-        [iprecommit] NoDoNotCommit: failed
+            [iprecommit] NoDoNotCommit: running
+            includes_do_not_submit.txt
+            [iprecommit] NoDoNotCommit: failed
 
 
-        [iprecommit] NewlineAtEndOfFile: running
-        [iprecommit] NewlineAtEndOfFile: passed
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: passed
 
 
-        1 failed. Commit aborted.
-        """
+            1 failed. Commit aborted.
+            """
         )
         self.assertEqual(proc.stderr, expected_stderr)
         self.assertNotEqual(proc.returncode, 0)
@@ -188,16 +182,16 @@ class TestEndToEnd(Base):
         self._create_repo(precommit="assets/precommit_no_typos.py")
 
         p = Path("example.txt")
-        commit_file(p, "...\n")
+        create_and_commit_file(p, "...\n")
         p.write_text("programing\n")
 
         run_shell(["git", "add", str(p)])
-        proc = run_shell([".venv/bin/iprecommit", "fix"], capture_stdout=True)
-        expected_stdout = textwrap.dedent(
+        proc = iprecommit_fix()
+        expected_stdout = S(
             """\
-        [iprecommit] NoTypos: fixing
-        [iprecommit] NoTypos: finished
-        """
+            [iprecommit] NoTypos: fixing
+            [iprecommit] NoTypos: finished
+            """
         )
         self.assertEqual(proc.stdout, expected_stdout)
         self.assertEqual(proc.returncode, 0)
@@ -207,16 +201,22 @@ class TestEndToEnd(Base):
     def test_intrinsic_include_pattern(self):
         self.ensure_black_is_installed()
 
-        self._create_repo(precommit="assets/precommit_python_format.py")
+        precommit_text = S(
+            """
+            from iprecommit import Pre, checks
 
-        p = Path("example.txt")
-        p.write_text("This does not parse as valid Python code.\n")
-        run_shell(["git", "add", str(p)])
-
-        proc = run_shell(
-            [".venv/bin/iprecommit", "run"], check=False, capture_stdout=True
+            pre = Pre()
+            pre.commit.check(checks.PythonFormat())
+            pre.main()
+            """
         )
-        expected_stdout = textwrap.dedent(
+        self._create_repo(precommit_text=precommit_text)
+        create_and_stage_file(
+            "example.txt", "This does not parse as valid Python code.\n"
+        )
+
+        proc = iprecommit_run()
+        expected_stdout = S(
             """\
             [iprecommit] PythonFormat: skipped
             """
@@ -233,14 +233,20 @@ class TestEndToEnd(Base):
     def test_inline_command(self):
         self.ensure_black_is_installed()
 
-        self._create_repo(precommit="assets/precommit_inline_command.py")
+        precommit_text = S(
+            """
+            from iprecommit import Pre
 
-        copy_and_stage_file("assets/bad_python_format.py")
-
-        proc = run_shell(
-            [".venv/bin/iprecommit", "run"], check=False, capture_stdout=True
+            pre = Pre()
+            pre.commit.sh("black", "--check", pass_files="True", base_pattern="*.py")
+            pre.main()
+            """
         )
-        expected_stdout = textwrap.dedent(
+        self._create_repo(precommit_text=precommit_text)
+        create_and_stage_file("bad_python_format.py", 'print(  "hello"  )\n')
+
+        proc = iprecommit_run()
+        expected_stdout = S(
             """\
             [iprecommit] black --check: running
             [iprecommit] black --check: failed
@@ -301,48 +307,67 @@ class TestEndToEnd(Base):
         self._create_repo(path=p)
         self.assertTrue(p.exists())
 
-        copy_and_stage_file("assets/includes_do_not_submit.txt")
+        stage_do_not_submit_file()
+
         proc = run_shell(["git", "commit", "-m", "."], check=False, capture_stderr=True)
-        expected_stderr = textwrap.dedent(
+        expected_stderr = S(
             """\
-        [iprecommit] NoDoNotCommit: running
-        includes_do_not_submit.txt
-        [iprecommit] NoDoNotCommit: failed
+            [iprecommit] NoDoNotCommit: running
+            includes_do_not_submit.txt
+            [iprecommit] NoDoNotCommit: failed
 
 
-        [iprecommit] NewlineAtEndOfFile: running
-        [iprecommit] NewlineAtEndOfFile: passed
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: passed
 
 
-        1 failed. Commit aborted.
-        """
+            1 failed. Commit aborted.
+            """
         )
         self.assertEqual(proc.stderr, expected_stderr)
         self.assertNotEqual(proc.returncode, 0)
 
     def test_commit_msg(self):
-        self._create_repo(precommit="assets/precommit_commit_msg.py")
+        precommit_text = S(
+            """
+            from iprecommit import Pre, checks
 
-        copy_and_stage_file("assets/example.txt")
+            pre = Pre()
+            pre.commit_msg.check(checks.CommitMessageFormat(require_capitalized=True))
+            pre.main()
+            """
+        )
+        self._create_repo(precommit_text=precommit_text)
+        create_and_stage_file("example.txt", "Lorem ipsum\n")
+
         proc = run_shell(
             ["git", "commit", "-m", "lowercase"], check=False, capture_stderr=True
         )
-        expected_stderr = textwrap.dedent(
+        expected_stderr = S(
             """\
-        [iprecommit] CommitMessageFormat: running
-        first line should be capitalized
-        [iprecommit] CommitMessageFormat: failed
+            [iprecommit] CommitMessageFormat: running
+            first line should be capitalized
+            [iprecommit] CommitMessageFormat: failed
 
 
-        1 failed. Commit aborted.
-        """
+            1 failed. Commit aborted.
+            """
         )
         self.assertEqual(proc.stderr, expected_stderr)
         self.assertNotEqual(proc.returncode, 0)
 
     def test_pre_push(self):
-        self._create_repo(precommit="assets/precommit_pre_push.py")
-        commit_file(Path("example.txt"), "DO NOT " + "SUBMIT\n")
+        precommit_text = S(
+            """
+            from iprecommit import Pre, checks
+
+            pre = Pre()
+            pre.push.check(checks.NoDoNotCommit())
+            pre.main()
+            """
+        )
+        self._create_repo(precommit_text=precommit_text)
+        create_and_commit_file("includes_do_not_submit.txt", "DO NOT " + "SUBMIT\n")
 
         with tempfile.TemporaryDirectory() as bare_repo_dir:
             os.chdir(bare_repo_dir)
@@ -355,15 +380,15 @@ class TestEndToEnd(Base):
                 check=False,
                 capture_stdout=True,
             )
-            expected_stdout = textwrap.dedent(
-                f"""\
-            [iprecommit] NoDoNotCommit: running
-            example.txt
-            [iprecommit] NoDoNotCommit: failed
+            expected_stdout = S(
+                """\
+                [iprecommit] NoDoNotCommit: running
+                includes_do_not_submit.txt
+                [iprecommit] NoDoNotCommit: failed
 
 
-            1 failed. Push aborted.
-            """
+                1 failed. Push aborted.
+                """
             )
             self.assertEqual(proc.stdout, expected_stdout)
             self.assertNotEqual(proc.returncode, 0)
@@ -373,9 +398,18 @@ class TestEndToEnd(Base):
             self.assertNotEqual(proc.returncode, 0)
 
     def test_pre_push_commit_msg(self):
-        self._create_repo(precommit="assets/precommit_pre_push_commit_msg.py")
-        commit_hash = commit_file(
-            Path("example.txt"), "lorem ipsum\n", message="DO NOT PUSH"
+        precommit_text = S(
+            """
+            from iprecommit import Pre, checks
+
+            pre = Pre()
+            pre.push.check(checks.NoDoNotPush())
+            pre.main()
+            """
+        )
+        self._create_repo(precommit_text=precommit_text)
+        commit_hash = create_and_commit_file(
+            "example.txt", "lorem ipsum\n", message="DO NOT PUSH"
         )
 
         with tempfile.TemporaryDirectory() as bare_repo_dir:
@@ -389,15 +423,15 @@ class TestEndToEnd(Base):
                 check=False,
                 capture_stdout=True,
             )
-            expected_stdout = textwrap.dedent(
+            expected_stdout = S(
                 f"""\
-            [iprecommit] NoDoNotPush: running
-            {commit_hash}
-            [iprecommit] NoDoNotPush: failed
+                [iprecommit] NoDoNotPush: running
+                {commit_hash}
+                [iprecommit] NoDoNotPush: failed
 
 
-            1 failed. Push aborted.
-            """
+                1 failed. Push aborted.
+                """
             )
             self.assertEqual(proc.stdout, expected_stdout)
             self.assertNotEqual(proc.returncode, 0)
@@ -408,27 +442,22 @@ class TestEndToEnd(Base):
 
     def test_non_ascii_filename(self):
         self._create_repo()
+        create_and_stage_file("á.txt", "DO NOT " + "SUBMIT\n")
 
-        p = Path("á.txt")
-        p.write_text("DO NOT " + "SUBMIT\n")
-        run_shell(["git", "add", str(p)])
-
-        proc = run_shell(
-            [".venv/bin/iprecommit", "run"], check=False, capture_stdout=True
-        )
-        expected_stdout = textwrap.dedent(
+        proc = iprecommit_run()
+        expected_stdout = S(
             """\
-        [iprecommit] NoDoNotCommit: running
-        á.txt
-        [iprecommit] NoDoNotCommit: failed
+            [iprecommit] NoDoNotCommit: running
+            á.txt
+            [iprecommit] NoDoNotCommit: failed
 
 
-        [iprecommit] NewlineAtEndOfFile: running
-        [iprecommit] NewlineAtEndOfFile: passed
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: passed
 
 
-        1 failed. Commit aborted.
-        """
+            1 failed. Commit aborted.
+            """
         )
         self.assertEqual(proc.stdout, expected_stdout)
         self.assertNotEqual(proc.returncode, 0)
@@ -445,28 +474,26 @@ class TestEndToEnd(Base):
 
         run_shell(["git", "add", p])
 
-        proc = run_shell(
-            [".venv/bin/iprecommit", "run"], check=False, capture_stdout=True
-        )
-        expected_stdout = textwrap.dedent(
+        proc = iprecommit_run()
+        expected_stdout = S(
             f"""\
-        [iprecommit] NoDoNotCommit: running
-        b'\\xc0\\xaf.test'
-        [iprecommit] NoDoNotCommit: failed
+            [iprecommit] NoDoNotCommit: running
+            b'\\xc0\\xaf.test'
+            [iprecommit] NoDoNotCommit: failed
 
 
-        [iprecommit] NewlineAtEndOfFile: running
-        [iprecommit] NewlineAtEndOfFile: passed
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: passed
 
 
-        1 failed. Commit aborted.
-        """
+            1 failed. Commit aborted.
+            """
         )
         self.assertEqual(proc.stdout, expected_stdout)
         self.assertNotEqual(proc.returncode, 0)
 
     def test_wrong_check_type(self):
-        precommit_text = textwrap.dedent(
+        precommit_text = S(
             """
             from iprecommit import Pre, checks
 
@@ -476,7 +503,7 @@ class TestEndToEnd(Base):
             """
         )
         self._create_repo(precommit_text=precommit_text)
-        stage_file("example.txt", "Lorem ipsum\n")
+        create_and_stage_file("example.txt", "Lorem ipsum\n")
         proc = iprecommit_run()
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("NoDoNotPush can only be used as a pre-push check", proc.stderr)
@@ -536,13 +563,20 @@ class TestChecks(unittest.TestCase):
         self.assertTrue(checker.check("first line\n\nsecond line"))
 
 
-def iprecommit_run():
+S = textwrap.dedent
+
+
+def iprecommit_run(*args):
     return run_shell(
-        [".venv/bin/iprecommit", "run"],
+        [".venv/bin/iprecommit", "run"] + list(args),
         check=False,
         capture_stdout=True,
         capture_stderr=True,
     )
+
+
+def iprecommit_fix():
+    return run_shell([".venv/bin/iprecommit", "fix"], capture_stdout=True)
 
 
 def copy_and_stage_file(p):
@@ -551,12 +585,20 @@ def copy_and_stage_file(p):
     run_shell(["git", "add", name])
 
 
-def stage_file(name, contents):
-    Path(name).write_text(contents)
+def create_and_stage_file(name, contents):
+    p = Path(name)
+    p.write_text(contents)
     run_shell(["git", "add", name])
+    return p
 
 
-def commit_file(p, contents, *, message="."):
+def stage_do_not_submit_file():
+    create_and_stage_file("includes_do_not_submit.txt", "DO NOT " + "SUBMIT\n")
+
+
+# returns commit hash
+def create_and_commit_file(name, contents, *, message="."):
+    p = Path(name)
     p.write_text(contents)
     run_shell(["git", "add", str(p)])
     run_shell(["git", "commit", "-m", message])
