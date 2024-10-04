@@ -28,11 +28,18 @@ def Exclude(s):
 
 
 @dataclass
+class CommitInfo:
+    rev: str
+    message: str
+
+
+@dataclass
 class Changes:
     added_paths: List[Path]
     modified_paths: List[Path]
     # TODO: special treatment for deleted paths?
     deleted_paths: List[Path]
+    commits: List[CommitInfo]
 
     def filter(self, base_pattern: Optional[str], patterns: List[Pattern]) -> "Changes":
         added_paths = _filter_paths(self.added_paths, base_pattern, patterns)
@@ -42,12 +49,14 @@ class Changes:
             added_paths=added_paths,
             modified_paths=modified_paths,
             deleted_paths=deleted_paths,
+            commits=self.commits,
         )
 
     def empty(self) -> bool:
         return (
             len(self.added_paths) == 0
             and len(self.modified_paths) == 0
+            and len(self.commits) == 0
             # TODO: what if a check needs to access deleted paths?
             # and len(self.deleted_paths) == 0
         )
@@ -83,15 +92,28 @@ class CommitMsg:
         raise NotImplementedError
 
 
+# TODO: rename to NoDoNotCommit?
 class NoDoNotSubmit(Base):
     def check(self, changes: Changes) -> bool:
+        passed = True
         for path in changes.added_paths + changes.modified_paths:
             if "DO NOT " + "SUBMIT" in path.read_text():
                 # TODO: should create a subclass of Path that handles this transparently
                 print_path(path)
-                return False
+                passed = False
 
-        return True
+        return passed
+
+
+class NoDoNotPush(Base):
+    def check(self, changes: Changes) -> bool:
+        passed = True
+        for cmt in changes.commits:
+            if "DO NOT " + "PUSH" in cmt.message:
+                print(cmt.rev)
+                passed = False
+
+        return passed
 
 
 class NewlineAtEndOfFile(Base):

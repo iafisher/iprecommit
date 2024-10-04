@@ -368,6 +368,40 @@ class TestEndToEnd(Base):
             proc = run_shell(["git", "log", "origin/master"], check=False)
             self.assertNotEqual(proc.returncode, 0)
 
+    def test_pre_push_commit_msg(self):
+        self._create_repo(precommit="assets/precommit_pre_push_commit_msg.py")
+        commit_hash = commit_file(
+            Path("example.txt"), "lorem ipsum\n", message="DO NOT PUSH"
+        )
+
+        with tempfile.TemporaryDirectory() as bare_repo_dir:
+            os.chdir(bare_repo_dir)
+            run_shell(["git", "init", "--bare"])
+            os.chdir(self.tmpdir)
+            run_shell(["git", "remote", "add", "origin", bare_repo_dir])
+
+            proc = run_shell(
+                ["git", "push", "-u", "origin", "master"],
+                check=False,
+                capture_stdout=True,
+            )
+            expected_stdout = textwrap.dedent(
+                f"""\
+            [iprecommit] NoDoNotPush: running
+            {commit_hash}
+            [iprecommit] NoDoNotPush: failed
+
+
+            1 failed. Push aborted.
+            """
+            )
+            self.assertEqual(proc.stdout, expected_stdout)
+            self.assertNotEqual(proc.returncode, 0)
+
+            # make sure nothing was pushed
+            proc = run_shell(["git", "log", "origin/master"], check=False)
+            self.assertNotEqual(proc.returncode, 0)
+
     def test_non_ascii_filename(self):
         self._create_repo()
 
@@ -488,10 +522,12 @@ def copy_and_stage_file(p):
     run_shell(["git", "add", name])
 
 
-def commit_file(p, contents):
+def commit_file(p, contents, *, message="."):
     p.write_text(contents)
     run_shell(["git", "add", str(p)])
-    run_shell(["git", "commit", "-m", "."])
+    run_shell(["git", "commit", "-m", message])
+    proc = run_shell(["git", "log", "-1", "--format=%H", "HEAD"], capture_stdout=True)
+    return proc.stdout.strip()
 
 
 def run_shell(args, check=True, capture_stdout=False, capture_stderr=False):

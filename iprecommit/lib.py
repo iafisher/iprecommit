@@ -335,11 +335,45 @@ def _get_git_changes(*, include_unstaged: bool, since: Optional[str] = None) -> 
     deleted_paths = _git_diff_filter(
         "D", include_unstaged=include_unstaged, since=since
     )
+
+    if since is not None:
+        commits = _get_git_commits(since)
+    else:
+        commits = []
+
     return Changes(
         added_paths=added_paths,
         modified_paths=modified_paths,
         deleted_paths=deleted_paths,
+        commits=commits,
     )
+
+
+def _get_git_commits(since: str) -> List[checks.CommitInfo]:
+    # TODO: what if pushing to a different branch?
+    proc = subprocess.run(
+        ["git", "log", f"{since}..HEAD", "--format=%H"],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    revs = proc.stdout.splitlines()
+    commits = []
+    for rev in revs:
+        message = _get_git_commit_message(rev)
+        commits.append(checks.CommitInfo(rev=rev, message=message))
+
+    return commits
+
+
+def _get_git_commit_message(rev: str) -> str:
+    proc = subprocess.run(
+        ["git", "log", "-1", rev, "--format=%B"],
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    return proc.stdout
 
 
 def _git_diff_filter(
