@@ -9,6 +9,7 @@ from typing import Any, List, NoReturn, Optional, Self, Tuple
 
 from . import checks
 from .checks import Changes
+from .exceptions import IPrecommitError, IPrecommitImpossibleError
 
 
 @dataclass
@@ -339,7 +340,7 @@ def _get_git_changes(*, include_unstaged: bool, since: Optional[str] = None) -> 
     if since is not None:
         commits = _get_git_commits(since)
     else:
-        commits = []
+        commits = None
 
     return Changes(
         added_paths=added_paths,
@@ -448,15 +449,3 @@ def _has_color() -> bool:
     )
 
     return _COLOR
-
-
-class IPrecommitError(Exception):
-    pass
-
-
-# Not a subclass of `IPrecommitError` so we don't accidentally catch it.
-class IPrecommitImpossibleError(Exception):
-    def __init__(self) -> None:
-        super().__init__(
-            "This error should never happen. If you see it, please contact an iprecommit developer."
-        )

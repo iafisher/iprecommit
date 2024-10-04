@@ -43,13 +43,17 @@ class Base(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmpdir_obj.cleanup()
 
-    def _create_repo(self, precommit=None, install_hook=True, path=None):
+    def _create_repo(
+        self, precommit=None, precommit_text=None, install_hook=True, path=None
+    ):
         os.chdir(self.tmpdir)
 
         run_shell(["git", "init"])
         print("test: initialized git repo")
 
-        if precommit is not None:
+        if precommit_text is not None:
+            Path("precommit.py").write_text(precommit_text)
+        elif precommit is not None:
             shutil.copy(os.path.join(owndir, precommit), "precommit.py")
 
         if install_hook:
@@ -461,6 +465,22 @@ class TestEndToEnd(Base):
         self.assertEqual(proc.stdout, expected_stdout)
         self.assertNotEqual(proc.returncode, 0)
 
+    def test_wrong_check_type(self):
+        precommit_text = textwrap.dedent(
+            """
+            from iprecommit import Pre, checks
+
+            pre = Pre()
+            pre.commit.check(checks.NoDoNotPush())
+            pre.main()
+            """
+        )
+        self._create_repo(precommit_text=precommit_text)
+        stage_file("example.txt", "Lorem ipsum\n")
+        proc = iprecommit_run()
+        self.assertNotEqual(proc.returncode, 0)
+        self.assertIn("NoDoNotPush can only be used as a pre-push check", proc.stderr)
+
     # TODO: pass_files=True, separately=True
     # TODO: filter checks by command-line argument to `run`
     # TODO: slow=True and --fast command-line argument
@@ -516,9 +536,23 @@ class TestChecks(unittest.TestCase):
         self.assertTrue(checker.check("first line\n\nsecond line"))
 
 
+def iprecommit_run():
+    return run_shell(
+        [".venv/bin/iprecommit", "run"],
+        check=False,
+        capture_stdout=True,
+        capture_stderr=True,
+    )
+
+
 def copy_and_stage_file(p):
     name = os.path.basename(p)
     shutil.copy(os.path.join(owndir, p), name)
+    run_shell(["git", "add", name])
+
+
+def stage_file(name, contents):
+    Path(name).write_text(contents)
     run_shell(["git", "add", name])
 
 

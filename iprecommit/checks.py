@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from .exceptions import IPrecommitUserError
+
 
 @dataclass
 class Pattern:
@@ -40,7 +42,7 @@ class Changes:
     modified_paths: List[Path]
     # TODO: special treatment for deleted paths?
     deleted_paths: List[Path]
-    commits: List[CommitInfo]
+    commits: Optional[List[CommitInfo]]
 
     def filter(self, base_pattern: Optional[str], patterns: List[Pattern]) -> "Changes":
         added_paths = _filter_paths(self.added_paths, base_pattern, patterns)
@@ -57,7 +59,7 @@ class Changes:
         return (
             len(self.added_paths) == 0
             and len(self.modified_paths) == 0
-            and len(self.commits) == 0
+            and (self.commits is None or len(self.commits) == 0)
             # TODO: what if a check needs to access deleted paths?
             # and len(self.deleted_paths) == 0
         )
@@ -87,6 +89,13 @@ class Base:
     def patterns(self) -> List[Pattern]:
         return []
 
+    # subclasses should call this at the beginning of `check` if they only work as pre-push checks
+    def only_for_pre_push(self, changes: Changes) -> None:
+        if changes.commits is None:
+            raise IPrecommitUserError(
+                f"{self.__class__.__name__} can only be used as a pre-push check."
+            )
+
 
 class CommitMsg:
     def check(self, text: str) -> bool:
@@ -114,8 +123,13 @@ do_not_push_pattern = re.compile(r"\bdo +not +(push|submit)\b", flags=re.IGNOREC
 
 class NoDoNotPush(Base):
     def check(self, changes: Changes) -> bool:
+        self.only_for_pre_push(changes)
+
         passed = True
-        for cmt in changes.commits:
+        # `changes.commits` won't be None because of `only_for_pre_push` above, but mypy doesn't
+        # know that
+        commits = changes.commits or []
+        for cmt in commits:
             if do_not_push_pattern.search(cmt.message) is not None:
                 print(cmt.rev)
                 passed = False
