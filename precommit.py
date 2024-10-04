@@ -11,6 +11,6 @@ pre.commit.sh(
     ".venv/bin/pytest", "--tb=short", base_pattern="*.py", name="ProjectTests"
 )
 
-pre.push.check(checks.NoDoNotSubmit())
+pre.push.check(checks.NoDoNotCommit())
 
 pre.main()

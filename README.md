@@ -39,12 +39,12 @@ The `precommit.py` file that `precommit` generates will look something like this
 from iprecommit import Precommit, checks
 
 pre = Precommit()
-pre.check(checks.NoDoNotSubmit())
+pre.check(checks.NoDoNotCommit())
 pre.check(checks.NewlineAtEndOfFile())
 pre.sh("black", "--check", pass_files=True, base_pattern="*.py")
 ```
 
-`iprecommit` comes with some built-in checks, such as `NoDoNotSubmit()` and `NewlineAtEndOfFile()`. You can also use `pre.sh(...)` to define your own checks based on shell commands. These checks will pass as long as the shell command returns an exit code of 0.
+`iprecommit` comes with some built-in checks, such as `NoDoNotCommit()` and `NewlineAtEndOfFile()`. You can also use `pre.sh(...)` to define your own checks based on shell commands. These checks will pass as long as the shell command returns an exit code of 0.
 
 You can also define your own checks in Python:
 

@@ -65,7 +65,7 @@ PRECOMMIT_TEMPLATE = """\
 from iprecommit import Pre, checks
 
 pre = Pre()
-pre.commit.check(checks.NoDoNotSubmit())
+pre.commit.check(checks.NoDoNotCommit())
 pre.commit.check(checks.NewlineAtEndOfFile())
 # run a command:
 #   pre.commit.sh("./run_tests", "--verbose")

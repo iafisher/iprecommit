@@ -1,5 +1,6 @@
 import fnmatch
 import os
+import re
 import subprocess
 import textwrap
 from dataclasses import dataclass
@@ -92,12 +93,15 @@ class CommitMsg:
         raise NotImplementedError
 
 
-# TODO: rename to NoDoNotCommit?
-class NoDoNotSubmit(Base):
+do_not_commit_pattern = re.compile(r"\bdo +not +(commit|submit)\b", flags=re.IGNORECASE)
+
+
+class NoDoNotCommit(Base):
     def check(self, changes: Changes) -> bool:
         passed = True
         for path in changes.added_paths + changes.modified_paths:
-            if "DO NOT " + "SUBMIT" in path.read_text():
+            # TODO: read_text() is not safe for binary files
+            if do_not_commit_pattern.search(path.read_text()) is not None:
                 # TODO: should create a subclass of Path that handles this transparently
                 print_path(path)
                 passed = False
@@ -105,11 +109,14 @@ class NoDoNotSubmit(Base):
         return passed
 
 
+do_not_push_pattern = re.compile(r"\bdo +not +(push|submit)\b", flags=re.IGNORECASE)
+
+
 class NoDoNotPush(Base):
     def check(self, changes: Changes) -> bool:
         passed = True
         for cmt in changes.commits:
-            if "DO NOT " + "PUSH" in cmt.message:
+            if do_not_push_pattern.search(cmt.message) is not None:
                 print(cmt.rev)
                 passed = False
 
