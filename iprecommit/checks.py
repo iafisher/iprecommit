@@ -140,9 +140,9 @@ class NoDoNotPush(Base):
 class NewlineAtEndOfFile(Base):
     def check(self, changes: Changes) -> bool:
         for path in changes.added_paths + changes.modified_paths:
-            # TODO: report bad path
             # TODO: make more efficient with file seeking
             if not path.read_text().endswith("\n"):
+                print_path(path)
                 return False
 
         return True

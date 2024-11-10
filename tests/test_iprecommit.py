@@ -130,6 +130,7 @@ class TestEndToEnd(Base):
 
 
             [iprecommit] NewlineAtEndOfFile: running
+            example.txt
             [iprecommit] NewlineAtEndOfFile: failed
 
 
