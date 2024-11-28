@@ -4,7 +4,7 @@ checks = Checks()
 checks.pre_commit("iprecommit-no-forbidden-strings", "--paths", name="NoDoNotCommit")
 checks.pre_commit("iprecommit-newline-at-eof", name="NewlineAtEndOfFile")
 checks.pre_commit(
-    "black", "--check", filters=["*.py"], fix=["black"], name="PythonFormat"
+    "black", "--check", filters=["*.py", "!iprecommit/toml/**/*.py"], fix=["black"], name="PythonFormat"
 )
 # TODO: should consider deleted files
 checks.pre_commit(
@@ -18,7 +18,7 @@ checks.pre_commit(
     ".venv/bin/flake8",
     "iprecommit",
     pass_files=False,
-    filters=["*.py"],
+    filters=["*.py", "!iprecommit/toml/**/*.py"],
     name="PythonLint",
 )
 # TODO: should consider deleted files
