@@ -10,7 +10,7 @@ readme = "README.md"
 iprecommit = "iprecommit.main:main"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.9"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.11.1"

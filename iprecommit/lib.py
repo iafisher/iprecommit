@@ -5,7 +5,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List, NoReturn, Optional, Self, Tuple
+from typing import Any, List, NoReturn, Optional, Tuple
 
 from . import checks
 from .checks import Changes
@@ -99,7 +99,7 @@ class CLIArgs:
             return [subcmd, self.hook_name] + (["--unstaged"] if self.unstaged else [])
 
     @classmethod
-    def deserialize(cls, args: List[str]) -> Self:
+    def deserialize(cls, args: List[str]) -> "CLIArgs":
         # since precommit.py is meant to be invoked through `iprecommit run`, we only do minimal
         # error-checking here (e.g., we ignore unknown arguments), assuming that `iprecommit` will
         # pass us something valid
