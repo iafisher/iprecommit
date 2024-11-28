@@ -5,7 +5,7 @@ import stat
 import sys
 from pathlib import Path
 
-from . import exceptions, lib
+from . import lib
 
 
 def main() -> None:
@@ -76,7 +76,7 @@ def main() -> None:
     args = argparser.parse_args()
     try:
         _main(argparser, args)
-    except exceptions.IPrecommitError as e:
+    except lib.IPrecommitError as e:
         lib.bail(str(e))
 
 
@@ -284,9 +284,7 @@ def change_to_git_root() -> None:
 
         dn = d.parent
         if d == dn:
-            raise exceptions.IPrecommitError(
-                "iprecommit must be run in a Git repository."
-            )
+            raise lib.IPrecommitError("iprecommit must be run in a Git repository.")
         d = dn
 
 

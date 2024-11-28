@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, NoReturn, Optional, Tuple, Union
 
-from . import exceptions, toml
+from . import toml
 
 
 @dataclass
@@ -58,21 +58,21 @@ def parse_config_toml(path: Path) -> Config:
     if not isinstance(pre_commit_toml_list, list) or any(
         not isinstance(d, dict) for d in pre_commit_toml_list
     ):
-        raise exceptions.IPrecommitTomlError(
+        raise IPrecommitTomlError(
             "'pre_commit' in your TOML file should be an array of tables (e.g., [[pre_commit]])."
         )
 
     if not isinstance(commit_msg_toml_list, list) or any(
         not isinstance(d, dict) for d in commit_msg_toml_list
     ):
-        raise exceptions.IPrecommitTomlError(
+        raise IPrecommitTomlError(
             "'commit_msg' in your TOML file should be an array of tables (e.g., [[commit_msg]])."
         )
 
     if not isinstance(pre_push_toml_list, list) or any(
         not isinstance(d, dict) for d in pre_push_toml_list
     ):
-        raise exceptions.IPrecommitTomlError(
+        raise IPrecommitTomlError(
             "'pre_push' in your TOML file should be an array of tables (e.g., [[pre_push]])."
         )
 
@@ -81,19 +81,19 @@ def parse_config_toml(path: Path) -> Config:
     for pre_commit_toml in pre_commit_toml_list:
         name = pre_commit_toml.pop("name", None)
         if name is not None and not isinstance(name, str):
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "The 'name' key of [[pre_commit]] entries in your TOML file should be a string."
             )
 
         try:
             cmd = pre_commit_toml.pop("cmd")
         except KeyError:
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "A [[pre_commit]] table in your TOML file is missing a 'cmd' key."
             )
 
         if not isinstance(cmd, list) or any(not isinstance(a, str) for a in cmd):
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "The 'cmd' key of [[pre_commit]] entries in your TOML file should be a list of strings."
             )
 
@@ -101,13 +101,13 @@ def parse_config_toml(path: Path) -> Config:
         if not isinstance(fix_cmd, list) or any(
             not isinstance(a, str) for a in fix_cmd
         ):
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "The 'fix_cmd' key of [[pre_commit]] entries in your TOML file should be a list of strings."
             )
 
         pass_files = pre_commit_toml.pop("pass_files", True)
         if not isinstance(pass_files, bool):
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "The 'pass_files' key of [[pre_commit]] entries in your TOML file should be a boolean."
             )
 
@@ -115,7 +115,7 @@ def parse_config_toml(path: Path) -> Config:
         if not isinstance(filters, list) or any(
             not isinstance(a, str) for a in filters
         ):
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "The 'filters' key of [[pre_commit]] entries in your TOML file should be a list of strings."
             )
 
@@ -133,19 +133,19 @@ def parse_config_toml(path: Path) -> Config:
     for commit_msg_toml in commit_msg_toml_list:
         name = commit_msg_toml.pop("name", None)
         if name is not None and not isinstance(name, str):
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "The 'name' key of [[commit_msg]] entries in your TOML file should be a string."
             )
 
         try:
             cmd = commit_msg_toml.pop("cmd")
         except KeyError:
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "A [[commit_msg]] table in your TOML file is missing a 'cmd' key."
             )
 
         if not isinstance(cmd, list) or any(not isinstance(a, str) for a in cmd):
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "The 'cmd' key of [[commit_msg]] entries in your TOML file should be a list of strings."
             )
 
@@ -155,19 +155,19 @@ def parse_config_toml(path: Path) -> Config:
     for pre_push_toml in pre_push_toml_list:
         name = pre_push_toml.pop("name", None)
         if name is not None and not isinstance(name, str):
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "The 'name' key of [[pre_push]] entries in your TOML file should be a string."
             )
 
         try:
             cmd = pre_push_toml.pop("cmd")
         except KeyError:
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "A [[pre_push]] table in your TOML file is missing a 'cmd' key."
             )
 
         if not isinstance(cmd, list) or any(not isinstance(a, str) for a in cmd):
-            raise exceptions.IPrecommitTomlError(
+            raise IPrecommitTomlError(
                 "The 'cmd' key of [[pre_push]] entries in your TOML file should be a list of strings."
             )
 
@@ -183,7 +183,7 @@ def ensure_dict_empty(d, name):
     except StopIteration:
         pass
     else:
-        raise exceptions.IPrecommitTomlError(
+        raise IPrecommitTomlError(
             f"{name} in your TOML file has a key that iprecommit does not recognize: {key}"
         )
 
@@ -433,3 +433,11 @@ def _has_color() -> bool:
     )
 
     return _COLOR
+
+
+class IPrecommitError(Exception):
+    pass
+
+
+class IPrecommitTomlError(IPrecommitError):
+    pass
