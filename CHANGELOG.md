@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/iprecommit/issues).
 
+## [0.5.0] - 2024-11-28
+- Config format changed from Python (`precommit.py`) to TOML (`precommit.toml`).
+
 ## [0.4.0] - 2024-11-28
 - Main interface in `precommit.py` is now called `Checks` and has a different API than `Pre`.
 - Pure Python checks are no longer supported. All checks must be external shell commands.

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "iprecommit"
-version = "0.4.0"
+version = "0.5.0"
 description = "Dead-simple Git pre-commit hooks"
 authors = ["Ian Fisher <ian@iafisher.com>"]
 license = "MIT"
