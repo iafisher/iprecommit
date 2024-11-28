@@ -1,5 +1,4 @@
-/.venv
-/.venv-python3.9
+.venv
 *.pyc
 *.pyo
 __pycache__
@@ -13,3 +12,4 @@ __pycache__
 
 /scratch.md
 /DEVLOG.md
+/.venv-python3.9

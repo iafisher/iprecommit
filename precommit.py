@@ -1,16 +1,35 @@
-from iprecommit import Pre, checks
+from iprecommit import Checks
 
-pre = Pre()
-pre.commit.check(checks.NewlineAtEndOfFile())
-pre.commit.check(checks.PythonFormat())
+checks = Checks()
+checks.pre_commit("iprecommit-no-forbidden-strings", "--paths", name="NoDoNotCommit")
+checks.pre_commit("iprecommit-newline-at-eof", name="NewlineAtEndOfFile")
+checks.pre_commit(
+    "black", "--check", filters=["*.py"], fix=["black"], name="PythonFormat"
+)
 # TODO: should consider deleted files
-pre.commit.sh(".venv/bin/mypy", "iprecommit", base_pattern="*.py", name="PythonTypes")
-pre.commit.sh(".venv/bin/flake8", "iprecommit", base_pattern="*.py", name="PythonLint")
+checks.pre_commit(
+    ".venv/bin/mypy",
+    "iprecommit",
+    pass_files=False,
+    filters=["*.py"],
+    name="PythonTypes",
+)
+checks.pre_commit(
+    ".venv/bin/flake8",
+    "iprecommit",
+    pass_files=False,
+    filters=["*.py"],
+    name="PythonLint",
+)
 # TODO: should consider deleted files
-pre.commit.sh(
-    ".venv/bin/pytest", "--tb=short", base_pattern="*.py", name="ProjectTests"
+checks.pre_commit(
+    ".venv/bin/pytest",
+    "--tb=short",
+    pass_files=False,
+    filters=["*.py"],
+    name="ProjectTests",
 )
 
-pre.push.check(checks.NoDoNotCommit())
+checks.pre_push("iprecommit-do-not-commit", "--commits")
 
-pre.main()
+checks.run()
