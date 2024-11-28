@@ -79,44 +79,20 @@ def parse_config_toml(path: Path) -> Config:
     config = Config(pre_commit_checks=[], pre_push_checks=[], commit_msg_checks=[])
 
     for pre_commit_toml in pre_commit_toml_list:
-        name = pre_commit_toml.pop("name", None)
-        if name is not None and not isinstance(name, str):
-            raise IPrecommitTomlError(
-                "The 'name' key of [[pre_commit]] entries in your TOML file should be a string."
-            )
-
-        try:
-            cmd = pre_commit_toml.pop("cmd")
-        except KeyError:
-            raise IPrecommitTomlError(
-                "A [[pre_commit]] table in your TOML file is missing a 'cmd' key."
-            )
-
-        if not isinstance(cmd, list) or any(not isinstance(a, str) for a in cmd):
-            raise IPrecommitTomlError(
-                "The 'cmd' key of [[pre_commit]] entries in your TOML file should be a list of strings."
-            )
-
-        fix_cmd = pre_commit_toml.pop("fix_cmd", [])
-        if not isinstance(fix_cmd, list) or any(
-            not isinstance(a, str) for a in fix_cmd
-        ):
-            raise IPrecommitTomlError(
-                "The 'fix_cmd' key of [[pre_commit]] entries in your TOML file should be a list of strings."
-            )
+        table_name = "[[pre_commit]]"
+        name = validate_name_key(pre_commit_toml, table_name)
+        cmd = validate_cmd_key(pre_commit_toml, table_name)
+        fix_cmd = validate_cmd_key(
+            pre_commit_toml, table_name, key="fix_cmd", default=[]
+        )
+        filters = validate_cmd_key(
+            pre_commit_toml, table_name, key="filters", default=[]
+        )
 
         pass_files = pre_commit_toml.pop("pass_files", True)
         if not isinstance(pass_files, bool):
             raise IPrecommitTomlError(
                 "The 'pass_files' key of [[pre_commit]] entries in your TOML file should be a boolean."
-            )
-
-        filters = pre_commit_toml.pop("filters", [])
-        if not isinstance(filters, list) or any(
-            not isinstance(a, str) for a in filters
-        ):
-            raise IPrecommitTomlError(
-                "The 'filters' key of [[pre_commit]] entries in your TOML file should be a list of strings."
             )
 
         ensure_dict_empty(pre_commit_toml, "A [[pre_commit]] entry")
@@ -131,50 +107,54 @@ def parse_config_toml(path: Path) -> Config:
         )
 
     for commit_msg_toml in commit_msg_toml_list:
-        name = commit_msg_toml.pop("name", None)
-        if name is not None and not isinstance(name, str):
-            raise IPrecommitTomlError(
-                "The 'name' key of [[commit_msg]] entries in your TOML file should be a string."
-            )
-
-        try:
-            cmd = commit_msg_toml.pop("cmd")
-        except KeyError:
-            raise IPrecommitTomlError(
-                "A [[commit_msg]] table in your TOML file is missing a 'cmd' key."
-            )
-
-        if not isinstance(cmd, list) or any(not isinstance(a, str) for a in cmd):
-            raise IPrecommitTomlError(
-                "The 'cmd' key of [[commit_msg]] entries in your TOML file should be a list of strings."
-            )
+        table_name = "[[commit_msg]]"
+        name = validate_name_key(commit_msg_toml, table_name)
+        cmd = validate_cmd_key(commit_msg_toml, table_name)
 
         ensure_dict_empty(commit_msg_toml, "A [[commit_msg]] entry")
         config.commit_msg_checks.append(CommitMsgCheck(name=name, cmd=cmd))
 
     for pre_push_toml in pre_push_toml_list:
-        name = pre_push_toml.pop("name", None)
-        if name is not None and not isinstance(name, str):
-            raise IPrecommitTomlError(
-                "The 'name' key of [[pre_push]] entries in your TOML file should be a string."
-            )
+        table_name = "[[pre_push]]"
+        name = validate_name_key(pre_push_toml, table_name)
+        cmd = validate_cmd_key(pre_push_toml, table_name)
 
-        try:
-            cmd = pre_push_toml.pop("cmd")
-        except KeyError:
-            raise IPrecommitTomlError(
-                "A [[pre_push]] table in your TOML file is missing a 'cmd' key."
-            )
-
-        if not isinstance(cmd, list) or any(not isinstance(a, str) for a in cmd):
-            raise IPrecommitTomlError(
-                "The 'cmd' key of [[pre_push]] entries in your TOML file should be a list of strings."
-            )
-
-        ensure_dict_empty(pre_push_toml, "A [[pre_push]] entry")
+        ensure_dict_empty(pre_push_toml, f"A {table_name} entry")
         config.pre_push_checks.append(PrePushCheck(name=name, cmd=cmd))
 
     return config
+
+
+def validate_name_key(table, table_name):
+    name = table.pop("name", None)
+    if name is not None and not isinstance(name, str):
+        raise IPrecommitTomlError(
+            f"The 'name' key of {table_name} entries in your TOML file should be a string."
+        )
+
+    return name
+
+
+_Unset = object()
+
+
+def validate_cmd_key(table, table_name, key="cmd", default=_Unset):
+    if default is not _Unset:
+        v = table.pop(key, default)
+    else:
+        try:
+            v = table.pop(key)
+        except KeyError:
+            raise IPrecommitTomlError(
+                f"A {table_name} table in your TOML file is missing a '{key}' key."
+            )
+
+    if not isinstance(v, list) or any(not isinstance(a, str) for a in v):
+        raise IPrecommitTomlError(
+            "The '{key}' key of {table_name} entries in your TOML file should be a list of strings."
+        )
+
+    return v
 
 
 def ensure_dict_empty(d, name):
