@@ -13,3 +13,7 @@ class IPrecommitImpossibleError(Exception):
         super().__init__(
             "This error should never happen. If you see it, please contact an iprecommit developer."
         )
+
+
+class IPrecommitTomlError(IPrecommitError):
+    pass

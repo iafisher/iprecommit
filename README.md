@@ -2,17 +2,18 @@ A dead-simple tool to manage pre-commit hooks for Git.
 
 `iprecommit` runs shell commands and fails the hook if they fail. You can filter commands on glob patterns (e.g., `*.py` for Python-only checks) and define fix commands (e.g., for auto-formatters).
 
-```python
-from iprecommit import Checks
+```toml
+[[pre_commit]]
+cmd = ["black", "--check"]
+filters = ["*.py"]
+fix_cmd = ["black"]
 
-checks = Checks()
-checks.pre_commit("black", "--check", filters=["*.py"], fix=["black"])
-checks.pre_commit("mypy", filters=["*.py"])
-checks.pre_commit("./run_tests", pass_files=False)
-checks.run()
+[[pre_commit]]
+cmd = ["./run_tests"]
+pass_files = false
 ```
 
-That's it. No YAML configuration or dependency management.
+That's it.
 
 ## Getting started
 Install it with `pip` or [`pipx`](https://github.com/pypa/pipx):
@@ -28,9 +29,9 @@ cd path/to/some/git/repo
 iprecommit install
 ```
 
-`iprecommit install` will create a file called `precommit.py` and install it as a Git pre-commit check.
+`iprecommit install` will create a file called `precommit.toml` to configure your pre-commit checks.
 
-Now, whenever you run `git commit`, the checks in `precommit.py` will be run automatically. You can also run the pre-commit checks manually:
+Now, whenever you run `git commit`, the checks in `precommit.toml` will be run automatically. You can also run the pre-commit checks manually:
 
 ```shell
 iprecommit run
@@ -46,29 +47,43 @@ By default, `iprecommit run` and `iprecommit fix` operate only on staged changes
 
 
 ## User guide
-The `precommit.py` file that `iprecommit install` generates will look something like this:
+The `precommit.toml` file that `iprecommit install` generates will look something like this:
 
-```python
-from iprecommit import Checks
+```toml
+[[pre_commit]]
+name = "NoForbiddenStrings"
+cmd = ["iprecommit-no-forbidden-strings", "--paths"]
 
-checks = Checks()
-checks.pre_commit("iprecommit-no-forbidden-strings", "--paths", name="iprecommit-no-forbidden-strings")
-checks.pre_commit("iprecommit-newline-at-eof")
+[[pre_commit]]
+name = "NewlineAtEndOfFile"
+cmd = ["iprecommit-newline-at-eof"]
+
+# [[pre_commit]]
+# name = "PythonFormat"
+# cmd = ["black", "--check"]
+# filters = ["*.py"]
+# fix_cmd = ["black"]
+
+# [[pre_commit]]
+# name = "ProjectTests"
+# cmd = ["./run_tests"]
+# pass_files = false
 
 # commit-msg checks
-checks.commit_msg("iprecommit-commit-msg-format", "--max-line-length", "72")
+[[commit_msg]]
+name = "CommitMessageFormat"
+cmd = ["iprecommit-commit-msg-format", "--max-line-length", "72"]
 
-checks.run()
+# pre-push checks (run on commit messages)
+[[pre_push]]
+name = "NoForbiddenStrings"
+cmd = ["iprecommit-no-forbidden-strings", "--commits"]
 ```
 
-`iprecommit` comes with some built-in checks, e.g. `iprecommit-no-forbidden-strings`, but you use any existing shell command. Suppose you want to use `black` to enforce Python formatting:
-
-```python
-checks.pre_commit("black", "--check", filters=["*.py"], fix=["black"])
-```
+`iprecommit` comes with some built-in checks, e.g. `iprecommit-no-forbidden-strings`, but you can use any shell command.
 
 `iprecommit` currently supports three kinds of hooks:
 
-- `checks.pre_commit()`, run before every commit. The command is passed the list of files that changed (added or modified), unless `pass_files=False`.
-- `checks.commit_msg()`, run on the commit message before a commit is finalized. The command is passed a filename holding the commit message.
-- `checks.pre_push()`, run on a set of commit hashes before they are pushed to a remote. The command is passed the list of commit hashes.
+- `[[pre_commit]]`, run before every commit. The command is passed the list of files that changed (added or modified), unless `pass_files = false`.
+- `[[commit_msg]]`, run on the commit message before a commit is finalized. The command is passed a filename holding the commit message.
+- `[[pre_push]]`, run on a set of commit hashes before they are pushed to a remote. The command is passed the list of commit hashes.

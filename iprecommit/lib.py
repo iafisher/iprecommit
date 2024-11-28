@@ -1,94 +1,21 @@
-import atexit
 import fnmatch
 import os
 import shlex
 import subprocess
 import sys
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, List, NoReturn, Optional, Tuple, Union
 
-from .exceptions import IPrecommitError, IPrecommitImpossibleError
-
-
-@dataclass
-class CLIArgs:
-    hook_name: str
-    unstaged: bool
-    fix_mode: bool
-    commit_msg: Optional[str]
-    remote: Optional[str]
-
-    def serialize(self) -> List[str]:
-        subcmd = "fix" if self.fix_mode else "run"
-        if self.hook_name == "commit-msg":
-            assert self.commit_msg is not None
-            return [subcmd, self.hook_name, self.commit_msg]
-        elif self.hook_name == "pre-push":
-            assert self.remote is not None
-            return [subcmd, self.hook_name, self.remote]
-        else:
-            return [subcmd, self.hook_name] + (["--unstaged"] if self.unstaged else [])
-
-    @classmethod
-    def deserialize(cls, args: List[str]) -> "CLIArgs":
-        # since precommit.py is meant to be invoked through `iprecommit run`, we only do minimal
-        # error-checking here (e.g., we ignore unknown arguments), assuming that `iprecommit` will
-        # pass us something valid
-
-        if len(args) < 2:
-            raise IPrecommitError
-
-        subcmd = args[0]
-        hook_name = args[1]
-        flags = args[2:]
-
-        if subcmd not in ("run", "fix"):
-            raise IPrecommitError
-
-        # TODO: define in one place the valid git hooks
-        if hook_name not in ("pre-commit", "pre-push", "commit-msg"):
-            raise IPrecommitError
-
-        fix_mode = subcmd == "fix"
-        if hook_name == "commit-msg":
-            if len(args) < 3:
-                raise IPrecommitError
-
-            return cls(
-                hook_name=hook_name,
-                unstaged=False,
-                fix_mode=fix_mode,
-                commit_msg=args[2],
-                remote=None,
-            )
-        elif hook_name == "pre-push":
-            if len(args) < 3:
-                raise IPrecommitError
-
-            return cls(
-                hook_name=hook_name,
-                unstaged=False,
-                fix_mode=fix_mode,
-                commit_msg=None,
-                remote=args[2],
-            )
-        else:
-            unstaged = "--unstaged" in flags
-            return cls(
-                hook_name=hook_name,
-                unstaged=unstaged,
-                fix_mode=fix_mode,
-                commit_msg=None,
-                remote=None,
-            )
+from . import exceptions, toml
 
 
 @dataclass
 class PreCommitCheck:
     name: Optional[str]
     cmd: List[str]
-    fix: List[str]
+    fix_cmd: List[str]
     pass_files: bool
     filters: List[str]
 
@@ -112,61 +39,166 @@ def get_check_name(check: Union[PreCommitCheck, PrePushCheck, CommitMsgCheck]) -
         return " ".join(map(shlex.quote, check.cmd))
 
 
-class Checks:
-    called_run: bool
-    num_failed_checks: int
+@dataclass
+class Config:
     pre_commit_checks: List[PreCommitCheck]
     pre_push_checks: List[PrePushCheck]
     commit_msg_checks: List[CommitMsgCheck]
 
-    def __init__(self) -> None:
-        self.called_run = False
-        self.num_failed_checks = 0
-        self.pre_commit_checks = []
-        self.pre_push_checks = []
-        self.commit_msg_checks = []
 
-        atexit.register(self._atexit)
+def parse_config_toml(path: Path) -> Config:
+    raw_toml = toml.load(path, OrderedDict)
 
-    def pre_commit(
-        self,
-        *cmd,
-        pass_files: bool = True,
-        filters: List[str] = [],
-        fix: List[str] = [],
-        name: Optional[str] = None,
-    ) -> None:
-        self.pre_commit_checks.append(
+    # TODO: tests for TOML parsing and error messages
+    pre_commit_toml_list = raw_toml.pop("pre_commit", [])
+    commit_msg_toml_list = raw_toml.pop("commit_msg", [])
+    pre_push_toml_list = raw_toml.pop("pre_push", [])
+    ensure_dict_empty(raw_toml, "The top-level table")
+
+    if not isinstance(pre_commit_toml_list, list) or any(
+        not isinstance(d, dict) for d in pre_commit_toml_list
+    ):
+        raise exceptions.IPrecommitTomlError(
+            "'pre_commit' in your TOML file should be an array of tables (e.g., [[pre_commit]])."
+        )
+
+    if not isinstance(commit_msg_toml_list, list) or any(
+        not isinstance(d, dict) for d in commit_msg_toml_list
+    ):
+        raise exceptions.IPrecommitTomlError(
+            "'commit_msg' in your TOML file should be an array of tables (e.g., [[commit_msg]])."
+        )
+
+    if not isinstance(pre_push_toml_list, list) or any(
+        not isinstance(d, dict) for d in pre_push_toml_list
+    ):
+        raise exceptions.IPrecommitTomlError(
+            "'pre_push' in your TOML file should be an array of tables (e.g., [[pre_push]])."
+        )
+
+    config = Config(pre_commit_checks=[], pre_push_checks=[], commit_msg_checks=[])
+
+    for pre_commit_toml in pre_commit_toml_list:
+        name = pre_commit_toml.pop("name", None)
+        if name is not None and not isinstance(name, str):
+            raise exceptions.IPrecommitTomlError(
+                "The 'name' key of [[pre_commit]] entries in your TOML file should be a string."
+            )
+
+        try:
+            cmd = pre_commit_toml.pop("cmd")
+        except KeyError:
+            raise exceptions.IPrecommitTomlError(
+                "A [[pre_commit]] table in your TOML file is missing a 'cmd' key."
+            )
+
+        if not isinstance(cmd, list) or any(not isinstance(a, str) for a in cmd):
+            raise exceptions.IPrecommitTomlError(
+                "The 'cmd' key of [[pre_commit]] entries in your TOML file should be a list of strings."
+            )
+
+        fix_cmd = pre_commit_toml.pop("fix_cmd", [])
+        if not isinstance(fix_cmd, list) or any(
+            not isinstance(a, str) for a in fix_cmd
+        ):
+            raise exceptions.IPrecommitTomlError(
+                "The 'fix_cmd' key of [[pre_commit]] entries in your TOML file should be a list of strings."
+            )
+
+        pass_files = pre_commit_toml.pop("pass_files", True)
+        if not isinstance(pass_files, bool):
+            raise exceptions.IPrecommitTomlError(
+                "The 'pass_files' key of [[pre_commit]] entries in your TOML file should be a boolean."
+            )
+
+        filters = pre_commit_toml.pop("filters", [])
+        if not isinstance(filters, list) or any(
+            not isinstance(a, str) for a in filters
+        ):
+            raise exceptions.IPrecommitTomlError(
+                "The 'filters' key of [[pre_commit]] entries in your TOML file should be a list of strings."
+            )
+
+        ensure_dict_empty(pre_commit_toml, "A [[pre_commit]] entry")
+        config.pre_commit_checks.append(
             PreCommitCheck(
-                cmd=list(cmd),
-                fix=fix,
+                name=name,
+                cmd=cmd,
+                fix_cmd=fix_cmd,
                 pass_files=pass_files,
                 filters=filters,
-                name=name,
             )
         )
 
-    def pre_push(self, *cmd, name: Optional[str] = None) -> None:
-        self.pre_push_checks.append(PrePushCheck(cmd=list(cmd), name=name))
+    for commit_msg_toml in commit_msg_toml_list:
+        name = commit_msg_toml.pop("name", None)
+        if name is not None and not isinstance(name, str):
+            raise exceptions.IPrecommitTomlError(
+                "The 'name' key of [[commit_msg]] entries in your TOML file should be a string."
+            )
 
-    def commit_msg(self, *cmd, name: Optional[str] = None) -> None:
-        self.commit_msg_checks.append(CommitMsgCheck(cmd=list(cmd), name=name))
+        try:
+            cmd = commit_msg_toml.pop("cmd")
+        except KeyError:
+            raise exceptions.IPrecommitTomlError(
+                "A [[commit_msg]] table in your TOML file is missing a 'cmd' key."
+            )
 
-    def run(self) -> None:
-        self.called_run = True
-        args = self._parse_args()
-        if args.hook_name == "pre-commit":
-            self._run_pre_commit(args)
-        elif args.hook_name == "commit-msg":
-            self._run_commit_msg(args)
-        elif args.hook_name == "pre-push":
-            self._run_pre_push(args)
-        else:
-            raise IPrecommitImpossibleError()
+        if not isinstance(cmd, list) or any(not isinstance(a, str) for a in cmd):
+            raise exceptions.IPrecommitTomlError(
+                "The 'cmd' key of [[commit_msg]] entries in your TOML file should be a list of strings."
+            )
 
-    def _run_pre_commit(self, args: CLIArgs) -> None:
-        all_changed_paths = _get_git_changes(include_unstaged=args.unstaged)
-        for check in self.pre_commit_checks:
+        ensure_dict_empty(commit_msg_toml, "A [[commit_msg]] entry")
+        config.commit_msg_checks.append(CommitMsgCheck(name=name, cmd=cmd))
+
+    for pre_push_toml in pre_push_toml_list:
+        name = pre_push_toml.pop("name", None)
+        if name is not None and not isinstance(name, str):
+            raise exceptions.IPrecommitTomlError(
+                "The 'name' key of [[pre_push]] entries in your TOML file should be a string."
+            )
+
+        try:
+            cmd = pre_push_toml.pop("cmd")
+        except KeyError:
+            raise exceptions.IPrecommitTomlError(
+                "A [[pre_push]] table in your TOML file is missing a 'cmd' key."
+            )
+
+        if not isinstance(cmd, list) or any(not isinstance(a, str) for a in cmd):
+            raise exceptions.IPrecommitTomlError(
+                "The 'cmd' key of [[pre_push]] entries in your TOML file should be a list of strings."
+            )
+
+        ensure_dict_empty(pre_push_toml, "A [[pre_push]] entry")
+        config.pre_push_checks.append(PrePushCheck(name=name, cmd=cmd))
+
+    return config
+
+
+def ensure_dict_empty(d, name):
+    try:
+        key = next(iter(d.keys()))
+    except StopIteration:
+        pass
+    else:
+        raise exceptions.IPrecommitTomlError(
+            f"{name} in your TOML file has a key that iprecommit does not recognize: {key}"
+        )
+
+
+class Checks:
+    num_failed_checks: int
+    config: Config
+
+    def __init__(self, config: Config) -> None:
+        self.num_failed_checks = 0
+        self.config = config
+
+    def run_pre_commit(self, *, fix_mode: bool, unstaged: bool) -> None:
+        all_changed_paths = _get_git_changes(include_unstaged=unstaged)
+        for check in self.config.pre_commit_checks:
             name = get_check_name(check)
 
             filtered_changed_paths = _filter_paths(all_changed_paths, check.filters)
@@ -174,10 +206,10 @@ class Checks:
                 self._print_status(name, yellow("skipped"))
                 continue
 
-            if args.fix_mode:
-                if check.fix:
+            if fix_mode:
+                if check.fix_cmd:
                     self._print_status(name, "fixing")
-                    cmd = check.fix
+                    cmd = check.fix_cmd
                     if check.pass_files:
                         cmd += filtered_changed_paths  # type: ignore
                     proc = subprocess.run(cmd)
@@ -205,15 +237,12 @@ class Checks:
 
         self._summary("Commit")
 
-    def _run_commit_msg(self, args: CLIArgs) -> None:
-        # TODO: check that fix_mode is False?
-        assert args.commit_msg is not None
-
-        for check in self.commit_msg_checks:
+    def run_commit_msg(self, commit_msg_file: Path) -> None:
+        for check in self.config.commit_msg_checks:
             name = get_check_name(check)
 
             self._print_status(name, "running")
-            proc = subprocess.run(check.cmd + [args.commit_msg])
+            proc = subprocess.run(check.cmd + [commit_msg_file])
             if proc.returncode != 0:
                 self._print_status(name, red("failed"))
                 self.num_failed_checks += 1
@@ -225,13 +254,12 @@ class Checks:
 
         self._summary("Commit")
 
-    def _run_pre_push(self, args: CLIArgs) -> None:
-        assert args.remote is not None
+    def run_pre_push(self, remote: str) -> None:
         current_branch = _get_git_current_branch()
-        last_commit_pushed = _get_git_last_commit_pushed(args.remote, current_branch)
+        last_commit_pushed = _get_git_last_commit_pushed(remote, current_branch)
         commits = _get_git_commits(since=last_commit_pushed)
 
-        for check in self.pre_push_checks:
+        for check in self.config.pre_push_checks:
             name = get_check_name(check)
 
             self._print_status(name, "running")
@@ -257,24 +285,6 @@ class Checks:
     def _print_status(self, name: str, status: str) -> None:
         print(f"{cyan('[iprecommit]')} {name}: {status}")
         sys.stdout.flush()
-
-    def _parse_args(self) -> CLIArgs:
-        argv = sys.argv[1:]
-        try:
-            return CLIArgs.deserialize(argv)
-        except IPrecommitError:
-            bail(
-                "precommit.py should not be run directly. Use `iprecommit run` instead."
-            )
-
-    def _atexit(self) -> None:
-        if not self.called_run:
-            warn(
-                f"The pre-commit hook exited without running. Did you forget to call `{self.__class__.__name__}.run()`?"
-            )
-            sys.stdout.flush()
-            # use _exit() to avoid recursively invoking ourselves as an atexit hook
-            os._exit(1)
 
 
 def _filter_paths(paths: List[Path], filters: List[str]) -> List[Path]:
@@ -378,9 +388,6 @@ def bail(msg: str) -> NoReturn:
 
 def warn(msg: str) -> None:
     print(f"{yellow('Warning')}: {msg}", file=sys.stderr)
-
-
-ENV_HOOK_PATH = "IPRECOMMIT_HOOK_PATH"
 
 
 def red(s: str) -> str:

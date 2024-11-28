@@ -1,0 +1,36 @@
+[[pre_commit]]
+name = "NoForbiddenStrings"
+cmd = ["iprecommit-no-forbidden-strings", "--paths"]
+
+[[pre_commit]]
+name = "NewlineAtEndOfFile"
+cmd = ["iprecommit-newline-at-eof"]
+
+[[pre_commit]]
+name = "PythonFormat"
+cmd = ["black", "--check"]
+filters = ["*.py"]
+fix_cmd = ["black"]
+
+# TODO: should consider deleted files
+[[pre_commit]]
+name = "PythonTypes"
+cmd = [".venv/bin/mypy", "iprecommit"]
+pass_files = false
+filters = ["*.py"]
+
+[[pre_commit]]
+name = "PythonLint"
+cmd = [".venv/bin/flake8", "iprecommit"]
+pass_files = false
+filters = ["*.py"]
+
+# TODO: should consider deleted files
+[[pre_commit]]
+name = "ProjectTests"
+cmd = [".venv/bin/pytest", "--tb=short"]
+pass_files = false
+filters = ["*.py"]
+
+[[pre_push]]
+cmd = ["iprecommit-do-not-commit", "--commits"]
