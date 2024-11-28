@@ -58,7 +58,7 @@ class Base(unittest.TestCase):
 
         if install_hook:
             run_shell(
-                [".venv/bin/iprecommit", "init"]
+                [".venv/bin/iprecommit", "install"]
                 + (["--path", path] if path is not None else [])
             )
             print("test: installed pre-commit hook")
@@ -265,7 +265,7 @@ class TestEndToEnd(Base):
         Path(".git/hooks/pre-commit").write_text("...\n")
 
         proc = run_shell(
-            [".venv/bin/iprecommit", "init"], check=False, capture_stderr=True
+            [".venv/bin/iprecommit", "install"], check=False, capture_stderr=True
         )
         self.assertEqual(
             proc.stderr,
@@ -274,7 +274,7 @@ class TestEndToEnd(Base):
         self.assertEqual(proc.returncode, 1)
         self.assertFalse(Path("precommit.py").exists())
 
-        run_shell([".venv/bin/iprecommit", "init", "--force"])
+        run_shell([".venv/bin/iprecommit", "install", "--force"])
         self.assertIn("iprecommit", Path(".git/hooks/pre-commit").read_text())
 
     def test_uninstall_fails_if_hook_does_not_exist(self):

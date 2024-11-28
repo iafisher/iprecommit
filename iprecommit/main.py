@@ -10,10 +10,16 @@ from . import lib
 
 
 def main() -> None:
-    argparser = argparse.ArgumentParser()
-    subparsers = argparser.add_subparsers()
+    argparser = argparse.ArgumentParser(
+        description="Dead-simple Git pre-commit hook management."
+    )
+    subparsers = argparser.add_subparsers(title="subcommands", metavar="")
 
-    argparser_init = _create_subparser(subparsers, "init")
+    argparser_init = _create_subparser(
+        subparsers,
+        "install",
+        help="Install an iprecommit hook in the current Git repository.",
+    )
     argparser_init.add_argument(
         "--force", action="store_true", help="Overwrite existing pre-commit hook."
     )
@@ -21,12 +27,18 @@ def main() -> None:
         "--path", help="Create precommit.py in a custom location."
     )
 
-    argparser_uninstall = _create_subparser(subparsers, "uninstall")
+    argparser_uninstall = _create_subparser(
+        subparsers,
+        "uninstall",
+        help="Uninstall the iprecommit hook in the current Git repository.",
+    )
     argparser_uninstall.add_argument(
         "--force", action="store_true", help="Uninstall a non-iprecommit hook."
     )
 
-    argparser_run = _create_subparser(subparsers, "run")
+    argparser_run = _create_subparser(
+        subparsers, "run", help="Manually run the iprecommit hook."
+    )
     argparser_run.add_argument(
         "--unstaged", action="store_true", help="Also run checks on unstaged files."
     )
@@ -34,7 +46,9 @@ def main() -> None:
     argparser_run.add_argument("--commit-msg", help=argparse.SUPPRESS)
     argparser_run.add_argument("--remote", help=argparse.SUPPRESS)
 
-    argparser_fix = _create_subparser(subparsers, "fix")
+    argparser_fix = _create_subparser(
+        subparsers, "fix", help="Apply fixes to failing checks."
+    )
     argparser_fix.add_argument(
         "--unstaged", action="store_true", help="Also apply fixes to unstaged files."
     )
@@ -48,8 +62,8 @@ def main() -> None:
 
 
 def _main(argparser, args) -> None:
-    if args.subcmd == "init":
-        main_init(args)
+    if args.subcmd == "install":
+        main_install(args)
     elif args.subcmd == "run":
         run_precommit_py(args)
     elif args.subcmd == "fix":
@@ -111,7 +125,7 @@ set -e
 """
 
 
-def main_init(args):
+def main_install(args):
     change_to_git_root()
 
     # check this early so that we bail before make other changes like creating precommit.py
@@ -236,8 +250,8 @@ def get_version():
     return importlib.metadata.version("iprecommit")
 
 
-def _create_subparser(subparsers, name):
-    argparser = subparsers.add_parser(name)
+def _create_subparser(subparsers, name, *, help):
+    argparser = subparsers.add_parser(name, description=help, help=help)
     argparser.set_defaults(subcmd=name)
     return argparser
 
