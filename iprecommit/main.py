@@ -74,7 +74,6 @@ def _main(argparser, args) -> None:
         argparser.print_usage()
 
 
-# TODO: example of include/exclude patterns
 PRECOMMIT_TEMPLATE = """\
 from iprecommit import Checks
 
@@ -82,8 +81,8 @@ checks = Checks()
 checks.pre_commit("iprecommit-no-forbidden-strings", "--paths", name="iprecommit-no-forbidden-strings")
 checks.pre_commit("iprecommit-newline-at-eof")
 # more examples:
-#   checks.pre_commit("./run_tests", "--verbose")
-#   checks.pre_commit("black", "--check", pass_files=True, filters=["*.py"])
+#   checks.pre_commit("black", "--check", filters=["*.py"], fix=["black", "check"])
+#   checks.pre_commit("./run_tests", "--verbose", pass_files=False)
 
 # commit-msg checks
 checks.commit_msg("iprecommit-commit-msg-format", "--max-line-length", "72")
