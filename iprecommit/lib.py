@@ -218,6 +218,12 @@ class Checks:
         self._summary("Commit")
 
     def run_commit_msg(self, commit_msg_file: Path) -> None:
+        print()
+        print()
+        print("== checking commit message ==")
+        print()
+        print()
+
         for check in self.config.commit_msg_checks:
             name = get_check_name(check)
 

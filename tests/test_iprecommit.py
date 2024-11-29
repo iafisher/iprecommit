@@ -350,6 +350,11 @@ class TestEndToEnd(Base):
         )
         expected_stderr = S(
             """\
+
+
+            == checking commit message ==
+
+
             [iprecommit] iprecommit-commit-msg-format --require-capitalized: running
             first line should be capitalized
             [iprecommit] iprecommit-commit-msg-format --require-capitalized: failed
