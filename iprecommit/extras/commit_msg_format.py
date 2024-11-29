@@ -23,7 +23,7 @@ def main(argv=None) -> None:
     argparser.add_argument(
         "--require-capitalized",
         action="store_true",
-        help="Require the first line to begin with a capital letter."
+        help="Require the first line to begin with a capital letter.",
     )
     args = argparser.parse_args(argv)
 
