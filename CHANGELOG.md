@@ -7,6 +7,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/iprecommit/issues).
 
+## [0.5.1] - 2024-11-28
+- The `IPRECOMMIT_TOML_TEMPLATE` environment variable can be used to customize the `precommit.toml` template.
+- `iprecommit fix` will stage changes to files after a fix command modifies them.
+- `iprecommit-*` commands now ignore files they cannot parse as UTF-8.
+
 ## [0.5.0] - 2024-11-28
 - Config format changed from Python (`precommit.py`) to TOML (`precommit.toml`).
 
