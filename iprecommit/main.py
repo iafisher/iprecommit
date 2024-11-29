@@ -4,6 +4,7 @@ import os
 import shutil
 import stat
 import sys
+import uuid
 from pathlib import Path
 
 from . import lib
@@ -198,8 +199,24 @@ def main_install(args):
     )
 
 
-# TODO: include a header with link to documentation
+def replace_file(path: Path, new_contents: str) -> None:
+    # Writing to a tempfile and then moving to `path` ensures 3 things:
+    #
+    #  (1) Anyone currently reading from `path` won't see a mix of old and new contents.
+    #  (2) Since `rename` is atomic (at least, on Linux and macOS), there is no interval where
+    #      `path` does not exist.
+    #  (3) If `path` is a symlink, the symlink will be replaced by a normal file, instead of
+    #      following the symlink and writing to some random file elsewhere.
+    #
+    tempfile = path.parent / f"iprecommit-tempfile-{uuid.uuid4()}"
+    tempfile.write_text(new_contents)
+    os.rename(tempfile, path)
+
+
 PRECOMMIT_TEMPLATE = """\
+# This file configures Git hooks for the project.
+# Documentation: https://github.com/iafisher/iprecommit
+
 [[pre_commit]]
 name = "NoForbiddenStrings"
 cmd = ["iprecommit-no-forbidden-strings", "--paths"]
@@ -264,8 +281,9 @@ set -e
 
 
 def _write_script(path: Path, text: str, *, py_prefix: Path, extra_args: str) -> None:
-    path.write_text(
-        text % dict(prefix=py_prefix, version=get_version(), extra_args=extra_args)
+    replace_file(
+        path,
+        text % dict(prefix=py_prefix, version=get_version(), extra_args=extra_args),
     )
     perm = path.stat().st_mode
     path.chmod(perm | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
