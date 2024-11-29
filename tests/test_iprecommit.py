@@ -474,7 +474,7 @@ class TestEndToEnd(Base):
 
         proc = iprecommit_run()
         expected_stdout = S(
-            f"""\
+            """\
             [iprecommit] NoForbiddenStrings: running
             b'\\xc0\\xaf.test'
             [iprecommit] NoForbiddenStrings: failed
@@ -500,7 +500,7 @@ class TestEndToEnd(Base):
 
         proc = iprecommit_run("--all")
         expected_stdout = S(
-            f"""\
+            """\
             [iprecommit] black --check: running
             would reformat bad_formatX.py
             would reformat bad_formatX.py
@@ -517,6 +517,38 @@ class TestEndToEnd(Base):
         # black does not print out the file names in a deterministic order :(
         actual_stdout = re.sub(r"bad_format[0-9].py", "bad_formatX.py", proc.stdout)
         self.assertEqual(expected_stdout, actual_stdout)
+        self.assertNotEqual(proc.returncode, 0)
+
+    def test_working_dir(self):
+        precommit_text = S(
+            """
+            [[pre_commit]]
+            name = "NoTypos"
+            cmd = ["iprecommit-typos", "--paths", "has_a_typo.txt"]
+            pass_files = false
+            working_dir = "subdir/"
+            """
+        )
+        self._create_repo(precommit_text=precommit_text)
+
+        os.mkdir(os.path.join(self.tmpdir, "subdir"))
+        # constructed like this so it doesn't trigger the check itself
+        typo = "ab" + "bout"
+        create_and_stage_file("subdir/has_a_typo.txt", f"{typo}\n")
+
+        proc = iprecommit_run()
+        expected_stdout = S(
+            f"""\
+            [iprecommit] NoTypos: running
+            has_a_typo.txt
+              typo on line 1: {typo} (did you mean 'about'?)
+            [iprecommit] NoTypos: failed
+
+
+            1 failed. Commit aborted.
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
         self.assertNotEqual(proc.returncode, 0)
 
     # TODO: pass_files=True, separately=True

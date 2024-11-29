@@ -43,53 +43,49 @@ Some pre-commit issues can be fixed automatically:
 iprecommit fix
 ```
 
-By default, `iprecommit run` and `iprecommit fix` operate only on staged changes. To only consider unstaged changes as well, pass the `--unstaged` flag.
+By default, `iprecommit run` and `iprecommit fix` operate only on staged changes. To only consider unstaged changes as well, pass the `--unstaged` flag. To run on every file in the repository (committed, unstaged, and staged), pass the `--all` flag.
 
 
 ## User guide
-The `precommit.toml` file that `iprecommit install` generates will look something like this:
-
+### Pre-commit checks
 ```toml
 [[pre_commit]]
-name = "NoForbiddenStrings"
-cmd = ["iprecommit-no-forbidden-strings", "--paths"]
+name = "PythonFormat"
+cmd = ["black", "--check"]
+filters = ["*.py"]
+fix_cmd = ["black"]
+```
 
-[[pre_commit]]
-name = "NewlineAtEndOfFile"
-cmd = ["iprecommit-newline-at-eof"]
+- `name` is optional.
+- Changed files are passed to the command unless `pass_files = false`.
+- `filters` is applied to the set of staged files. If the result is empty, the check is not run. Filters may be literal paths (`example.py`), glob patterns (`*.py`), or exclude patterns (`!example.py`, `!*.py`).
+- If `fix_cmd` is present, then `iprecommit fix` will *unconditionally* run the command. `filters` still applies as usual.
+- Commands run in the root of the Git repository by default. If you need the command to run elsewhere, set `working_dir`.
 
-# [[pre_commit]]
-# name = "PythonFormat"
-# cmd = ["black", "--check"]
-# filters = ["*.py"]
-# fix_cmd = ["black"]
-
-# [[pre_commit]]
-# name = "ProjectTests"
-# cmd = ["./run_tests"]
-# pass_files = false
-
+### Commit message checks
+```toml
 # commit-msg checks
 [[commit_msg]]
 name = "CommitMessageFormat"
 cmd = ["iprecommit-commit-msg-format", "--max-line-length", "72"]
+```
 
+- `name` and `cmd` are the only supported keys for `commit_msg` checks.
+- `cmd` is passed the name of a single file which holds the message's contents.
+
+### Pre-push checks
+```toml
 # pre-push checks (run on commit messages)
 [[pre_push]]
 name = "NoForbiddenStrings"
 cmd = ["iprecommit-no-forbidden-strings", "--commits"]
 ```
 
-`iprecommit` comes with some built-in checks, e.g. `iprecommit-no-forbidden-strings`, but you can use any shell command.
+- `name` and `cmd` are the only supported keys for `pre_push` checks.
+- `cmd` is passed a list of Git revisions to be pushed to the remote repository.
 
-`iprecommit` currently supports three kinds of hooks:
-
-- `[[pre_commit]]`, run before every commit. The command is passed the list of files that changed (added or modified), unless `pass_files = false`.
-- `[[commit_msg]]`, run on the commit message before a commit is finalized. The command is passed a filename holding the commit message.
-- `[[pre_push]]`, run on a set of commit hashes before they are pushed to a remote. The command is passed the list of commit hashes.
-
-## Custom checks
-These checks are designed to be used with `iprecommit`, but they can also be used independently.
+## Custom commands
+These commands are designed to be used with `iprecommit`, but they can also be used independently.
 
 - `iprecommit-commit-msg-format` checks the format of the commit message.
 - `iprecommit-newline-at-eof` checks that each file ends with a newline.

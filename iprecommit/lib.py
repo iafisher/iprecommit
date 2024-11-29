@@ -1,3 +1,4 @@
+import contextlib
 import fnmatch
 import os
 import shlex
@@ -18,6 +19,7 @@ class PreCommitCheck:
     fix_cmd: List[str]
     pass_files: bool
     filters: List[str]
+    working_dir: Optional[str]
 
 
 @dataclass
@@ -80,13 +82,16 @@ def parse_config_toml(path: Path) -> Config:
 
     for pre_commit_toml in pre_commit_toml_list:
         table_name = "[[pre_commit]]"
-        name = validate_name_key(pre_commit_toml, table_name)
+        name = validate_optional_string_key(pre_commit_toml, "name", table_name)
         cmd = validate_cmd_key(pre_commit_toml, table_name)
         fix_cmd = validate_cmd_key(
             pre_commit_toml, table_name, key="fix_cmd", default=[]
         )
         filters = validate_cmd_key(
             pre_commit_toml, table_name, key="filters", default=[]
+        )
+        working_dir = validate_optional_string_key(
+            pre_commit_toml, "working_dir", table_name
         )
 
         pass_files = pre_commit_toml.pop("pass_files", True)
@@ -103,12 +108,13 @@ def parse_config_toml(path: Path) -> Config:
                 fix_cmd=fix_cmd,
                 pass_files=pass_files,
                 filters=filters,
+                working_dir=working_dir,
             )
         )
 
     for commit_msg_toml in commit_msg_toml_list:
         table_name = "[[commit_msg]]"
-        name = validate_name_key(commit_msg_toml, table_name)
+        name = validate_optional_string_key(commit_msg_toml, "name", table_name)
         cmd = validate_cmd_key(commit_msg_toml, table_name)
 
         ensure_dict_empty(commit_msg_toml, "A [[commit_msg]] entry")
@@ -116,7 +122,7 @@ def parse_config_toml(path: Path) -> Config:
 
     for pre_push_toml in pre_push_toml_list:
         table_name = "[[pre_push]]"
-        name = validate_name_key(pre_push_toml, table_name)
+        name = validate_optional_string_key(pre_push_toml, "name", table_name)
         cmd = validate_cmd_key(pre_push_toml, table_name)
 
         ensure_dict_empty(pre_push_toml, f"A {table_name} entry")
@@ -125,14 +131,14 @@ def parse_config_toml(path: Path) -> Config:
     return config
 
 
-def validate_name_key(table, table_name):
-    name = table.pop("name", None)
-    if name is not None and not isinstance(name, str):
+def validate_optional_string_key(table, key, table_name):
+    v = table.pop(key, None)
+    if v is not None and not isinstance(v, str):
         raise IPrecommitTomlError(
-            f"The 'name' key of {table_name} entries in your TOML file should be a string."
+            f"The '{key}' key of {table_name} entries in your TOML file should be a string."
         )
 
-    return name
+    return v
 
 
 _Unset = object()
@@ -204,7 +210,7 @@ class Checks:
                     cmd = check.fix_cmd
                     if check.pass_files:
                         cmd += filtered_changed_paths  # type: ignore
-                    success = self._run_one(cmd)
+                    success = self._run_one(cmd, working_dir=check.working_dir)
                     if not success:
                         # TODO: test for fix failed
                         self._print_status(name, red("fix failed"))
@@ -225,7 +231,7 @@ class Checks:
                 # TODO: test where pass_files=False
                 if check.pass_files:
                     cmd += filtered_changed_paths  # type: ignore
-                success = self._run_one(cmd)
+                success = self._run_one(cmd, working_dir=check.working_dir)
                 if not success:
                     self._print_status(name, red("failed"))
                     self.num_failed_checks += 1
@@ -280,10 +286,17 @@ class Checks:
 
         self._summary("Push")
 
-    def _run_one(self, cmd) -> bool:
+    def _run_one(self, cmd, *, working_dir=None) -> bool:
         # stderr of check commands is really part of normal output, so pipe it to stdout
         # also makes it easier to assert on intermingled stdout/stderr in tests
-        proc = subprocess.run(cmd, stderr=subprocess.STDOUT)
+        do_it = lambda: subprocess.run(cmd, stderr=subprocess.STDOUT)
+
+        if working_dir is not None:
+            with contextlib.chdir(working_dir):
+                proc = do_it()
+        else:
+            proc = do_it()
+
         return proc.returncode == 0
 
     def _summary(self, action: str) -> None:
