@@ -551,6 +551,135 @@ class TestEndToEnd(Base):
         self.assertEqual(expected_stdout, proc.stdout)
         self.assertNotEqual(0, proc.returncode)
 
+    def test_help_text(self):
+        proc = run_shell([".venv/bin/iprecommit", "--help"], capture_stdout=True)
+        expected_stdout = S(
+            """\
+            usage: iprecommit [-h]  ...
+
+            Dead-simple Git pre-commit hook management.
+
+            options:
+              -h, --help      show this help message and exit
+
+            subcommands:
+
+                install       Install an iprecommit hook in the current Git repository.
+                uninstall     Uninstall the iprecommit hook in the current Git repository.
+                run           Manually run the pre-commit hook.
+                fix           Apply fixes to failing checks.
+                run-commit-msg
+                              Manually run the commit-msg hook.
+                run-pre-push  Manually run the pre-push hook.
+            """
+        )
+        self.assertEqual(expected_stdout, S(proc.stdout))
+
+        proc = run_shell(
+            [".venv/bin/iprecommit", "install", "--help"], capture_stdout=True
+        )
+        expected_stdout = S(
+            """\
+            usage: iprecommit install [-h] [--force] [--path PATH]
+
+            Install an iprecommit hook in the current Git repository.
+
+            options:
+              -h, --help   show this help message and exit
+              --force      Overwrite existing pre-commit hook.
+              --path PATH  Customize configuration file path. [default: precommit.toml]
+            """
+        )
+        self.assertEqual(expected_stdout, S(proc.stdout))
+
+        proc = run_shell(
+            [".venv/bin/iprecommit", "uninstall", "--help"], capture_stdout=True
+        )
+        expected_stdout = S(
+            """\
+            usage: iprecommit uninstall [-h] [--force]
+
+            Uninstall the iprecommit hook in the current Git repository.
+
+            options:
+              -h, --help  show this help message and exit
+              --force     Uninstall a non-iprecommit hook.
+            """
+        )
+        self.assertEqual(expected_stdout, S(proc.stdout))
+
+        proc = run_shell([".venv/bin/iprecommit", "run", "--help"], capture_stdout=True)
+        expected_stdout = S(
+            """\
+            usage: iprecommit run [-h] [--config CONFIG] [--unstaged | --all]
+
+            Manually run the pre-commit hook.
+
+            options:
+              -h, --help       show this help message and exit
+              --config CONFIG  Custom path to TOML configuration file. [default:
+                               precommit.toml]
+              --unstaged       Also run on unstaged files.
+              --all            Run on all files in the repository.
+            """
+        )
+        self.assertEqual(expected_stdout, S(proc.stdout))
+
+        proc = run_shell([".venv/bin/iprecommit", "fix", "--help"], capture_stdout=True)
+        expected_stdout = S(
+            """\
+            usage: iprecommit fix [-h] [--config CONFIG] [--unstaged | --all]
+
+            Apply fixes to failing checks.
+
+            options:
+              -h, --help       show this help message and exit
+              --config CONFIG  Custom path to TOML configuration file. [default:
+                               precommit.toml]
+              --unstaged       Also run on unstaged files.
+              --all            Run on all files in the repository.
+            """
+        )
+        self.assertEqual(expected_stdout, S(proc.stdout))
+
+        proc = run_shell(
+            [".venv/bin/iprecommit", "run-commit-msg", "--help"], capture_stdout=True
+        )
+        expected_stdout = S(
+            """\
+            usage: iprecommit run-commit-msg [-h] [--commit-msg COMMIT_MSG]
+                                             [--config CONFIG]
+
+            Manually run the commit-msg hook.
+
+            options:
+              -h, --help            show this help message and exit
+              --commit-msg COMMIT_MSG
+                                    Path to commit message file.
+              --config CONFIG       Custom path to TOML configuration file. [default:
+                                    precommit.toml]
+            """
+        )
+        self.assertEqual(expected_stdout, S(proc.stdout))
+
+        proc = run_shell(
+            [".venv/bin/iprecommit", "run-pre-push", "--help"], capture_stdout=True
+        )
+        expected_stdout = S(
+            """\
+            usage: iprecommit run-pre-push [-h] [--remote REMOTE] [--config CONFIG]
+
+            Manually run the pre-push hook.
+
+            options:
+              -h, --help       show this help message and exit
+              --remote REMOTE
+              --config CONFIG  Custom path to TOML configuration file. [default:
+                               precommit.toml]
+            """
+        )
+        self.assertEqual(expected_stdout, S(proc.stdout))
+
     # TODO: pass_files=True, separately=True
     # TODO: filter checks by command-line argument to `run`
     # TODO: slow=True and --fast command-line argument

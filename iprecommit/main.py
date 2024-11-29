@@ -25,7 +25,7 @@ def main() -> None:
         "--force", action="store_true", help="Overwrite existing pre-commit hook."
     )
     argparser_install.add_argument(
-        "--path", help="Customize configuration file path. [default: 'precommit.toml']"
+        "--path", help="Customize configuration file path. [default: precommit.toml]"
     )
 
     argparser_uninstall = _create_subparser(
@@ -60,6 +60,12 @@ def main() -> None:
     add_config_file_arg(argparser_run)
     add_unstaged_and_all_flags(argparser_run)
 
+    argparser_fix = _create_subparser(
+        subparsers, "fix", help="Apply fixes to failing checks."
+    )
+    add_config_file_arg(argparser_fix)
+    add_unstaged_and_all_flags(argparser_fix)
+
     argparser_run_commit_msg = _create_subparser(
         subparsers, "run-commit-msg", help="Manually run the commit-msg hook."
     )
@@ -73,12 +79,6 @@ def main() -> None:
     )
     argparser_run_pre_push.add_argument("--remote")
     add_config_file_arg(argparser_run_pre_push)
-
-    argparser_fix = _create_subparser(
-        subparsers, "fix", help="Apply fixes to failing checks."
-    )
-    add_config_file_arg(argparser_fix)
-    add_unstaged_and_all_flags(argparser_fix)
 
     args = argparser.parse_args()
     try:
