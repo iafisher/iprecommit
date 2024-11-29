@@ -1,8 +1,7 @@
 import argparse
 import sys
-from pathlib import Path
 
-from . import githelper
+from . import pathhelper
 
 
 def main(argv=None):
@@ -19,23 +18,10 @@ def main(argv=None):
     args = argparser.parse_args(argv)
 
     passed = True
-    for pathstr in args.paths:
-        try:
-            text = Path(pathstr).read_text()
-        except IsADirectoryError:
-            print(f"skipping directory: {pathstr}", file=sys.stderr)
-            continue
-        except UnicodeDecodeError:
-            print(f"skipping non-UTF-8 file: {pathstr}", file=sys.stderr)
-
-        found_typo = search_text(text, title=f"path: {pathstr}")
-        if found_typo:
-            passed = False
-
-    for commit in args.commits:
-        message = githelper.get_commit_message(commit)
-
-        found_typo = search_text(message, title=f"commit: {commit}")
+    for text, display_title in pathhelper.iterate_over_paths_and_commits(
+        args.paths, args.commits
+    ):
+        found_typo = search_text(text, display_title=display_title)
         if found_typo:
             passed = False
 
@@ -43,7 +29,7 @@ def main(argv=None):
         sys.exit(2)
 
 
-def search_text(text: str, *, title: str) -> bool:
+def search_text(text: str, *, display_title: str) -> bool:
     found_typo = False
 
     for lineno, line in enumerate(text.splitlines(), start=1):
@@ -52,7 +38,7 @@ def search_text(text: str, *, title: str) -> bool:
             fixes = TYPOS.get(word)
             if fixes is not None:
                 if not found_typo:
-                    print(title)
+                    print(display_title)
 
                 found_typo = True
                 suggested = " or ".join(map(repr, fixes))

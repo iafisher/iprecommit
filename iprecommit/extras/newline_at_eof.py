@@ -1,6 +1,7 @@
 import argparse
-import os
 import sys
+
+from . import pathhelper
 
 
 def main(argv=None) -> None:
@@ -18,26 +19,18 @@ def main(argv=None) -> None:
     args = argparser.parse_args(argv)
 
     passed = True
-    for pathstr in args.paths:
-        try:
-            # TODO: only try text files and pass newline=None
-            with open(pathstr, "rb") as f:
-                try:
-                    f.seek(-1, os.SEEK_END)
-                except OSError:
-                    if args.allow_empty:
-                        print(f"skipping empty file: {pathstr}", file=sys.stderr)
-                    else:
-                        print(pathstr)
-                        passed = False
-                else:
-                    b = f.read(1)
-
-                    if b != b"\n":
-                        print(pathstr)
-                        passed = False
-        except IsADirectoryError:
-            print(f"skipping directory: {pathstr}", file=sys.stderr)
+    for text, display_title in pathhelper.iterate_over_paths_and_commits(
+        args.paths, []
+    ):
+        if not text:
+            if args.allow_empty:
+                print(f"skipping empty file: {display_title}", file=sys.stderr)
+            else:
+                print(display_title)
+                passed = False
+        elif not text.endswith("\n"):
+            print(display_title)
+            passed = False
 
     if not passed:
         sys.exit(2)
