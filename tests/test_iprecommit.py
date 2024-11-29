@@ -208,6 +208,10 @@ class TestEndToEnd(Base):
 
         self.assertEqual(p.read_text(), "x = 5\n")
 
+        # ensure iprecommit calls 'git add' on the file after fixing it
+        proc = run_shell(["git", "diff", "--name-only"], capture_stdout=True)
+        self.assertEqual(proc.stdout, "")
+
     def test_glob_filters(self):
         self.ensure_black_is_installed()
 

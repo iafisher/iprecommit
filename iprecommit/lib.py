@@ -198,6 +198,13 @@ class Checks:
                         self._print_status(name, red("fix failed"))
                     else:
                         self._print_status(name, "finished")
+                        if not unstaged:
+                            proc = subprocess.run(["git", "add"] + filtered_changed_paths)  # type: ignore
+                            if proc.returncode != 0:
+                                self._print_status(
+                                    name,
+                                    yellow("staging fixed files with 'git add' failed"),
+                                )
                 else:
                     continue
             else:
