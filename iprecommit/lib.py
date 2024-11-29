@@ -182,7 +182,11 @@ class Checks:
         assert not (unstaged and all_files)
 
         if all_files:
-            all_changed_paths = _get_all_git_files()
+            all_changed_paths = list(
+                sorted(
+                    set(_get_all_git_files() + _get_git_changes(include_unstaged=True))
+                )
+            )
         else:
             all_changed_paths = _get_git_changes(include_unstaged=unstaged)
 
@@ -200,8 +204,8 @@ class Checks:
                     cmd = check.fix_cmd
                     if check.pass_files:
                         cmd += filtered_changed_paths  # type: ignore
-                    proc = subprocess.run(cmd)
-                    if proc.returncode != 0:
+                    success = self._run_one(cmd)
+                    if not success:
                         # TODO: test for fix failed
                         self._print_status(name, red("fix failed"))
                     else:
@@ -221,8 +225,8 @@ class Checks:
                 # TODO: test where pass_files=False
                 if check.pass_files:
                     cmd += filtered_changed_paths  # type: ignore
-                proc = subprocess.run(cmd)
-                if proc.returncode != 0:
+                success = self._run_one(cmd)
+                if not success:
                     self._print_status(name, red("failed"))
                     self.num_failed_checks += 1
                 else:
@@ -243,8 +247,8 @@ class Checks:
             name = get_check_name(check)
 
             self._print_status(name, "running")
-            proc = subprocess.run(check.cmd + [commit_msg_file])
-            if proc.returncode != 0:
+            success = self._run_one(check.cmd + [commit_msg_file])
+            if not success:
                 self._print_status(name, red("failed"))
                 self.num_failed_checks += 1
             else:
@@ -264,8 +268,8 @@ class Checks:
             name = get_check_name(check)
 
             self._print_status(name, "running")
-            proc = subprocess.run(check.cmd + commits)
-            if proc.returncode != 0:
+            success = self._run_one(check.cmd + commits)
+            if not success:
                 self._print_status(name, red("failed"))
                 self.num_failed_checks += 1
             else:
@@ -275,6 +279,12 @@ class Checks:
             print()
 
         self._summary("Push")
+
+    def _run_one(self, cmd) -> bool:
+        # stderr of check commands is really part of normal output, so pipe it to stdout
+        # also makes it easier to assert on intermingled stdout/stderr in tests
+        proc = subprocess.run(cmd, stderr=subprocess.STDOUT)
+        return proc.returncode == 0
 
     def _summary(self, action: str) -> None:
         if self.num_failed_checks > 0:

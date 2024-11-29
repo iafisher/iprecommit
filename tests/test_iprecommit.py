@@ -189,6 +189,10 @@ class TestEndToEnd(Base):
         expected_stdout = S(
             """\
             [iprecommit] black --check: fixing
+            reformatted example.py
+
+            All done! ✨ 🍰 ✨
+            1 file reformatted.
             [iprecommit] black --check: finished
 
 
@@ -234,6 +238,10 @@ class TestEndToEnd(Base):
         expected_stdout = S(
             """\
             [iprecommit] black --check: running
+            would reformat bad_python_format.py
+
+            Oh no! 💥 💔 💥
+            1 file would be reformatted.
             [iprecommit] black --check: failed
 
 
@@ -494,13 +502,21 @@ class TestEndToEnd(Base):
         expected_stdout = S(
             f"""\
             [iprecommit] black --check: running
+            would reformat bad_formatX.py
+            would reformat bad_formatX.py
+            would reformat bad_formatX.py
+
+            Oh no! 💥 💔 💥
+            3 files would be reformatted.
             [iprecommit] black --check: failed
 
 
             1 failed. Commit aborted.
             """
         )
-        self.assertEqual(proc.stdout, expected_stdout)
+        # black does not print out the file names in a deterministic order :(
+        actual_stdout = re.sub(r"bad_format[0-9].py", "bad_formatX.py", proc.stdout)
+        self.assertEqual(expected_stdout, actual_stdout)
         self.assertNotEqual(proc.returncode, 0)
 
     # TODO: pass_files=True, separately=True
