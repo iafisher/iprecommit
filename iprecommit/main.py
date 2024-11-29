@@ -1,6 +1,7 @@
 import argparse
 import importlib.metadata
 import os
+import shutil
 import stat
 import sys
 from pathlib import Path
@@ -129,6 +130,9 @@ def main_pre_push(args):
     checks.run_pre_push(args.remote)
 
 
+ENV_TOML_TEMPLATE = "IPRECOMMIT_TOML_TEMPLATE"
+
+
 def main_install(args):
     change_to_git_root()
 
@@ -144,7 +148,24 @@ def main_install(args):
         Path(args.path) if args.path is not None else Path("precommit.toml")
     )
     if not precommit_path.exists():
-        precommit_path.write_text(PRECOMMIT_TEMPLATE)
+        write_template = lambda: precommit_path.write_text(PRECOMMIT_TEMPLATE)
+
+        custom_template_path = os.environ.get(ENV_TOML_TEMPLATE)
+        if custom_template_path is not None:
+            try:
+                shutil.copyfile(custom_template_path, precommit_path)
+            except FileNotFoundError:
+                lib.warn(
+                    f"File at {ENV_TOML_TEMPLATE} ({custom_template_path}) does not exist. Falling back to default template."
+                )
+                write_template()
+            except OSError:
+                lib.warn(
+                    f"Failed to copy from {ENV_TOML_TEMPLATE} ({custom_template_path}). Falling back to default template."
+                )
+                write_template()
+        else:
+            write_template()
 
     py_prefix = Path(sys.prefix)
     try:

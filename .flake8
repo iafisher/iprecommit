@@ -12,3 +12,5 @@ ignore =
     W293,
     # E501 line too long
     E501,
+    # E731 do not assign a lambda expression, use a def
+    E731,

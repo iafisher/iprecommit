@@ -95,3 +95,6 @@ These checks are designed to be used with `iprecommit`, but they can also be use
 - `iprecommit-newline-at-eof` checks that each file ends with a newline.
 - `iprecommit-no-forbidden-strings` checks for forbidden strings.
 - `iprecommit-typos` checks for common typos.
+
+## Customization
+- If you want to create your own template for `precommit.toml` to be used by `iprecommit install`, then set the environment variable `IPRECOMMIT_TOML_TEMPLATE` to the path to the file.
