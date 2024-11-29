@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/iprecommit/issues).
 
+## [0.5.2] - 2024-11-28
+- `working_dir` option for `pre_commit` checks
+- Check command `stderr` output is piped to `stdout`.
+- `--all` flag for `iprecommit run` and `iprecommit fix`
+- Git hooks are replaced atomically instead of overwritten in place.
+
 ## [0.5.1] - 2024-11-28
 - The `IPRECOMMIT_TOML_TEMPLATE` environment variable can be used to customize the `precommit.toml` template.
 - `iprecommit fix` will stage changes to files after a fix command modifies them.
