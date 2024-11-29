@@ -87,3 +87,11 @@ cmd = ["iprecommit-no-forbidden-strings", "--commits"]
 - `[[pre_commit]]`, run before every commit. The command is passed the list of files that changed (added or modified), unless `pass_files = false`.
 - `[[commit_msg]]`, run on the commit message before a commit is finalized. The command is passed a filename holding the commit message.
 - `[[pre_push]]`, run on a set of commit hashes before they are pushed to a remote. The command is passed the list of commit hashes.
+
+## Custom checks
+These checks are designed to be used with `iprecommit`, but they can also be used independently.
+
+- `iprecommit-commit-msg-format` checks the format of the commit message.
+- `iprecommit-newline-at-eof` checks that each file ends with a newline.
+- `iprecommit-no-forbidden-strings` checks for forbidden strings.
+- `iprecommit-typos` checks for common typos.
