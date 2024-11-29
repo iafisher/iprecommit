@@ -45,4 +45,4 @@ name = "CommitMessageTypos"
 cmd = ["iprecommit-typos", "--paths"]
 
 [[pre_push]]
-cmd = ["iprecommit-do-not-commit", "--commits"]
+cmd = ["iprecommit-no-forbidden-strings", "--strings", "DO NOT PUSH", "--commits"]
