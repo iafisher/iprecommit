@@ -82,8 +82,8 @@ class TestEndToEnd(Base):
             1 failed. Commit aborted.
             """
         )
-        self.assertEqual(proc.stdout, expected_stdout)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
 
     def test_not_in_git_root(self):
         self._create_repo()
@@ -110,8 +110,8 @@ class TestEndToEnd(Base):
             1 failed. Commit aborted.
             """
         )
-        self.assertEqual(proc.stdout, expected_stdout)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
 
     def test_failed_unstaged_precommit_run(self):
         self._create_repo()
@@ -135,8 +135,8 @@ class TestEndToEnd(Base):
             2 failed. Commit aborted.
             """
         )
-        self.assertEqual(proc.stdout, expected_stdout)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
 
     def test_failed_git_commit(self):
         self._create_repo()
@@ -173,8 +173,8 @@ class TestEndToEnd(Base):
             1 failed. Commit aborted.
             """
         )
-        self.assertEqual(proc.stderr, expected_stderr)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(expected_stderr, proc.stderr)
+        self.assertNotEqual(0, proc.returncode)
 
     def test_run_fix(self):
         self.ensure_black_is_installed()
@@ -198,14 +198,14 @@ class TestEndToEnd(Base):
 
             """
         )
-        self.assertEqual(proc.stdout, expected_stdout)
-        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(0, proc.returncode)
 
         self.assertEqual(p.read_text(), "x = 5\n")
 
         # ensure iprecommit calls 'git add' on the file after fixing it
         proc = run_shell(["git", "diff", "--name-only"], capture_stdout=True)
-        self.assertEqual(proc.stdout, "")
+        self.assertEqual("", proc.stdout)
 
     def test_glob_filters(self):
         self.ensure_black_is_installed()
@@ -220,8 +220,8 @@ class TestEndToEnd(Base):
             [iprecommit] black --check: skipped
             """
         )
-        self.assertEqual(proc.stdout, expected_stdout)
-        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(0, proc.returncode)
 
     def test_uninstall(self):
         self._create_repo()
@@ -248,8 +248,8 @@ class TestEndToEnd(Base):
             1 failed. Commit aborted.
             """
         )
-        self.assertEqual(proc.stdout, expected_stdout)
-        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(1, proc.returncode)
 
     def test_install_does_not_overwrite(self):
         self._create_repo(install_hook=False)
@@ -263,7 +263,7 @@ class TestEndToEnd(Base):
             proc.stderr,
             "Error: .git/hooks/pre-commit already exists. Re-run with --force to overwrite.\n",
         )
-        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(1, proc.returncode)
         self.assertFalse(Path("precommit.toml").exists())
 
         run_shell([".venv/bin/iprecommit", "install", "--force"])
@@ -276,8 +276,8 @@ class TestEndToEnd(Base):
         proc = run_shell(
             [".venv/bin/iprecommit", "uninstall"], check=False, capture_stderr=True
         )
-        self.assertEqual(proc.stderr, "Error: No pre-commit hook exists.\n")
-        self.assertEqual(proc.returncode, 1)
+        self.assertEqual("Error: No pre-commit hook exists.\n", proc.stderr)
+        self.assertEqual(1, proc.returncode)
 
     def test_uninstall_checks_for_iprecommit(self):
         self._create_repo(install_hook=False)
@@ -292,7 +292,7 @@ class TestEndToEnd(Base):
             proc.stderr,
             "Error: Existing pre-commit hook is not from iprecommit. Re-run with --force to uninstall anyway.\n",
         )
-        self.assertEqual(proc.returncode, 1)
+        self.assertEqual(1, proc.returncode)
 
         self.assertTrue(hook_path.exists())
 
@@ -318,8 +318,8 @@ class TestEndToEnd(Base):
             1 failed. Commit aborted.
             """
         )
-        self.assertEqual(proc.stderr, expected_stderr)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(expected_stderr, proc.stderr)
+        self.assertNotEqual(0, proc.returncode)
 
     def test_commit_msg(self):
         precommit_text = S(
@@ -349,8 +349,8 @@ class TestEndToEnd(Base):
             1 failed. Commit aborted.
             """
         )
-        self.assertEqual(proc.stderr, expected_stderr)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(expected_stderr, proc.stderr)
+        self.assertNotEqual(0, proc.returncode)
 
     def test_pre_push(self):
         raise unittest.SkipTest(
@@ -390,12 +390,12 @@ class TestEndToEnd(Base):
                 1 failed. Push aborted.
                 """
             )
-            self.assertEqual(proc.stdout, expected_stdout)
-            self.assertNotEqual(proc.returncode, 0)
+            self.assertEqual(expected_stdout, proc.stdout)
+            self.assertNotEqual(0, proc.returncode)
 
             # make sure nothing was pushed
             proc = run_shell(["git", "log", "origin/master"], check=False)
-            self.assertNotEqual(proc.returncode, 0)
+            self.assertNotEqual(0, proc.returncode)
 
     def test_pre_push_commit_msg(self):
         precommit_text = S(
@@ -431,12 +431,12 @@ class TestEndToEnd(Base):
                 1 failed. Push aborted.
                 """
             )
-            self.assertEqual(proc.stdout, expected_stdout)
-            self.assertNotEqual(proc.returncode, 0)
+            self.assertEqual(expected_stdout, proc.stdout)
+            self.assertNotEqual(0, proc.returncode)
 
             # make sure nothing was pushed
             proc = run_shell(["git", "log", "origin/master"], check=False)
-            self.assertNotEqual(proc.returncode, 0)
+            self.assertNotEqual(0, proc.returncode)
 
     def test_non_ascii_filename(self):
         self._create_repo()
@@ -457,8 +457,8 @@ class TestEndToEnd(Base):
             1 failed. Commit aborted.
             """
         )
-        self.assertEqual(proc.stdout, expected_stdout)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
 
     def test_non_utf8_filename(self):
         if platform.system() != "Linux":
@@ -487,8 +487,8 @@ class TestEndToEnd(Base):
             1 failed. Commit aborted.
             """
         )
-        self.assertEqual(proc.stdout, expected_stdout)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
 
     def test_run_precommit_on_all(self):
         self.ensure_black_is_installed()
@@ -517,7 +517,7 @@ class TestEndToEnd(Base):
         # black does not print out the file names in a deterministic order :(
         actual_stdout = re.sub(r"bad_format[0-9].py", "bad_formatX.py", proc.stdout)
         self.assertEqual(expected_stdout, actual_stdout)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotEqual(0, proc.returncode)
 
     def test_working_dir(self):
         precommit_text = S(
@@ -549,7 +549,7 @@ class TestEndToEnd(Base):
             """
         )
         self.assertEqual(expected_stdout, proc.stdout)
-        self.assertNotEqual(proc.returncode, 0)
+        self.assertNotEqual(0, proc.returncode)
 
     # TODO: pass_files=True, separately=True
     # TODO: filter checks by command-line argument to `run`
@@ -569,22 +569,22 @@ class TestUnit(unittest.TestCase):
         paths = lambda *args: [Path(a) for a in args]
 
         self.assertEqual(
-            lib._filter_paths(paths("a.py", "b.txt"), ["*.py"]), paths("a.py")
+            paths("a.py"), lib._filter_paths(paths("a.py", "b.txt"), ["*.py"])
         )
         self.assertEqual(
-            lib._filter_paths(paths("a.py", "b.txt"), ["*.txt"]), paths("b.txt")
+            paths("b.txt"), lib._filter_paths(paths("a.py", "b.txt"), ["*.txt"])
         )
 
         self.assertEqual(
-            lib._filter_paths(paths("a.py", "b.txt", "c.py"), ["*.py", "!c.py"]),
             paths("a.py"),
+            lib._filter_paths(paths("a.py", "b.txt", "c.py"), ["*.py", "!c.py"]),
         )
 
         self.assertEqual(
+            paths("a.py", "b.txt"),
             lib._filter_paths(
                 paths("a.py", "b.txt", "c.py"), ["*.py", "!c.py", "b.txt"]
             ),
-            paths("a.py", "b.txt"),
         )
 
 
