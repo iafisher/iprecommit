@@ -7,6 +7,10 @@ name = "NewlineAtEndOfFile"
 cmd = ["iprecommit-newline-at-eof"]
 
 [[pre_commit]]
+name = "CommitMessageTypos"
+cmd = ["iprecommit-typos", "--paths"]
+
+[[pre_commit]]
 name = "PythonFormat"
 cmd = ["black", "--check"]
 filters = ["*.py"]
@@ -31,6 +35,14 @@ name = "ProjectTests"
 cmd = [".venv/bin/pytest", "--tb=short"]
 pass_files = false
 filters = ["*.py"]
+
+[[commit_msg]]
+name = "CommitMessageFormat"
+cmd = ["iprecommit-commit-msg-format"]
+
+[[commit_msg]]
+name = "CommitMessageTypos"
+cmd = ["iprecommit-typos", "--paths"]
 
 [[pre_push]]
 cmd = ["iprecommit-do-not-commit", "--commits"]
