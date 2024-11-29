@@ -45,13 +45,20 @@ def main() -> None:
             help=f"Custom path to TOML configuration file. [default: {default}]",
         )
 
+    def add_unstaged_and_all_flags(argparser):
+        group = argparser.add_mutually_exclusive_group()
+        group.add_argument(
+            "--unstaged", action="store_true", help="Also run on unstaged files."
+        )
+        group.add_argument(
+            "--all", action="store_true", help="Run on all files in the repository."
+        )
+
     argparser_run = _create_subparser(
         subparsers, "run", help="Manually run the pre-commit hook."
     )
-    argparser_run.add_argument(
-        "--unstaged", action="store_true", help="Also run checks on unstaged files."
-    )
     add_config_file_arg(argparser_run)
+    add_unstaged_and_all_flags(argparser_run)
 
     argparser_run_commit_msg = _create_subparser(
         subparsers, "run-commit-msg", help="Manually run the commit-msg hook."
@@ -70,10 +77,8 @@ def main() -> None:
     argparser_fix = _create_subparser(
         subparsers, "fix", help="Apply fixes to failing checks."
     )
-    argparser_fix.add_argument(
-        "--unstaged", action="store_true", help="Also apply fixes to unstaged files."
-    )
     add_config_file_arg(argparser_fix)
+    add_unstaged_and_all_flags(argparser_fix)
 
     args = argparser.parse_args()
     try:
@@ -104,7 +109,7 @@ def main_pre_commit(args):
 
     config = lib.parse_config_toml(args.config)
     checks = lib.Checks(config)
-    checks.run_pre_commit(fix_mode=False, unstaged=args.unstaged)
+    checks.run_pre_commit(fix_mode=False, unstaged=args.unstaged, all_files=args.all)
 
 
 def main_fix(args):
@@ -112,7 +117,7 @@ def main_fix(args):
 
     config = lib.parse_config_toml(args.config)
     checks = lib.Checks(config)
-    checks.run_pre_commit(fix_mode=True, unstaged=args.unstaged)
+    checks.run_pre_commit(fix_mode=True, unstaged=args.unstaged, all_files=args.all)
 
 
 def main_commit_msg(args):

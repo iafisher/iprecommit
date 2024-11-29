@@ -176,8 +176,16 @@ class Checks:
         self.num_failed_checks = 0
         self.config = config
 
-    def run_pre_commit(self, *, fix_mode: bool, unstaged: bool) -> None:
-        all_changed_paths = _get_git_changes(include_unstaged=unstaged)
+    def run_pre_commit(
+        self, *, fix_mode: bool, unstaged: bool, all_files: bool
+    ) -> None:
+        assert not (unstaged and all_files)
+
+        if all_files:
+            all_changed_paths = _get_all_git_files()
+        else:
+            all_changed_paths = _get_git_changes(include_unstaged=unstaged)
+
         for check in self.config.pre_commit_checks:
             name = get_check_name(check)
 
@@ -344,6 +352,15 @@ def _get_git_changes(
         "M", include_unstaged=include_unstaged, since=since
     )
     return added_paths + modified_paths
+
+
+def _get_all_git_files() -> List[Path]:
+    proc = subprocess.run(
+        ["git", "ls-tree", "-r", "HEAD", "--name-only", "-z"],
+        capture_output=True,
+        check=True,
+    )
+    return [Path(os.fsdecode(p)) for p in proc.stdout.split(b"\x00") if p]
 
 
 def _get_git_commits(*, since: str) -> List[str]:

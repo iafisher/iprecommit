@@ -178,16 +178,7 @@ class TestEndToEnd(Base):
 
     def test_run_fix(self):
         self.ensure_black_is_installed()
-
-        precommit_text = S(
-            """
-            [[pre_commit]]
-            cmd = ["black", "--check"]
-            fix_cmd = ["black"]
-            filters = ["*.py"]
-            """
-        )
-        self._create_repo(precommit_text=precommit_text)
+        self._create_repo(precommit_text=PYTHON_FORMAT_PRECOMMIT)
 
         p = Path("example.py")
         create_and_commit_file(p, "")
@@ -214,15 +205,7 @@ class TestEndToEnd(Base):
 
     def test_glob_filters(self):
         self.ensure_black_is_installed()
-
-        precommit_text = S(
-            """
-            [[pre_commit]]
-            cmd = ["black", "--check"]
-            filters = ["*.py"]
-            """
-        )
-        self._create_repo(precommit_text=precommit_text)
+        self._create_repo(precommit_text=PYTHON_FORMAT_PRECOMMIT)
         create_and_stage_file(
             "example.txt", "This does not parse as valid Python code.\n"
         )
@@ -244,16 +227,7 @@ class TestEndToEnd(Base):
 
     def test_python_format(self):
         self.ensure_black_is_installed()
-
-        precommit_text = S(
-            """
-            [[pre_commit]]
-            cmd = ["black", "--check"]
-            pass_files = true
-            filters = ["*.py"]
-            """
-        )
-        self._create_repo(precommit_text=precommit_text)
+        self._create_repo(precommit_text=PYTHON_FORMAT_PRECOMMIT)
         create_and_stage_file("bad_python_format.py", 'print(  "hello"  )\n')
 
         proc = iprecommit_run()
@@ -508,6 +482,27 @@ class TestEndToEnd(Base):
         self.assertEqual(proc.stdout, expected_stdout)
         self.assertNotEqual(proc.returncode, 0)
 
+    def test_run_precommit_on_all(self):
+        self.ensure_black_is_installed()
+        self._create_repo(precommit_text=PYTHON_FORMAT_PRECOMMIT)
+
+        create_and_commit_file("bad_format1.py", "x   = 5\n", check=False)
+        create_and_commit_file("bad_format2.py", "y   = 5\n", check=False)
+        create_and_stage_file("bad_format3.py", "z   = 5\n")
+
+        proc = iprecommit_run("--all")
+        expected_stdout = S(
+            f"""\
+            [iprecommit] black --check: running
+            [iprecommit] black --check: failed
+
+
+            1 failed. Commit aborted.
+            """
+        )
+        self.assertEqual(proc.stdout, expected_stdout)
+        self.assertNotEqual(proc.returncode, 0)
+
     # TODO: pass_files=True, separately=True
     # TODO: filter checks by command-line argument to `run`
     # TODO: slow=True and --fast command-line argument
@@ -548,6 +543,16 @@ class TestUnit(unittest.TestCase):
 S = textwrap.dedent
 
 
+PYTHON_FORMAT_PRECOMMIT = S(
+    """
+    [[pre_commit]]
+    cmd = ["black", "--check"]
+    fix_cmd = ["black"]
+    filters = ["*.py"]
+    """
+)
+
+
 def iprecommit_run(*args, capture_stderr=False):
     return run_shell(
         [".venv/bin/iprecommit", "run"] + list(args),
@@ -579,11 +584,11 @@ def stage_do_not_submit_file():
 
 
 # returns commit hash
-def create_and_commit_file(name, contents, *, message="."):
+def create_and_commit_file(name, contents, *, message=".", check=True):
     p = Path(name)
     p.write_text(contents)
     run_shell(["git", "add", str(p)])
-    run_shell(["git", "commit", "-m", message])
+    run_shell(["git", "commit", "-m", message] + ([] if check else ["-n"]))
     proc = run_shell(["git", "log", "-1", "--format=%H", "HEAD"], capture_stdout=True)
     return proc.stdout.strip()
 
