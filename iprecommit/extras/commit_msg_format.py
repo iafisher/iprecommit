@@ -45,12 +45,19 @@ def check(
     max_line_length: Optional[int],
     require_capitalized: bool,
 ) -> bool:
-    if not text:
+    original_lines = text.splitlines()
+    lines_without_comments = [
+        line for line in original_lines if not line.lstrip().startswith("#")
+    ]
+
+    if not lines_without_comments or all(
+        not line or line.isspace() for line in lines_without_comments
+    ):
         print("commit message is empty")
         return False
 
     passed = True
-    first_line, *lines = text.splitlines()
+    first_line, *rest = lines_without_comments
 
     if not first_line:
         print("first line should not be blank")
@@ -60,7 +67,7 @@ def check(
         print("first line should not start with whitespace")
         passed = False
 
-    if len(lines) > 0 and lines[0] != "":
+    if len(rest) > 0 and rest[0] != "":
         print("should be a blank line after first line")
         passed = False
 
@@ -73,7 +80,7 @@ def check(
             passed = False
 
     if max_line_length is not None:
-        for lineno, line in enumerate(lines, start=2):
+        for lineno, line in enumerate(rest, start=2):
             line_ok = check_line(lineno, line, max_line_length)
             if not line_ok:
                 passed = False
