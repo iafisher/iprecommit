@@ -341,6 +341,8 @@ class Checks:
                 print()
 
         self._summary("Push")
+        print()
+        print()
 
     def _run_one(self, cmd, *, working_dir=None) -> bool:
         # stderr of check commands is really part of normal output, so pipe it to stdout
