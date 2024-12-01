@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/iprecommit/issues).
 
+## [0.6.0] - 2024-12-01
+- `autofix` option added to TOML.
+- `iprecommit-commit-msg-format` now correctly ignores diffs in commit messages.
+- `iprecommit-commit-msg-format` now prints correct line numbers.
+- `iprecommit-newline-at-eof` now has a `--fix` option.
+- Program output tweaked (e.g., one blank line instead of two between blocks).
+
 ## [0.5.2] - 2024-11-28
 - `working_dir` option for `pre_commit` checks
 - Check command `stderr` output is piped to `stdout`.
