@@ -688,12 +688,13 @@ class TestEndToEnd(Base):
         proc = run_shell([".venv/bin/iprecommit", "--help"], capture_stdout=True)
         expected_stdout = S(
             """\
-            usage: iprecommit [-h]  ...
+            usage: iprecommit [-h] [--version]  ...
 
             Dead-simple Git pre-commit hook management.
 
             options:
               -h, --help      show this help message and exit
+              --version       show program's version number and exit
 
             subcommands:
 

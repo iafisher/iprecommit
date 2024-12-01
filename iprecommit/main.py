@@ -16,6 +16,7 @@ def main() -> None:
     argparser = argparse.ArgumentParser(
         description="Dead-simple Git pre-commit hook management."
     )
+    argparser.add_argument("--version", action="version", version=get_version())
     subparsers = argparser.add_subparsers(title="subcommands", metavar="")
 
     argparser_install = _create_subparser(
