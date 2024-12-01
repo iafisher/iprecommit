@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Generator, List, Tuple
 
 from . import githelper
+from iprecommit.lib import IPrecommitError
 
 
 def iterate_over_paths(paths: List[Path]) -> Generator[Tuple[str, Path], None, None]:
@@ -32,6 +33,12 @@ def iterate_over_paths_and_commits(
         yield text, display_title
 
     for commit in commits:
+        if commit == ".git/COMMIT_EDITMSG":
+            raise IPrecommitError(
+                "You passed '.git/COMMIT_EDITMSG' as a commit. "
+                + "Did you mean --paths instead of --commits in your 'commit_msg' check?"
+            )
+
         message = githelper.get_commit_message(commit)
         display_title = f"commit: {commit}" if both else commit
         yield message, display_title

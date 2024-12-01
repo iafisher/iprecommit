@@ -293,6 +293,11 @@ class TestEndToEnd(Base):
             [iprecommit] iprecommit-commit-msg-format --require-capitalized: failed
 
 
+            [iprecommit] commit message (also at .git/COMMIT_EDITMSG)
+            lowercase
+            [iprecommit] end commit message
+
+
             1 failed. Commit aborted.
             """
         )

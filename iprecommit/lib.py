@@ -315,7 +315,15 @@ class Checks:
             if i != len(self.config.commit_msg_checks) - 1:
                 print()
 
-        failed = self._summary("Commit")
+        failed = self._failed()
+        if failed:
+            print()
+            print()
+            self._print_msg("commit message (also at .git/COMMIT_EDITMSG)")
+            print(commit_msg_file.read_text(), end="")
+            self._print_msg("end commit message", flush=True)
+
+        self._summary("Commit")
         if not failed:
             # put some blank lines in between end of iprecommit output and start of 'git commit' output.
             print()
@@ -357,30 +365,34 @@ class Checks:
 
         return proc.returncode == 0
 
-    def _summary(self, action: str) -> bool:
-        if self.num_failed_checks > 0:
+    def _failed(self) -> bool:
+        return self.num_failed_checks > 0
+
+    def _summary(self, action: str) -> None:
+        if self._failed():
             s = f"{self.num_failed_checks} failed"
             print()
             print()
             print(f"{red(s)}. {action} aborted.")
             sys.stdout.flush()
             sys.exit(1)
-            return True
-        else:
-            return False
 
     def _print_block_status(self, line: str) -> None:
         stars = "*" * len(line)
-        print(f"{cyan('[iprecommit]')} {stars}")
-        print(f"{cyan('[iprecommit]')} {line}")
-        print(f"{cyan('[iprecommit]')} {stars}")
+        self._print_msg(stars)
+        self._print_msg(line)
+        self._print_msg(stars)
         print()
         print()
         sys.stdout.flush()
 
     def _print_status(self, name: str, status: str) -> None:
-        print(f"{cyan('[iprecommit]')} {name}: {status}")
-        sys.stdout.flush()
+        self._print_msg(f"{name}: {status}", flush=True)
+
+    def _print_msg(self, line: str, *, flush: bool = False) -> None:
+        print(f"{cyan('[iprecommit]')} {line}")
+        if flush:
+            sys.stdout.flush()
 
 
 def _filter_paths(paths: List[Path], filters: List[str]) -> List[Path]:

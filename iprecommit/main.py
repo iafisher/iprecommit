@@ -125,7 +125,7 @@ def main_commit_msg(args):
 
     config = lib.parse_config_toml(args.config)
     checks = lib.Checks(config)
-    checks.run_commit_msg(args.commit_msg)
+    checks.run_commit_msg(Path(args.commit_msg))
 
 
 def main_pre_push(args):
