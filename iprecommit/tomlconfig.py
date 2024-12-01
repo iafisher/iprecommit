@@ -1,7 +1,7 @@
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from . import tomlparse
 from .common import IPrecommitTomlError
@@ -15,6 +15,7 @@ class PreCommitCheck:
     pass_files: bool
     filters: List[str]
     working_dir: Optional[str]
+    fail_fast: bool
 
 
 @dataclass
@@ -46,14 +47,14 @@ def parse(path: Path) -> Config:
     commit_msg_toml_list = raw_toml.pop("commit_msg", [])
     pre_push_toml_list = raw_toml.pop("pre_push", [])
     autofix = raw_toml.pop("autofix", False)
-    fail_fast = raw_toml.pop("failfast", False)
+    fail_fast = raw_toml.pop("fail_fast", False)
     ensure_dict_empty(raw_toml, "The top-level table")
 
     if not isinstance(autofix, bool):
         raise IPrecommitTomlError("'autofix' in your TOML file should be a boolean.")
 
     if not isinstance(fail_fast, bool):
-        raise IPrecommitTomlError("'failfast' in your TOML file should be a boolean.")
+        raise IPrecommitTomlError("'fail_fast' in your TOML file should be a boolean.")
 
     if not isinstance(pre_commit_toml_list, list) or any(
         not isinstance(d, dict) for d in pre_commit_toml_list
@@ -97,12 +98,12 @@ def parse(path: Path) -> Config:
         working_dir = validate_optional_string_key(
             pre_commit_toml, "working_dir", table_name
         )
-
-        pass_files = pre_commit_toml.pop("pass_files", True)
-        if not isinstance(pass_files, bool):
-            raise IPrecommitTomlError(
-                "The 'pass_files' key of [[pre_commit]] entries in your TOML file should be a boolean."
-            )
+        fail_fast = validate_bool_key(
+            pre_commit_toml, "fail_fast", value_if_unset=False, table_name="pre_commit"
+        )
+        pass_files = validate_bool_key(
+            pre_commit_toml, "pass_files", value_if_unset=True, table_name="pre_commit"
+        )
 
         ensure_dict_empty(pre_commit_toml, "A [[pre_commit]] entry")
         config.pre_commit_checks.append(
@@ -113,6 +114,7 @@ def parse(path: Path) -> Config:
                 pass_files=pass_files,
                 filters=filters,
                 working_dir=working_dir,
+                fail_fast=fail_fast,
             )
         )
 
@@ -135,7 +137,9 @@ def parse(path: Path) -> Config:
     return config
 
 
-def validate_optional_string_key(table, key, table_name):
+def validate_optional_string_key(
+    table: Dict[str, Any], key: str, table_name: str
+) -> Any:
     v = table.pop(key, None)
     if v is not None and not isinstance(v, str):
         raise IPrecommitTomlError(
@@ -148,7 +152,9 @@ def validate_optional_string_key(table, key, table_name):
 _Unset = object()
 
 
-def validate_cmd_key(table, table_name, key="cmd", default=_Unset):
+def validate_cmd_key(
+    table: Dict[str, Any], table_name: str, key: str = "cmd", default: Any = _Unset
+) -> Any:
     if default is not _Unset:
         v = table.pop(key, default)
     else:
@@ -167,8 +173,20 @@ def validate_cmd_key(table, table_name, key="cmd", default=_Unset):
     return v
 
 
-def ensure_dict_empty(d, name):
-    top_level_keys = ["autofix", "failfast"]
+def validate_bool_key(
+    table: Dict[str, Any], key: str, *, value_if_unset: bool, table_name: str
+) -> bool:
+    value = table.pop(key, value_if_unset)
+    if not isinstance(value, bool):
+        raise IPrecommitTomlError(
+            f"The '{key}' key of [[{table_name}]] entries in your TOML file should be a boolean."
+        )
+
+    return value
+
+
+def ensure_dict_empty(d: dict, name: str) -> None:
+    top_level_keys = ["autofix"]
     for key in top_level_keys:
         if key in d:
             raise IPrecommitTomlError(
@@ -182,7 +200,7 @@ def ensure_dict_empty(d, name):
     else:
         key_lower = key.lower()
         if "fail" in key_lower:
-            did_you_mean = " (Did you mean 'failfast'?)"
+            did_you_mean = " (Did you mean 'fail_fast'?)"
         elif "auto" in key_lower or "fix" in key_lower:
             did_you_mean = " (Did you mean 'autofix'?)"
         else:

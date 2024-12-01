@@ -228,8 +228,9 @@ PRECOMMIT_TEMPLATE = """\
 # check fails.
 autofix = false
 
-# Set 'failfast' to 'true' to abort the run after the first failing check.
-failfast = false
+# Set 'fail_fast' to 'true' to abort the run after the first failing check.
+# You can also set 'fail_fast' on individual checks.
+fail_fast = false
 
 [[pre_commit]]
 name = "NoForbiddenStrings"
@@ -239,6 +240,8 @@ cmd = ["iprecommit-no-forbidden-strings", "--paths"]
 name = "NewlineAtEndOfFile"
 cmd = ["iprecommit-newline-at-eof"]
 fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
+# 'fail_fast = true' works nicely with 'autofix = true' at the top level.
+fail_fast = false
 
 # [[pre_commit]]
 # name = "PythonFormat"

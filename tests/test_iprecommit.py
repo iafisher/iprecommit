@@ -34,7 +34,7 @@ class TestEndToEnd(Base):
         self.assertNotEqual(0, proc.returncode)
 
     def test_fail_fast(self):
-        self._create_repo(FAIL_FAST_PRECOMMIT)
+        self._create_repo(TOP_LEVEL_FAILFAST_PRECOMMIT)
         stage_do_not_submit_file()
 
         proc = iprecommit_run()
@@ -565,6 +565,50 @@ class TestEndToEnd(Base):
 
         self.assertEqual("Lorem ipsum\n", Path("example.txt").read_text())
 
+    def test_autofix_with_failfast(self):
+        self._create_repo(precommit_text=FAILFAST_WITH_AUTOFIX_PRECOMMIT)
+
+        create_and_stage_file("example.txt", "Lorem ipsum")
+
+        self.assert_no_commits()
+        proc = run_shell(["git", "commit", "-m", "."], check=False, capture_stderr=True)
+        expected_stderr = S(
+            f"""\
+            [iprecommit] NewlineAtEOF: running
+            example.txt
+            [iprecommit] NewlineAtEOF: failed
+
+            [iprecommit] Failing fast: skipping 1 subsequent check.
+
+
+            [iprecommit] ******************
+            [iprecommit] attempting autofix
+            [iprecommit] ******************
+
+
+            [iprecommit] NewlineAtEOF: fixing
+            fixed: example.txt
+            [iprecommit] NewlineAtEOF: finished
+
+
+            [iprecommit] **********************
+            [iprecommit] retrying after autofix
+            [iprecommit] **********************
+
+
+            [iprecommit] NewlineAtEOF: running
+            [iprecommit] NewlineAtEOF: passed
+
+            [iprecommit] NoDoNotCommit: running
+            [iprecommit] NoDoNotCommit: passed
+            """
+        )
+        self.assertEqual(expected_stderr, proc.stderr)
+        self.assertEqual(0, proc.returncode)
+        self.assert_one_commit()
+
+        self.assertEqual("Lorem ipsum\n", Path("example.txt").read_text())
+
     def test_autofix_failed(self):
         self._create_repo(precommit_text=AUTOFIX_PRECOMMIT)
 
@@ -837,17 +881,32 @@ cmd = ["iprecommit-newline-at-eof"]
 fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
 """
 
-FAIL_FAST_PRECOMMIT = """\
-failfast = true
+TOP_LEVEL_FAILFAST_PRECOMMIT = """\
+fail_fast = true
 
 [[pre_commit]]
 name = "NoForbiddenStrings"
 cmd = ["iprecommit-no-forbidden-strings", "--paths"]
 
 [[pre_commit]]
-name = "NewlineAtEndOfFile"
+name = "NewlineAtEOF"
 cmd = ["iprecommit-newline-at-eof"]
 fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
+"""
+
+FAILFAST_WITH_AUTOFIX_PRECOMMIT = """\
+autofix = true
+fail_fast = false
+
+[[pre_commit]]
+name = "NewlineAtEOF"
+cmd = ["iprecommit-newline-at-eof"]
+fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
+fail_fast = true
+
+[[pre_commit]]
+name = "NoDoNotCommit"
+cmd = ["iprecommit-no-forbidden-strings", "--paths"]
 """
 
 
