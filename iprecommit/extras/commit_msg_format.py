@@ -2,7 +2,7 @@ import argparse
 import sys
 import textwrap
 from pathlib import Path
-from typing import Optional
+from typing import Generator, List, Optional, Tuple
 
 
 def main(argv=None) -> None:
@@ -46,18 +46,16 @@ def check(
     require_capitalized: bool,
 ) -> bool:
     original_lines = text.splitlines()
-    lines_without_comments = [
-        line for line in original_lines if not line.lstrip().startswith("#")
-    ]
+    lines_without_comments = list(filter_commit_lines(original_lines))
 
     if not lines_without_comments or all(
-        not line or line.isspace() for line in lines_without_comments
+        not line or line.isspace() for line, _ in lines_without_comments
     ):
         print("commit message is empty")
         return False
 
     passed = True
-    first_line, *rest = lines_without_comments
+    (first_line, _), *rest = lines_without_comments
 
     if not first_line:
         print("first line should not be blank")
@@ -67,7 +65,7 @@ def check(
         print("first line should not start with whitespace")
         passed = False
 
-    if len(rest) > 0 and rest[0] != "":
+    if len(rest) > 0 and rest[0][0] != "":
         print("should be a blank line after first line")
         passed = False
 
@@ -80,7 +78,7 @@ def check(
             passed = False
 
     if max_line_length is not None:
-        for lineno, line in enumerate(rest, start=2):
+        for line, lineno in rest:
             line_ok = check_line(lineno, line, max_line_length)
             if not line_ok:
                 passed = False
@@ -90,6 +88,19 @@ def check(
         passed = False
 
     return passed
+
+
+GIT_CUT_LINE = "------------------------ >8 ------------------------"
+
+
+def filter_commit_lines(lines: List[str]) -> Generator[Tuple[str, int], None, None]:
+    for lineno, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            if line[1:].lstrip() == GIT_CUT_LINE:
+                return
+        else:
+            yield line, lineno
 
 
 def check_line(lineno: int, line: str, max_length: int) -> bool:
