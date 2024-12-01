@@ -222,6 +222,10 @@ PRECOMMIT_TEMPLATE = """\
 # This file configures Git hooks for the project.
 # Documentation: https://github.com/iafisher/iprecommit
 
+# Set 'autofix' to 'true' to automatically run 'iprecommit fix' if a fixable
+# check fails.
+autofix = false
+
 [[pre_commit]]
 name = "NoForbiddenStrings"
 cmd = ["iprecommit-no-forbidden-strings", "--paths"]

@@ -84,6 +84,9 @@ cmd = ["iprecommit-no-forbidden-strings", "--commits"]
 - `name` and `cmd` are the only supported keys for `pre_push` checks.
 - `cmd` is passed a list of Git revisions to be pushed to the remote repository.
 
+### Autofix
+If the top-level `autofix` option is set to `true` in the TOML file, then when a fixable check fails, `iprecommit run` will automatically invoke `iprecommit fix`, and then re-run `iprecommit run` after. This is useful if you have, e.g., auto-formatting checks that can fix themselves without human intervention.
+
 ## Custom commands
 These commands are designed to be used with `iprecommit`, but they can also be used independently.
 
