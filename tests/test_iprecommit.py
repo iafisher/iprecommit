@@ -126,6 +126,8 @@ class TestEndToEnd(Base):
         self.assertEqual(expected_stderr, proc.stderr)
         self.assertNotEqual(0, proc.returncode)
 
+        self.assert_no_commits()
+
     def test_run_fix(self):
         self.ensure_black_is_installed()
         self._create_repo(precommit_text=PYTHON_FORMAT_PRECOMMIT)
@@ -501,6 +503,134 @@ class TestEndToEnd(Base):
         self.assertEqual(expected_stdout, proc.stdout)
         self.assertNotEqual(0, proc.returncode)
 
+    def test_autofix(self):
+        self._create_repo(precommit_text=AUTOFIX_PRECOMMIT)
+
+        create_and_stage_file("example.txt", "Lorem ipsum")
+
+        self.assert_no_commits()
+        proc = run_shell(["git", "commit", "-m", "."], check=False, capture_stderr=True)
+        expected_stderr = S(
+            f"""\
+            [iprecommit] NoDoNotCommit: running
+            [iprecommit] NoDoNotCommit: passed
+
+
+            [iprecommit] NewlineAtEOF: running
+            example.txt
+            [iprecommit] NewlineAtEOF: failed
+
+
+            [iprecommit] ******************
+            [iprecommit] attempting autofix
+            [iprecommit] ******************
+
+
+            [iprecommit] NewlineAtEOF: fixing
+            fixed: example.txt
+            [iprecommit] NewlineAtEOF: finished
+
+
+            [iprecommit] **********************
+            [iprecommit] retrying after autofix
+            [iprecommit] **********************
+
+
+            [iprecommit] NoDoNotCommit: running
+            [iprecommit] NoDoNotCommit: passed
+
+
+            [iprecommit] NewlineAtEOF: running
+            [iprecommit] NewlineAtEOF: passed
+
+
+            """
+        )
+        self.assertEqual(expected_stderr, proc.stderr)
+        self.assertEqual(0, proc.returncode)
+        self.assert_one_commit()
+
+        self.assertEqual("Lorem ipsum\n", Path("example.txt").read_text())
+
+    def test_autofix_failed(self):
+        self._create_repo(precommit_text=AUTOFIX_PRECOMMIT)
+
+        create_and_stage_file("example.txt", "Lorem ipsum")
+        stage_do_not_submit_file()
+
+        self.assert_no_commits()
+        proc = run_shell(["git", "commit", "-m", "."], check=False, capture_stderr=True)
+        expected_stderr = S(
+            f"""\
+            [iprecommit] NoDoNotCommit: running
+            includes_do_not_submit.txt
+            [iprecommit] NoDoNotCommit: failed
+
+
+            [iprecommit] NewlineAtEOF: running
+            example.txt
+            [iprecommit] NewlineAtEOF: failed
+
+
+            [iprecommit] ******************
+            [iprecommit] attempting autofix
+            [iprecommit] ******************
+
+
+            [iprecommit] NewlineAtEOF: fixing
+            fixed: example.txt
+            [iprecommit] NewlineAtEOF: finished
+
+
+            [iprecommit] **********************
+            [iprecommit] retrying after autofix
+            [iprecommit] **********************
+
+
+            [iprecommit] NoDoNotCommit: running
+            includes_do_not_submit.txt
+            [iprecommit] NoDoNotCommit: failed
+
+
+            [iprecommit] NewlineAtEOF: running
+            [iprecommit] NewlineAtEOF: passed
+
+
+            1 failed. Commit aborted.
+            """
+        )
+        print(proc.stderr)
+        self.assertEqual(expected_stderr, proc.stderr)
+        self.assertNotEqual(0, proc.returncode)
+        self.assert_no_commits()
+
+        self.assertEqual("Lorem ipsum\n", Path("example.txt").read_text())
+
+    def test_autofix_no_fix_possible(self):
+        self._create_repo(precommit_text=AUTOFIX_PRECOMMIT)
+
+        stage_do_not_submit_file()
+
+        self.assert_no_commits()
+        proc = run_shell(["git", "commit", "-m", "."], check=False, capture_stderr=True)
+        expected_stderr = S(
+            f"""\
+            [iprecommit] NoDoNotCommit: running
+            includes_do_not_submit.txt
+            [iprecommit] NoDoNotCommit: failed
+
+
+            [iprecommit] NewlineAtEOF: running
+            [iprecommit] NewlineAtEOF: passed
+
+
+            1 failed. Commit aborted.
+            """
+        )
+        self.assertEqual(expected_stderr, proc.stderr)
+        self.assertNotEqual(0, proc.returncode)
+        self.assert_no_commits()
+
     def test_help_text(self):
         proc = run_shell([".venv/bin/iprecommit", "--help"], capture_stdout=True)
         expected_stdout = S(
@@ -642,6 +772,14 @@ class TestEndToEnd(Base):
             msg="This test requires the `black` executable to be installed.",
         )
 
+    def assert_no_commits(self):
+        proc = run_shell(["git", "log", "--oneline"], check=False, capture_stdout=True)
+        self.assertEqual("", proc.stdout)
+
+    def assert_one_commit(self):
+        proc = run_shell(["git", "log", "--oneline"], check=True, capture_stdout=True)
+        self.assertEqual(1, len(proc.stdout.splitlines()))
+
 
 class TestUnit(unittest.TestCase):
     def test_filter_paths(self):
@@ -676,6 +814,21 @@ PYTHON_FORMAT_PRECOMMIT = S(
     cmd = ["black", "--check"]
     fix_cmd = ["black"]
     filters = ["*.py"]
+    """
+)
+
+AUTOFIX_PRECOMMIT = S(
+    """
+    autofix = true
+
+    [[pre_commit]]
+    name = "NoDoNotCommit"
+    cmd = ["iprecommit-no-forbidden-strings", "--paths"]
+
+    [[pre_commit]]
+    name = "NewlineAtEOF"
+    cmd = ["iprecommit-newline-at-eof"]
+    fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
     """
 )
 

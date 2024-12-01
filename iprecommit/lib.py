@@ -43,6 +43,7 @@ def get_check_name(check: Union[PreCommitCheck, PrePushCheck, CommitMsgCheck]) -
 
 @dataclass
 class Config:
+    autofix: bool
     pre_commit_checks: List[PreCommitCheck]
     pre_push_checks: List[PrePushCheck]
     commit_msg_checks: List[CommitMsgCheck]
@@ -55,7 +56,11 @@ def parse_config_toml(path: Path) -> Config:
     pre_commit_toml_list = raw_toml.pop("pre_commit", [])
     commit_msg_toml_list = raw_toml.pop("commit_msg", [])
     pre_push_toml_list = raw_toml.pop("pre_push", [])
+    autofix = raw_toml.pop("autofix", False)
     ensure_dict_empty(raw_toml, "The top-level table")
+
+    if not isinstance(autofix, bool):
+        raise IPrecommitTomlError("'autofix' in your TOML file should be a boolean.")
 
     if not isinstance(pre_commit_toml_list, list) or any(
         not isinstance(d, dict) for d in pre_commit_toml_list
@@ -78,7 +83,9 @@ def parse_config_toml(path: Path) -> Config:
             "'pre_push' in your TOML file should be an array of tables (e.g., [[pre_push]])."
         )
 
-    config = Config(pre_commit_checks=[], pre_push_checks=[], commit_msg_checks=[])
+    config = Config(
+        autofix=autofix, pre_commit_checks=[], pre_push_checks=[], commit_msg_checks=[]
+    )
 
     for pre_commit_toml in pre_commit_toml_list:
         table_name = "[[pre_commit]]"
@@ -164,6 +171,11 @@ def validate_cmd_key(table, table_name, key="cmd", default=_Unset):
 
 
 def ensure_dict_empty(d, name):
+    if "autofix" in d:
+        raise IPrecommitTomlError(
+            "The 'autofix' key belongs at the top level of the TOML file."
+        )
+
     try:
         key = next(iter(d.keys()))
     except StopIteration:
@@ -176,10 +188,12 @@ def ensure_dict_empty(d, name):
 
 class Checks:
     num_failed_checks: int
+    failed_fixable_checks: bool
     config: Config
 
     def __init__(self, config: Config) -> None:
         self.num_failed_checks = 0
+        self.failed_fixable_checks = False
         self.config = config
 
     def run_pre_commit(
@@ -196,6 +210,25 @@ class Checks:
         else:
             all_changed_paths = _get_git_changes(include_unstaged=unstaged)
 
+        if fix_mode:
+            self._run_pre_commit_fix(all_changed_paths, unstaged=unstaged)
+        else:
+            if self.config.autofix:
+                self._run_pre_commit_check(all_changed_paths)
+
+                if self.num_failed_checks > 0 and self.failed_fixable_checks:
+                    self._print_block_status("attempting autofix")
+                    self._run_pre_commit_fix(all_changed_paths, unstaged=unstaged)
+
+                    self.num_failed_checks = 0
+                    self._print_block_status("retrying after autofix")
+                    self._run_pre_commit_check(all_changed_paths)
+            else:
+                self._run_pre_commit_check(all_changed_paths)
+
+        self._summary("Commit")
+
+    def _run_pre_commit_check(self, all_changed_paths: List[Path]) -> None:
         for check in self.config.pre_commit_checks:
             name = get_check_name(check)
 
@@ -204,45 +237,60 @@ class Checks:
                 self._print_status(name, yellow("skipped"))
                 continue
 
-            if fix_mode:
+            self._print_status(name, "running")
+            cmd = check.cmd
+            # TODO: test where pass_files=False
+            if check.pass_files:
+                cmd = cmd + filtered_changed_paths  # type: ignore
+            success = self._run_one(cmd, working_dir=check.working_dir)
+            if not success:
+                self._print_status(name, red("failed"))
+                self.num_failed_checks += 1
                 if check.fix_cmd:
-                    self._print_status(name, "fixing")
-                    cmd = check.fix_cmd
-                    if check.pass_files:
-                        cmd += filtered_changed_paths  # type: ignore
-                    success = self._run_one(cmd, working_dir=check.working_dir)
-                    if not success:
-                        # TODO: test for fix failed
-                        self._print_status(name, red("fix failed"))
-                    else:
-                        self._print_status(name, "finished")
-                        if not unstaged:
-                            proc = subprocess.run(["git", "add"] + filtered_changed_paths)  # type: ignore
-                            if proc.returncode != 0:
-                                self._print_status(
-                                    name,
-                                    yellow("staging fixed files with 'git add' failed"),
-                                )
-                else:
-                    continue
+                    self.failed_fixable_checks = True
             else:
-                self._print_status(name, "running")
-                cmd = check.cmd
-                # TODO: test where pass_files=False
+                self._print_status(name, green("passed"))
+            print()
+            print()
+
+    def _run_pre_commit_fix(
+        self, all_changed_paths: List[Path], *, unstaged: bool
+    ) -> None:
+        for check in self.config.pre_commit_checks:
+            name = get_check_name(check)
+
+            filtered_changed_paths = _filter_paths(all_changed_paths, check.filters)
+            if not filtered_changed_paths:
+                self._print_status(name, yellow("skipped"))
+                continue
+
+            if check.fix_cmd:
+                self._print_status(name, "fixing")
+                cmd = check.fix_cmd
                 if check.pass_files:
-                    cmd += filtered_changed_paths  # type: ignore
+                    cmd = cmd + filtered_changed_paths  # type: ignore
                 success = self._run_one(cmd, working_dir=check.working_dir)
                 if not success:
-                    self._print_status(name, red("failed"))
-                    self.num_failed_checks += 1
+                    # TODO: test for fix failed
+                    self._print_status(name, red("fix failed"))
                 else:
-                    self._print_status(name, green("passed"))
+                    self._print_status(name, "finished")
+                    if not unstaged:
+                        proc = subprocess.run(["git", "add"] + filtered_changed_paths, capture_output=True)  # type: ignore
+                        if proc.returncode != 0:
+                            self._print_status(
+                                name,
+                                yellow("staging fixed files with 'git add' failed"),
+                            )
+            else:
+                continue
             print()
             print()
-
-        self._summary("Commit")
 
     def run_commit_msg(self, commit_msg_file: Path) -> None:
+        if len(self.config.commit_msg_checks) == 0:
+            return
+
         print()
         print()
         print("== checking commit message ==")
@@ -305,6 +353,15 @@ class Checks:
             print(f"{red(s)}. {action} aborted.")
             sys.stdout.flush()
             sys.exit(1)
+
+    def _print_block_status(self, line: str) -> None:
+        stars = "*" * len(line)
+        print(f"{cyan('[iprecommit]')} {stars}")
+        print(f"{cyan('[iprecommit]')} {line}")
+        print(f"{cyan('[iprecommit]')} {stars}")
+        print()
+        print()
+        sys.stdout.flush()
 
     def _print_status(self, name: str, status: str) -> None:
         print(f"{cyan('[iprecommit]')} {name}: {status}")
