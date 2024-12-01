@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/iprecommit/issues).
 
+## [0.6.1] - 2024-12-01
+- `fail_fast` option added to TOML.
+
 ## [0.6.0] - 2024-12-01
 - `autofix` option added to TOML.
 - `iprecommit-commit-msg-format` now correctly ignores diffs in commit messages.
