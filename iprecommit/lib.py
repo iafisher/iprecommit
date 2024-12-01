@@ -44,6 +44,7 @@ def get_check_name(check: Union[PreCommitCheck, PrePushCheck, CommitMsgCheck]) -
 @dataclass
 class Config:
     autofix: bool
+    fail_fast: bool
     pre_commit_checks: List[PreCommitCheck]
     pre_push_checks: List[PrePushCheck]
     commit_msg_checks: List[CommitMsgCheck]
@@ -57,10 +58,14 @@ def parse_config_toml(path: Path) -> Config:
     commit_msg_toml_list = raw_toml.pop("commit_msg", [])
     pre_push_toml_list = raw_toml.pop("pre_push", [])
     autofix = raw_toml.pop("autofix", False)
+    fail_fast = raw_toml.pop("failfast", False)
     ensure_dict_empty(raw_toml, "The top-level table")
 
     if not isinstance(autofix, bool):
         raise IPrecommitTomlError("'autofix' in your TOML file should be a boolean.")
+
+    if not isinstance(fail_fast, bool):
+        raise IPrecommitTomlError("'failfast' in your TOML file should be a boolean.")
 
     if not isinstance(pre_commit_toml_list, list) or any(
         not isinstance(d, dict) for d in pre_commit_toml_list
@@ -84,7 +89,11 @@ def parse_config_toml(path: Path) -> Config:
         )
 
     config = Config(
-        autofix=autofix, pre_commit_checks=[], pre_push_checks=[], commit_msg_checks=[]
+        autofix=autofix,
+        fail_fast=fail_fast,
+        pre_commit_checks=[],
+        pre_push_checks=[],
+        commit_msg_checks=[],
     )
 
     for pre_commit_toml in pre_commit_toml_list:
@@ -171,18 +180,28 @@ def validate_cmd_key(table, table_name, key="cmd", default=_Unset):
 
 
 def ensure_dict_empty(d, name):
-    if "autofix" in d:
-        raise IPrecommitTomlError(
-            "The 'autofix' key belongs at the top level of the TOML file."
-        )
+    top_level_keys = ["autofix", "failfast"]
+    for key in top_level_keys:
+        if key in d:
+            raise IPrecommitTomlError(
+                f"The '{key}' key belongs at the top level of the TOML file."
+            )
 
     try:
         key = next(iter(d.keys()))
     except StopIteration:
         pass
     else:
+        key_lower = key.lower()
+        if "fail" in key_lower:
+            did_you_mean = " (Did you mean 'failfast'?)"
+        elif "auto" in key_lower or "fix" in key_lower:
+            did_you_mean = " (Did you mean 'autofix'?)"
+        else:
+            did_you_mean = ""
+
         raise IPrecommitTomlError(
-            f"{name} in your TOML file has a key that iprecommit does not recognize: {key}"
+            f"{name} in your TOML file has a key that iprecommit does not recognize: {key}{did_you_mean}"
         )
 
 
@@ -252,6 +271,16 @@ class Checks:
                 self.num_failed_checks += 1
                 if check.fix_cmd:
                     self.failed_fixable_checks = True
+
+                if self.config.fail_fast:
+                    n = len(self.config.pre_commit_checks) - (i + 1)
+                    if n > 0:
+                        s = "" if n == 1 else "s"
+                        print()
+                        self._print_msg(
+                            f"Failing fast: skipping {n} subsequent check{s}."
+                        )
+                        break
             else:
                 self._print_status(name, green("passed"))
 

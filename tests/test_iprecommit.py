@@ -17,7 +17,6 @@ class TestEndToEnd(Base):
         stage_do_not_submit_file()
 
         proc = iprecommit_run()
-        print(repr(proc.stdout))
         expected_stdout = S(
             """\
             [iprecommit] NoForbiddenStrings: running
@@ -26,6 +25,26 @@ class TestEndToEnd(Base):
 
             [iprecommit] NewlineAtEndOfFile: running
             [iprecommit] NewlineAtEndOfFile: passed
+
+
+            1 failed. Commit aborted.
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
+
+    def test_fail_fast(self):
+        self._create_repo(FAIL_FAST_PRECOMMIT)
+        stage_do_not_submit_file()
+
+        proc = iprecommit_run()
+        expected_stdout = S(
+            """\
+            [iprecommit] NoForbiddenStrings: running
+            includes_do_not_submit.txt
+            [iprecommit] NoForbiddenStrings: failed
+
+            [iprecommit] Failing fast: skipping 1 subsequent check.
 
 
             1 failed. Commit aborted.
@@ -798,29 +817,38 @@ class TestUnit(unittest.TestCase):
 S = textwrap.dedent
 
 
-PYTHON_FORMAT_PRECOMMIT = S(
-    """
-    [[pre_commit]]
-    cmd = ["black", "--check"]
-    fix_cmd = ["black"]
-    filters = ["*.py"]
-    """
-)
+PYTHON_FORMAT_PRECOMMIT = """
+[[pre_commit]]
+cmd = ["black", "--check"]
+fix_cmd = ["black"]
+filters = ["*.py"]
+"""
 
-AUTOFIX_PRECOMMIT = S(
-    """
-    autofix = true
+AUTOFIX_PRECOMMIT = """
+autofix = true
 
-    [[pre_commit]]
-    name = "NoDoNotCommit"
-    cmd = ["iprecommit-no-forbidden-strings", "--paths"]
+[[pre_commit]]
+name = "NoDoNotCommit"
+cmd = ["iprecommit-no-forbidden-strings", "--paths"]
 
-    [[pre_commit]]
-    name = "NewlineAtEOF"
-    cmd = ["iprecommit-newline-at-eof"]
-    fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
-    """
-)
+[[pre_commit]]
+name = "NewlineAtEOF"
+cmd = ["iprecommit-newline-at-eof"]
+fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
+"""
+
+FAIL_FAST_PRECOMMIT = """\
+failfast = true
+
+[[pre_commit]]
+name = "NoForbiddenStrings"
+cmd = ["iprecommit-no-forbidden-strings", "--paths"]
+
+[[pre_commit]]
+name = "NewlineAtEndOfFile"
+cmd = ["iprecommit-newline-at-eof"]
+fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
+"""
 
 
 def iprecommit_run(*args, capture_stderr=False):

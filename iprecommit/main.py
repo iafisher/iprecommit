@@ -226,6 +226,9 @@ PRECOMMIT_TEMPLATE = """\
 # check fails.
 autofix = false
 
+# Set 'failfast' to 'true' to abort the run after the first failing check.
+failfast = false
+
 [[pre_commit]]
 name = "NoForbiddenStrings"
 cmd = ["iprecommit-no-forbidden-strings", "--paths"]
