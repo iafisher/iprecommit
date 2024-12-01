@@ -1,3 +1,5 @@
+autofix = true
+
 [[pre_commit]]
 name = "NoForbiddenStrings"
 cmd = ["iprecommit-no-forbidden-strings", "--paths"]
