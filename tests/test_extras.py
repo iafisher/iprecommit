@@ -58,68 +58,44 @@ class TestNewlineAtEOF(Base):
 
 class TestCommitMsgFormat(unittest.TestCase):
     def test_empty_commit(self):
-        self.assertFalse(
-            commit_msg_format.check(
-                "",
-                max_first_line_length=None,
-                max_line_length=None,
-                require_capitalized=False,
-            )
+        self.run_and_assert("", should_pass=False, stdout="commit message is empty\n")
+        self.run_and_assert(
+            "\n\n", should_pass=False, stdout="commit message is empty\n"
         )
-        self.assertFalse(
-            commit_msg_format.check(
-                "\n\n",
-                max_first_line_length=None,
-                max_line_length=None,
-                require_capitalized=False,
-            )
-        )
-        self.assertFalse(
-            commit_msg_format.check(
-                "\n\n\n# Comment only\n",
-                max_first_line_length=None,
-                max_line_length=None,
-                require_capitalized=False,
-            )
+        self.run_and_assert(
+            "\n\n\n# Comment only\n",
+            should_pass=False,
+            stdout="commit message is empty\n",
         )
 
     def test_first_line_leading_whitespace(self):
-        self.assertFalse(
-            commit_msg_format.check(
-                "   leading whitespace\n",
-                max_first_line_length=None,
-                max_line_length=None,
-                require_capitalized=False,
-            )
+        self.run_and_assert(
+            "   leading whitespace\n",
+            should_pass=False,
+            stdout="first line should not start with whitespace\n",
         )
 
     def test_line_too_long(self):
-        self.assertFalse(
-            commit_msg_format.check(
-                "123456\n",
-                max_first_line_length=5,
-                max_line_length=None,
-                require_capitalized=False,
-            )
+        self.run_and_assert(
+            "123456\n",
+            should_pass=False,
+            stdout="line 1 too long: len=6, max=5: 123456\n",
+            max_first_line_length=5,
         )
 
-        self.assertFalse(
-            commit_msg_format.check(
-                "first_line\n\n123\n123456",
-                max_first_line_length=None,
-                max_line_length=5,
-                require_capitalized=False,
-            )
+        self.run_and_assert(
+            "first_line\n\n123\n123456",
+            should_pass=False,
+            stdout="line 1 too long: len=10, max=5: first_line\nline 4 too long: len=6, max=5: 123456\n",
+            max_line_length=5,
         )
 
     def test_require_capitalized(self):
-        self.assertFalse(
-            commit_msg_format.check(
-                "should be capitalized\n",
-                max_first_line_length=None,
-                max_line_length=None,
-                require_capitalized=True,
-            )
+        self.run_and_assert(
+            "should be capitalized\n",
+            should_pass=False,
+            stdout="first line should be capitalized\n",
+            require_capitalized=True,
         )
 
     def test_blank_line_after_first_line(self):
@@ -133,62 +109,74 @@ class TestCommitMsgFormat(unittest.TestCase):
         )
 
     def test_ignore_comments(self):
-        self.assertTrue(
-            commit_msg_format.check(
-                "first line\n\n# This line would be too long, but it's a comment.\n",
-                max_first_line_length=None,
-                max_line_length=10,
-                require_capitalized=False,
-            )
+        self.run_and_assert(
+            "first line\n\n# This line would be too long, but it's a comment.\n",
+            should_pass=True,
+            stdout="",
+            max_first_line_length=None,
+            max_line_length=10,
+            require_capitalized=False,
         )
 
-        self.assertTrue(
-            commit_msg_format.check(
-                "first line\n\n  # This comment begins with leading whitespace.\n",
-                max_first_line_length=None,
-                max_line_length=10,
-                require_capitalized=False,
-            )
+        self.run_and_assert(
+            "first line\n\n  # This comment begins with leading whitespace.\n",
+            should_pass=True,
+            stdout="",
+            max_line_length=10,
         )
 
     def test_ok_commit(self):
-        self.assertTrue(
-            commit_msg_format.check(
-                "This is an example of a good commit.\n\nNo line is too long, and there is a blank line after the first line.",
-                max_first_line_length=72,
-                max_line_length=100,
-                require_capitalized=False,
-            )
+        self.run_and_assert(
+            "This is an example of a good commit.\n\nNo line is too long, and there is a blank line after the first line.",
+            should_pass=True,
+            stdout="",
+            max_first_line_length=72,
+            max_line_length=100,
         )
 
     def test_ignore_diff_lines(self):
         first_line_length = len(REAL_COMMIT_MSG.splitlines()[0])
-        # Some of the lines of the diff are longer than the max, but they should be ignored.
-        self.assertTrue(
-            commit_msg_format.check(
-                REAL_COMMIT_MSG,
-                max_first_line_length=None,
-                max_line_length=first_line_length,
-                require_capitalized=False,
-            )
+        self.run_and_assert(
+            REAL_COMMIT_MSG,
+            should_pass=True,
+            stdout="",
+            max_line_length=first_line_length,
         )
 
     def test_line_numbers(self):
+        # should correctly print line 4 even though line 3 was a comment and skipped
+        self.run_and_assert(
+            "line 1\n\n# line 3\nline 4 is too long",
+            should_pass=False,
+            stdout="line 4 too long: len=18, max=10: line 4 is...\n",
+            max_line_length=10,
+        )
+
+    def run_and_assert(
+        self,
+        msg,
+        *,
+        should_pass,
+        stdout,
+        max_first_line_length=None,
+        max_line_length=None,
+        require_capitalized=False
+    ):
         f = io.StringIO()
         with contextlib.redirect_stdout(f):
-            self.assertFalse(
-                commit_msg_format.check(
-                    "line 1\n\n# line 3\nline 4 is too long",
-                    max_first_line_length=None,
-                    max_line_length=10,
-                    require_capitalized=False,
-                )
+            r = commit_msg_format.check(
+                msg,
+                max_first_line_length=max_first_line_length,
+                max_line_length=max_line_length,
+                require_capitalized=require_capitalized,
             )
 
-        # should correctly print line 4 even though line 3 was a comment and skipped
-        self.assertEqual(
-            "line 4 too long: len=18, max=10: line 4 is...\n", f.getvalue()
-        )
+            if should_pass:
+                self.assertTrue(r)
+            else:
+                self.assertFalse(r)
+
+        self.assertEqual(stdout, f.getvalue())
 
 
 REAL_COMMIT_MSG = """\
