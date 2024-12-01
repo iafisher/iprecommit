@@ -229,6 +229,7 @@ cmd = ["iprecommit-no-forbidden-strings", "--paths"]
 [[pre_commit]]
 name = "NewlineAtEndOfFile"
 cmd = ["iprecommit-newline-at-eof"]
+fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
 
 # [[pre_commit]]
 # name = "PythonFormat"

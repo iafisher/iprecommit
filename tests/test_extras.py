@@ -1,6 +1,57 @@
+import os
 import unittest
+from pathlib import Path
 
+from .common import Base, run_shell
 from iprecommit.extras import commit_msg_format
+
+
+class TestNewlineAtEOF(Base):
+    def test_check(self):
+        os.chdir(self.tmpdir)
+
+        p = Path("example.txt")
+        p.write_text("no newline")
+
+        proc = run_shell(
+            ["iprecommit-newline-at-eof", p], check=False, capture_stdout=True
+        )
+        self.assertEqual("example.txt\n", proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
+
+        p = Path("example2.txt")
+        p.write_text("with a newline\n")
+
+        proc = run_shell(["iprecommit-newline-at-eof", p], capture_stdout=True)
+        self.assertEqual("", proc.stdout)
+
+    def test_check_disallow_empty(self):
+        os.chdir(self.tmpdir)
+
+        p = Path("empty.txt")
+        p.write_text("")
+
+        proc = run_shell(["iprecommit-newline-at-eof", p], capture_stdout=True)
+        self.assertEqual("", proc.stdout)
+
+        proc = run_shell(
+            ["iprecommit-newline-at-eof", "--disallow-empty", p],
+            check=False,
+            capture_stdout=True,
+        )
+        self.assertEqual("empty.txt\n", proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
+
+    def test_fix(self):
+        os.chdir(self.tmpdir)
+
+        p = Path("example.txt")
+        p.write_text("no newline")
+
+        proc = run_shell(["iprecommit-newline-at-eof", "--fix", p], capture_stdout=True)
+        self.assertEqual("fixed: example.txt\n", proc.stdout)
+
+        self.assertEqual("no newline\n", p.read_text())
 
 
 class TestCommitMsgFormat(unittest.TestCase):

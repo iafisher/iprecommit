@@ -5,16 +5,11 @@ from typing import Generator, List, Tuple
 from . import githelper
 
 
-# Generates `(text, display_title)` pairs, where `display_title` is a string that can be printed
-# out to the user.
-def iterate_over_paths_and_commits(
-    paths: List[Path], commits: List[str]
-) -> Generator[Tuple[str, str], None, None]:
-    both = bool(paths) and bool(commits)
-
+def iterate_over_paths(paths: List[Path]) -> Generator[Tuple[str, Path], None, None]:
     for pathstr in paths:
+        path = Path(pathstr)
         try:
-            text = Path(pathstr).read_text()
+            text = path.read_text()
         except IsADirectoryError:
             print(f"skipping directory: {pathstr}", file=sys.stderr)
             continue
@@ -22,7 +17,18 @@ def iterate_over_paths_and_commits(
             print(f"skipping non-UTF-8 file: {pathstr}", file=sys.stderr)
             continue
 
-        display_title = f"path: {pathstr}" if both else str(pathstr)
+        yield text, path
+
+
+# Generates `(text, display_title)` pairs, where `display_title` is a string that can be printed
+# out to the user.
+def iterate_over_paths_and_commits(
+    paths: List[Path], commits: List[str]
+) -> Generator[Tuple[str, str], None, None]:
+    both = bool(paths) and bool(commits)
+
+    for text, path in iterate_over_paths(paths):
+        display_title = f"path: {path}" if both else str(path)
         yield text, display_title
 
     for commit in commits:
