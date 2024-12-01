@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 from .common import Base, owndir, run_shell
-from iprecommit import lib
+from iprecommit import checks
 
 
 class TestEndToEnd(Base):
@@ -795,20 +795,20 @@ class TestUnit(unittest.TestCase):
         paths = lambda *args: [Path(a) for a in args]
 
         self.assertEqual(
-            paths("a.py"), lib._filter_paths(paths("a.py", "b.txt"), ["*.py"])
+            paths("a.py"), checks.filter_paths(paths("a.py", "b.txt"), ["*.py"])
         )
         self.assertEqual(
-            paths("b.txt"), lib._filter_paths(paths("a.py", "b.txt"), ["*.txt"])
+            paths("b.txt"), checks.filter_paths(paths("a.py", "b.txt"), ["*.txt"])
         )
 
         self.assertEqual(
             paths("a.py"),
-            lib._filter_paths(paths("a.py", "b.txt", "c.py"), ["*.py", "!c.py"]),
+            checks.filter_paths(paths("a.py", "b.txt", "c.py"), ["*.py", "!c.py"]),
         )
 
         self.assertEqual(
             paths("a.py", "b.txt"),
-            lib._filter_paths(
+            checks.filter_paths(
                 paths("a.py", "b.txt", "c.py"), ["*.py", "!c.py", "b.txt"]
             ),
         )

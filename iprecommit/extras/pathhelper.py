@@ -2,8 +2,8 @@ import sys
 from pathlib import Path
 from typing import Generator, List, Tuple
 
-from . import githelper
-from iprecommit.lib import IPrecommitError
+from iprecommit import githelper
+from iprecommit.common import IPrecommitError
 
 
 def iterate_over_paths(paths: List[Path]) -> Generator[Tuple[str, Path], None, None]:
