@@ -46,6 +46,26 @@ iprecommit fix
 By default, `iprecommit run` and `iprecommit fix` operate only on staged changes. To only consider unstaged changes as well, pass the `--unstaged` flag. To run on every file in the repository (committed, unstaged, and staged), pass the `--all` flag.
 
 
+## FAQs
+### Why not pre-commit?
+[pre-commit](https://pre-commit.com/) is (as far as I can tell) the most widely-used library for pre-commit hook management.
+
+I used pre-commit for a while. Here's why I created `iprecommit`:
+
+- I hated configuring my pre-commit checks in YAML.
+- The colored output is hard to read with a dark theme, and [this won't be fixed](https://github.com/pre-commit/pre-commit/issues/2325).
+- I just wanted an intelligent way to run shell commands before `git commit`, not a "multi-language package manager".
+- With a custom template at `IPRECOMMIT_TOML_TEMPLATE`, and `autofix` and `fail_fast` set to true, `iprecommit` does what I want and I rarely have to think about it.
+
+Reasons you might prefer pre-commit:
+
+- You like pre-commit's [more extensive configuration options](https://pre-commit.com/#creating-new-hooks).
+- You need one of the [Git hooks that pre-commit supports](https://pre-commit.com/#supported-git-hooks) and `iprecommit` doesn't.
+
+### How do I disable a failing check?
+Comment out the check in the `precommit.toml` file.
+
+
 ## User guide
 ### Pre-commit checks
 ```toml
