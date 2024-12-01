@@ -217,10 +217,14 @@ class Checks:
                 self._run_pre_commit_check(all_changed_paths)
 
                 if self.num_failed_checks > 0 and self.failed_fixable_checks:
+                    print()
+                    print()
                     self._print_block_status("attempting autofix")
                     self._run_pre_commit_fix(all_changed_paths, unstaged=unstaged)
 
                     self.num_failed_checks = 0
+                    print()
+                    print()
                     self._print_block_status("retrying after autofix")
                     self._run_pre_commit_check(all_changed_paths)
             else:
@@ -229,7 +233,7 @@ class Checks:
         self._summary("Commit")
 
     def _run_pre_commit_check(self, all_changed_paths: List[Path]) -> None:
-        for check in self.config.pre_commit_checks:
+        for i, check in enumerate(self.config.pre_commit_checks):
             name = get_check_name(check)
 
             filtered_changed_paths = _filter_paths(all_changed_paths, check.filters)
@@ -250,13 +254,14 @@ class Checks:
                     self.failed_fixable_checks = True
             else:
                 self._print_status(name, green("passed"))
-            print()
-            print()
+
+            if i != len(self.config.pre_commit_checks) - 1:
+                print()
 
     def _run_pre_commit_fix(
         self, all_changed_paths: List[Path], *, unstaged: bool
     ) -> None:
-        for check in self.config.pre_commit_checks:
+        for i, check in enumerate(self.config.pre_commit_checks):
             name = get_check_name(check)
 
             filtered_changed_paths = _filter_paths(all_changed_paths, check.filters)
@@ -284,8 +289,9 @@ class Checks:
                             )
             else:
                 continue
-            print()
-            print()
+
+            if i != len(self.config.pre_commit_checks) - 1:
+                print()
 
     def run_commit_msg(self, commit_msg_file: Path) -> None:
         if len(self.config.commit_msg_checks) == 0:
@@ -293,11 +299,9 @@ class Checks:
 
         print()
         print()
-        print("== checking commit message ==")
-        print()
-        print()
+        self._print_block_status("checking commit message")
 
-        for check in self.config.commit_msg_checks:
+        for i, check in enumerate(self.config.commit_msg_checks):
             name = get_check_name(check)
 
             self._print_status(name, "running")
@@ -308,17 +312,21 @@ class Checks:
             else:
                 self._print_status(name, green("passed"))
 
-            print()
-            print()
+            if i != len(self.config.commit_msg_checks) - 1:
+                print()
 
-        self._summary("Commit")
+        failed = self._summary("Commit")
+        if not failed:
+            # put some blank lines in between end of iprecommit output and start of 'git commit' output.
+            print()
+            print()
 
     def run_pre_push(self, remote: str) -> None:
         current_branch = _get_git_current_branch()
         last_commit_pushed = _get_git_last_commit_pushed(remote, current_branch)
         commits = _get_git_commits(since=last_commit_pushed)
 
-        for check in self.config.pre_push_checks:
+        for i, check in enumerate(self.config.pre_push_checks):
             name = get_check_name(check)
 
             self._print_status(name, "running")
@@ -329,8 +337,8 @@ class Checks:
             else:
                 self._print_status(name, green("passed"))
 
-            print()
-            print()
+            if i != len(self.config.pre_push_checks) - 1:
+                print()
 
         self._summary("Push")
 
@@ -347,12 +355,17 @@ class Checks:
 
         return proc.returncode == 0
 
-    def _summary(self, action: str) -> None:
+    def _summary(self, action: str) -> bool:
         if self.num_failed_checks > 0:
             s = f"{self.num_failed_checks} failed"
+            print()
+            print()
             print(f"{red(s)}. {action} aborted.")
             sys.stdout.flush()
             sys.exit(1)
+            return True
+        else:
+            return False
 
     def _print_block_status(self, line: str) -> None:
         stars = "*" * len(line)

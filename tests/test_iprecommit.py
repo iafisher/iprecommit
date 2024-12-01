@@ -24,7 +24,6 @@ class TestEndToEnd(Base):
             includes_do_not_submit.txt
             [iprecommit] NoForbiddenStrings: failed
 
-
             [iprecommit] NewlineAtEndOfFile: running
             [iprecommit] NewlineAtEndOfFile: passed
 
@@ -52,7 +51,6 @@ class TestEndToEnd(Base):
             includes_do_not_submit.txt
             [iprecommit] NoForbiddenStrings: failed
 
-
             [iprecommit] NewlineAtEndOfFile: running
             [iprecommit] NewlineAtEndOfFile: passed
 
@@ -75,7 +73,6 @@ class TestEndToEnd(Base):
             [iprecommit] NoForbiddenStrings: running
             example.txt
             [iprecommit] NoForbiddenStrings: failed
-
 
             [iprecommit] NewlineAtEndOfFile: running
             example.txt
@@ -115,7 +112,6 @@ class TestEndToEnd(Base):
             includes_do_not_submit.txt
             [iprecommit] NoForbiddenStrings: failed
 
-
             [iprecommit] NewlineAtEndOfFile: running
             [iprecommit] NewlineAtEndOfFile: passed
 
@@ -146,8 +142,6 @@ class TestEndToEnd(Base):
             All done! ✨ 🍰 ✨
             1 file reformatted.
             [iprecommit] black --check: finished
-
-
             """
         )
         self.assertEqual(expected_stdout, proc.stdout)
@@ -262,7 +256,6 @@ class TestEndToEnd(Base):
             includes_do_not_submit.txt
             [iprecommit] NoForbiddenStrings: failed
 
-
             [iprecommit] NewlineAtEndOfFile: running
             [iprecommit] NewlineAtEndOfFile: passed
 
@@ -290,7 +283,9 @@ class TestEndToEnd(Base):
             """\
 
 
-            == checking commit message ==
+            [iprecommit] ***********************
+            [iprecommit] checking commit message
+            [iprecommit] ***********************
 
 
             [iprecommit] iprecommit-commit-msg-format --require-capitalized: running
@@ -401,7 +396,6 @@ class TestEndToEnd(Base):
             á.txt
             [iprecommit] NoForbiddenStrings: failed
 
-
             [iprecommit] NewlineAtEndOfFile: running
             [iprecommit] NewlineAtEndOfFile: passed
 
@@ -430,7 +424,6 @@ class TestEndToEnd(Base):
             [iprecommit] NoForbiddenStrings: running
             b'\\xc0\\xaf.test'
             [iprecommit] NoForbiddenStrings: failed
-
 
             [iprecommit] NewlineAtEndOfFile: running
             [iprecommit] NewlineAtEndOfFile: passed
@@ -515,7 +508,6 @@ class TestEndToEnd(Base):
             [iprecommit] NoDoNotCommit: running
             [iprecommit] NoDoNotCommit: passed
 
-
             [iprecommit] NewlineAtEOF: running
             example.txt
             [iprecommit] NewlineAtEOF: failed
@@ -539,11 +531,8 @@ class TestEndToEnd(Base):
             [iprecommit] NoDoNotCommit: running
             [iprecommit] NoDoNotCommit: passed
 
-
             [iprecommit] NewlineAtEOF: running
             [iprecommit] NewlineAtEOF: passed
-
-
             """
         )
         self.assertEqual(expected_stderr, proc.stderr)
@@ -565,7 +554,6 @@ class TestEndToEnd(Base):
             [iprecommit] NoDoNotCommit: running
             includes_do_not_submit.txt
             [iprecommit] NoDoNotCommit: failed
-
 
             [iprecommit] NewlineAtEOF: running
             example.txt
@@ -591,7 +579,6 @@ class TestEndToEnd(Base):
             includes_do_not_submit.txt
             [iprecommit] NoDoNotCommit: failed
 
-
             [iprecommit] NewlineAtEOF: running
             [iprecommit] NewlineAtEOF: passed
 
@@ -599,7 +586,6 @@ class TestEndToEnd(Base):
             1 failed. Commit aborted.
             """
         )
-        print(proc.stderr)
         self.assertEqual(expected_stderr, proc.stderr)
         self.assertNotEqual(0, proc.returncode)
         self.assert_no_commits()
@@ -618,7 +604,6 @@ class TestEndToEnd(Base):
             [iprecommit] NoDoNotCommit: running
             includes_do_not_submit.txt
             [iprecommit] NoDoNotCommit: failed
-
 
             [iprecommit] NewlineAtEOF: running
             [iprecommit] NewlineAtEOF: passed
