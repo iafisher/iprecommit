@@ -47,6 +47,8 @@ class Base(unittest.TestCase):
         if precommit_text is not None:
             Path("precommit.toml").write_text(precommit_text)
 
+        Path(".gitignore").write_text(".venv\n")
+
         if install_hook:
             os.environ.pop("IPRECOMMIT_TOML_TEMPLATE", None)
             run_shell(

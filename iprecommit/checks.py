@@ -32,11 +32,16 @@ class Checks:
                     set(
                         githelper.get_tracked_files()
                         + githelper.get_changed_paths(include_unstaged=True)
+                        + githelper.get_untracked_files()
                     )
+                    - set(githelper.get_deleted_paths(include_unstaged=True))
                 )
             )
         else:
-            all_changed_paths = githelper.get_changed_paths(include_unstaged=unstaged)
+            all_changed_paths = (
+                githelper.get_changed_paths(include_unstaged=unstaged)
+                + githelper.get_untracked_files()
+            )
 
         if fix_mode:
             self._run_pre_commit_fix(all_changed_paths, unstaged=unstaged)

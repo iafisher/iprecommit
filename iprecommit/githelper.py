@@ -53,13 +53,26 @@ def get_changed_paths(
     return added_paths + modified_paths
 
 
+def get_deleted_paths(*, include_unstaged: bool) -> List[Path]:
+    return _filter_paths("D", include_unstaged=include_unstaged, since=None)
+
+
 def get_tracked_files() -> List[Path]:
     proc = subprocess.run(
         ["git", "ls-tree", "-r", "HEAD", "--name-only", "-z"],
         capture_output=True,
         check=True,
     )
-    return [Path(os.fsdecode(p)) for p in proc.stdout.split(b"\x00") if p]
+    return _decode_path_list(proc.stdout)
+
+
+def get_untracked_files() -> List[Path]:
+    proc = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard", "-z"],
+        capture_output=True,
+        check=True,
+    )
+    return _decode_path_list(proc.stdout)
 
 
 def get_commits(*, since: str) -> List[str]:
@@ -87,4 +100,8 @@ def _filter_paths(
         ["git", "diff", ref, "--name-only", f"--diff-filter={filter_string}", "-z"],
         capture_output=True,
     )
-    return [Path(os.fsdecode(p)) for p in result.stdout.split(b"\x00") if p]
+    return _decode_path_list(result.stdout)
+
+
+def _decode_path_list(stdout: bytes) -> List[Path]:
+    return [Path(os.fsdecode(p)) for p in stdout.split(b"\x00") if p]

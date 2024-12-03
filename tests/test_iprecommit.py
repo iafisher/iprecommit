@@ -684,6 +684,33 @@ class TestEndToEnd(Base):
         self.assertNotEqual(0, proc.returncode)
         self.assert_no_commits()
 
+    def test_all_with_deleted_file(self):
+        self._create_repo()
+
+        create_and_commit_file("to_be_kept.txt", "Keep me!\n")
+        create_and_commit_file("to_be_deleted.txt", "Delete me!\n")
+
+        Path("unstaged.txt").write_text("DO NOT " + "COMMIT: I am unstaged!\n")
+        # Regression test for bug where deleted files were erroneously passed on to commands.
+        Path("to_be_deleted.txt").unlink()
+
+        proc = iprecommit_run("--all")
+        expected_stdout = S(
+            """\
+            [iprecommit] NoForbiddenStrings: running
+            unstaged.txt
+            [iprecommit] NoForbiddenStrings: failed
+
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: passed
+
+
+            1 failed. Commit aborted.
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
+
     def test_help_text(self):
         proc = run_shell([".venv/bin/iprecommit", "--help"], capture_stdout=True)
         expected_stdout = S(
