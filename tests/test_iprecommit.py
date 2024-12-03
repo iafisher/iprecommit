@@ -685,6 +685,8 @@ class TestEndToEnd(Base):
         self.assert_no_commits()
 
     def test_all_with_deleted_file(self):
+        # REGRESSION TEST: `iprecommit run --all` should not pass names of deleted files to
+        # commands.
         self._create_repo()
 
         create_and_commit_file("to_be_kept.txt", "Keep me!\n")
@@ -710,6 +712,31 @@ class TestEndToEnd(Base):
         )
         self.assertEqual(expected_stdout, proc.stdout)
         self.assertNotEqual(0, proc.returncode)
+
+    def test_exclude_filter(self):
+        # REGRESSION TEST: An initial exclude filter should not exclude everything.
+        precommit_text = S(
+            """
+            [[pre_commit]]
+            name = "NoForbiddenStrings"
+            cmd = ["iprecommit-no-forbidden-strings", "--paths"]
+            filters = ["!dict.txt"]
+            """
+        )
+        self._create_repo(precommit_text=precommit_text)
+
+        create_and_stage_file("example.txt", "Lorem ipsum\n")
+        create_and_stage_file("dict.txt", "DO NOT" + " COMMIT\n")
+
+        proc = iprecommit_run()
+        expected_stdout = S(
+            """\
+            [iprecommit] NoForbiddenStrings: running
+            [iprecommit] NoForbiddenStrings: passed
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(0, proc.returncode)
 
     def test_help_text(self):
         proc = run_shell([".venv/bin/iprecommit", "--help"], capture_stdout=True)
@@ -883,6 +910,10 @@ class TestUnit(unittest.TestCase):
             checks.filter_paths(
                 paths("a.py", "b.txt", "c.py"), ["*.py", "!c.py", "b.txt"]
             ),
+        )
+
+        self.assertEqual(
+            paths("a.txt"), checks.filter_paths(paths("a.txt", "b.txt"), ["!b.txt"])
         )
 
 

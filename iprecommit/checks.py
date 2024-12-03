@@ -249,6 +249,9 @@ def filter_paths(paths: List[Path], filters: List[str]) -> List[Path]:
     if not filters:
         return paths
 
+    if filters[0].startswith("!"):
+        filters = ["*"] + filters
+
     compiled_filters = [compile_filter(f) for f in filters]
 
     base_filter = compiled_filters[0]
