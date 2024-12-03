@@ -7,6 +7,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/iprecommit/issues).
 
+## [0.6.2] - 2024-12-03
+- Bug fix: deleted files are no longer passed to commands for `iprecommit run --all`.
+- Bug fix: `iprecommit run --unstaged` now considers untracked files as well as tracked files with unstaged changes.
+
 ## [0.6.1] - 2024-12-01
 - `fail_fast` option added to TOML.
 
