@@ -63,7 +63,7 @@ Reasons you might prefer pre-commit:
 - You need one of the [Git hooks that pre-commit supports](https://pre-commit.com/#supported-git-hooks) and `iprecommit` doesn't.
 
 ### How do I disable a failing check?
-Comment out the check in the `precommit.toml` file.
+Set `skip = true` in the `precommit.toml` file, or pass `--skip <name>` to `iprecommit run`.
 
 
 ## User guide

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Iterable, List, Tuple, Union
 
 from . import githelper, tomlconfig
-from .common import cyan, green, red, yellow
+from .common import IPrecommitError, cyan, green, red, yellow
 from .tomlconfig import CommitMsgCheck, PreCommitCheck, PrePushCheck
 
 
@@ -28,8 +28,11 @@ class Checks:
         unstaged: bool,
         all_files: bool,
         fail_fast: bool = False,
+        skip: List[str],
     ) -> None:
         assert not (unstaged and all_files)
+
+        checks = self._get_checks_to_run(skip)
 
         if all_files:
             all_changed_paths = list(
@@ -50,12 +53,12 @@ class Checks:
 
         if fix_mode:
             self._run_pre_commit_fix(
-                all_changed_paths,
-                checks=self.config.pre_commit_checks,
-                unstaged=unstaged,
+                all_changed_paths, checks=checks, unstaged=unstaged
             )
         else:
-            self._run_pre_commit_check(all_changed_paths, fail_fast=fail_fast)
+            self._run_pre_commit_check(
+                all_changed_paths, checks=checks, fail_fast=fail_fast
+            )
 
             if self.num_failed_checks > 0 and len(self.failed_fixable_checks) > 0:
                 print()
@@ -72,29 +75,34 @@ class Checks:
                 print()
                 print()
                 self._print_block_status("retrying after autofix")
-                self._run_pre_commit_check(all_changed_paths, fail_fast=fail_fast)
+                self._run_pre_commit_check(
+                    all_changed_paths, checks=checks, fail_fast=fail_fast
+                )
 
         self._summary("Commit")
 
     def _run_pre_commit_check(
-        self, all_changed_paths: List[Path], *, fail_fast: bool
+        self,
+        all_changed_paths: List[Path],
+        *,
+        checks: List[PreCommitCheck],
+        fail_fast: bool,
     ) -> None:
-        for i, check in enumerate(self.config.pre_commit_checks):
-            name = get_check_name(check)
-
+        for i, check in enumerate(checks):
             filtered_changed_paths = filter_paths(all_changed_paths, check.filters)
-            if not filtered_changed_paths:
-                self._print_status(name, yellow("skipped"))
+            if check.skip or not filtered_changed_paths:
+                self._print_status(check.name, yellow("skipped"))
+                print()
                 continue
 
-            self._print_status(name, "running")
+            self._print_status(check.name, "running")
             cmd = check.cmd
             # TODO: test where pass_files=False
             if check.pass_files:
                 cmd = cmd + filtered_changed_paths  # type: ignore
             success = self._run_one(cmd, working_dir=check.working_dir)
             if not success:
-                self._print_status(name, red("failed"))
+                self._print_status(check.name, red("failed"))
                 self.num_failed_checks += 1
                 if check.fix_cmd and self.config.autofix or check.autofix:
                     self.failed_fixable_checks.append(check)
@@ -109,9 +117,9 @@ class Checks:
                         )
                         break
             else:
-                self._print_status(name, green("passed"))
+                self._print_status(check.name, green("passed"))
 
-            if i != len(self.config.pre_commit_checks) - 1:
+            if i != len(checks) - 1:
                 print()
 
     def _run_pre_commit_fix(
@@ -123,28 +131,27 @@ class Checks:
     ) -> None:
         fixable_checks = [check for check in checks if check.fix_cmd]
         for i, check in enumerate(fixable_checks):
-            name = get_check_name(check)
-
             filtered_changed_paths = filter_paths(all_changed_paths, check.filters)
-            if not filtered_changed_paths:
-                self._print_status(name, yellow("skipped"))
+            if check.skip or not filtered_changed_paths:
+                self._print_status(check.name, yellow("skipped"))
+                print()
                 continue
 
-            self._print_status(name, "fixing")
+            self._print_status(check.name, "fixing")
             cmd = check.fix_cmd
             if check.pass_files:
                 cmd = cmd + filtered_changed_paths  # type: ignore
             success = self._run_one(cmd, working_dir=check.working_dir)
             if not success:
                 # TODO: test for fix failed
-                self._print_status(name, red("fix failed"))
+                self._print_status(check.name, red("fix failed"))
             else:
-                self._print_status(name, "finished")
+                self._print_status(check.name, "finished")
                 if not unstaged:
                     proc = subprocess.run(["git", "add"] + filtered_changed_paths, capture_output=True)  # type: ignore
                     if proc.returncode != 0:
                         self._print_status(
-                            name,
+                            check.name,
                             yellow("staging fixed files with 'git add' failed"),
                         )
 
@@ -222,6 +229,24 @@ class Checks:
             proc = do_it()
 
         return proc.returncode == 0
+
+    def _get_checks_to_run(self, skip_list: List[str]) -> List[PreCommitCheck]:
+        skip_set = set(name.lower() for name in skip_list)
+        checks = self.config.pre_commit_checks[:]
+        for name in skip_set:
+            found = False
+            for check in checks:
+                if name == check.name.lower():
+                    check.skip = True
+                    found = True
+
+            if not found:
+                options = "\n".join(sorted(f"  - {check.name}" for check in checks))
+                raise IPrecommitError(
+                    f"{name!r} is not the name of a known checks. Options:\n\n{options}\n"
+                )
+
+        return checks
 
     def _failed(self) -> bool:
         return self.num_failed_checks > 0

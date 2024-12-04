@@ -1,3 +1,4 @@
+import shlex
 from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,7 +10,7 @@ from .common import IPrecommitTomlError
 
 @dataclass
 class PreCommitCheck:
-    name: Optional[str]
+    name: str
     cmd: List[str]
     fix_cmd: List[str]
     pass_files: bool
@@ -17,17 +18,18 @@ class PreCommitCheck:
     working_dir: Optional[str]
     fail_fast: bool
     autofix: bool
+    skip: bool
 
 
 @dataclass
 class PrePushCheck:
-    name: Optional[str]
+    name: str
     cmd: List[str]
 
 
 @dataclass
 class CommitMsgCheck:
-    name: Optional[str]
+    name: str
     cmd: List[str]
 
 
@@ -88,8 +90,11 @@ def parse(path: Path) -> Config:
 
     for pre_commit_toml in pre_commit_toml_list:
         table_name = "[[pre_commit]]"
-        name = validate_optional_string_key(pre_commit_toml, "name", table_name)
         cmd = validate_cmd_key(pre_commit_toml, table_name)
+        name = validate_optional_string_key(pre_commit_toml, "name", table_name)
+        if name is None:
+            name = name_from_cmd(cmd)
+
         fix_cmd = validate_cmd_key(
             pre_commit_toml, table_name, key="fix_cmd", default=[]
         )
@@ -108,6 +113,9 @@ def parse(path: Path) -> Config:
         autofix = validate_bool_key(
             pre_commit_toml, "autofix", value_if_unset=False, table_name="pre_commit"
         )
+        skip = validate_bool_key(
+            pre_commit_toml, "skip", value_if_unset=False, table_name="pre_commit"
+        )
 
         ensure_dict_empty(pre_commit_toml, "A [[pre_commit]] entry")
         config.pre_commit_checks.append(
@@ -120,26 +128,35 @@ def parse(path: Path) -> Config:
                 working_dir=working_dir,
                 fail_fast=fail_fast,
                 autofix=autofix,
+                skip=skip,
             )
         )
 
     for commit_msg_toml in commit_msg_toml_list:
         table_name = "[[commit_msg]]"
-        name = validate_optional_string_key(commit_msg_toml, "name", table_name)
         cmd = validate_cmd_key(commit_msg_toml, table_name)
+        name = validate_optional_string_key(commit_msg_toml, "name", table_name)
+        if name is None:
+            name = name_from_cmd(cmd)
 
         ensure_dict_empty(commit_msg_toml, "A [[commit_msg]] entry")
         config.commit_msg_checks.append(CommitMsgCheck(name=name, cmd=cmd))
 
     for pre_push_toml in pre_push_toml_list:
         table_name = "[[pre_push]]"
-        name = validate_optional_string_key(pre_push_toml, "name", table_name)
         cmd = validate_cmd_key(pre_push_toml, table_name)
+        name = validate_optional_string_key(pre_push_toml, "name", table_name)
+        if name is None:
+            name = name_from_cmd(cmd)
 
         ensure_dict_empty(pre_push_toml, f"A {table_name} entry")
         config.pre_push_checks.append(PrePushCheck(name=name, cmd=cmd))
 
     return config
+
+
+def name_from_cmd(cmd: List[str]) -> str:
+    return " ".join(map(shlex.quote, cmd))
 
 
 def validate_optional_string_key(

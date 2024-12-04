@@ -33,6 +33,22 @@ class TestEndToEnd(Base):
         self.assertEqual(expected_stdout, proc.stdout)
         self.assertNotEqual(0, proc.returncode)
 
+    def test_skip_check(self):
+        self._create_repo()
+        stage_do_not_submit_file()
+
+        proc = iprecommit_run("--skip", "NoForbiddenStrings")
+        expected_stdout = S(
+            """\
+            [iprecommit] NoForbiddenStrings: skipped
+
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: passed
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(0, proc.returncode)
+
     def test_fail_fast(self):
         self._create_repo(TOP_LEVEL_FAILFAST_PRECOMMIT)
         stage_do_not_submit_file()
@@ -183,6 +199,7 @@ class TestEndToEnd(Base):
         expected_stdout = S(
             """\
             [iprecommit] black --check: skipped
+
             """
         )
         self.assertEqual(expected_stdout, proc.stdout)
@@ -800,7 +817,7 @@ class TestEndToEnd(Base):
         expected_stdout = S(
             """\
             usage: iprecommit run [-h] [--config CONFIG] [--unstaged | --all]
-                                  [--fail-fast]
+                                  [--fail-fast] [--skip SKIP]
 
             Manually run the pre-commit hook.
 
@@ -811,6 +828,7 @@ class TestEndToEnd(Base):
               --unstaged       Also run on unstaged files.
               --all            Run on all files in the repository.
               --fail-fast      Stop at the first failing check.
+              --skip SKIP      Skip the given check (repeatable).
             """
         )
         self.assertEqual(expected_stdout, S(proc.stdout))
@@ -819,6 +837,7 @@ class TestEndToEnd(Base):
         expected_stdout = S(
             """\
             usage: iprecommit fix [-h] [--config CONFIG] [--unstaged | --all]
+                                  [--skip SKIP]
 
             Apply fixes to failing checks.
 
@@ -828,6 +847,7 @@ class TestEndToEnd(Base):
                                precommit.toml]
               --unstaged       Also run on unstaged files.
               --all            Run on all files in the repository.
+              --skip SKIP      Skip the given check (repeatable).
             """
         )
         self.assertEqual(expected_stdout, S(proc.stdout))
