@@ -13,12 +13,12 @@ from .tomlconfig import CommitMsgCheck, PreCommitCheck, PrePushCheck
 
 class Checks:
     num_failed_checks: int
-    failed_fixable_checks: bool
+    failed_fixable_checks: List[PreCommitCheck]
     config: tomlconfig.Config
 
     def __init__(self, config: tomlconfig.Config) -> None:
         self.num_failed_checks = 0
-        self.failed_fixable_checks = False
+        self.failed_fixable_checks = []
         self.config = config
 
     def run_pre_commit(
@@ -49,23 +49,29 @@ class Checks:
             )
 
         if fix_mode:
-            self._run_pre_commit_fix(all_changed_paths, unstaged=unstaged)
+            self._run_pre_commit_fix(
+                all_changed_paths,
+                checks=self.config.pre_commit_checks,
+                unstaged=unstaged,
+            )
         else:
-            if self.config.autofix:
-                self._run_pre_commit_check(all_changed_paths, fail_fast=fail_fast)
+            self._run_pre_commit_check(all_changed_paths, fail_fast=fail_fast)
 
-                if self.num_failed_checks > 0 and self.failed_fixable_checks:
-                    print()
-                    print()
-                    self._print_block_status("attempting autofix")
-                    self._run_pre_commit_fix(all_changed_paths, unstaged=unstaged)
+            if self.num_failed_checks > 0 and len(self.failed_fixable_checks) > 0:
+                print()
+                print()
+                self._print_block_status("attempting autofix")
+                self._run_pre_commit_fix(
+                    all_changed_paths,
+                    checks=self.failed_fixable_checks,
+                    unstaged=unstaged,
+                )
 
-                    self.num_failed_checks = 0
-                    print()
-                    print()
-                    self._print_block_status("retrying after autofix")
-                    self._run_pre_commit_check(all_changed_paths, fail_fast=fail_fast)
-            else:
+                self.num_failed_checks = 0
+                self.failed_fixable_checks.clear()
+                print()
+                print()
+                self._print_block_status("retrying after autofix")
                 self._run_pre_commit_check(all_changed_paths, fail_fast=fail_fast)
 
         self._summary("Commit")
@@ -90,8 +96,8 @@ class Checks:
             if not success:
                 self._print_status(name, red("failed"))
                 self.num_failed_checks += 1
-                if check.fix_cmd:
-                    self.failed_fixable_checks = True
+                if check.fix_cmd and self.config.autofix or check.autofix:
+                    self.failed_fixable_checks.append(check)
 
                 if self.config.fail_fast or check.fail_fast or fail_fast:
                     n = len(self.config.pre_commit_checks) - (i + 1)
@@ -109,11 +115,13 @@ class Checks:
                 print()
 
     def _run_pre_commit_fix(
-        self, all_changed_paths: List[Path], *, unstaged: bool
+        self,
+        all_changed_paths: List[Path],
+        *,
+        checks: List[PreCommitCheck],
+        unstaged: bool,
     ) -> None:
-        fixable_checks = [
-            check for check in self.config.pre_commit_checks if check.fix_cmd
-        ]
+        fixable_checks = [check for check in checks if check.fix_cmd]
         for i, check in enumerate(fixable_checks):
             name = get_check_name(check)
 

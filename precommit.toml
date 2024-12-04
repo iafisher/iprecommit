@@ -1,5 +1,3 @@
-autofix = true
-
 [[pre_commit]]
 name = "NoForbiddenStrings"
 cmd = ["iprecommit-no-forbidden-strings", "--paths"]
@@ -7,6 +5,7 @@ cmd = ["iprecommit-no-forbidden-strings", "--paths"]
 [[pre_commit]]
 name = "NewlineAtEndOfFile"
 cmd = ["iprecommit-newline-at-eof"]
+autofix = true
 fail_fast = true
 
 [[pre_commit]]
@@ -18,6 +17,7 @@ name = "PythonFormat"
 cmd = ["black", "--check"]
 filters = ["*.py"]
 fix_cmd = ["black"]
+autofix = true
 fail_fast = true
 
 # TODO: should consider deleted files

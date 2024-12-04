@@ -16,6 +16,7 @@ class PreCommitCheck:
     filters: List[str]
     working_dir: Optional[str]
     fail_fast: bool
+    autofix: bool
 
 
 @dataclass
@@ -104,6 +105,9 @@ def parse(path: Path) -> Config:
         pass_files = validate_bool_key(
             pre_commit_toml, "pass_files", value_if_unset=True, table_name="pre_commit"
         )
+        autofix = validate_bool_key(
+            pre_commit_toml, "autofix", value_if_unset=False, table_name="pre_commit"
+        )
 
         ensure_dict_empty(pre_commit_toml, "A [[pre_commit]] entry")
         config.pre_commit_checks.append(
@@ -115,6 +119,7 @@ def parse(path: Path) -> Config:
                 filters=filters,
                 working_dir=working_dir,
                 fail_fast=fail_fast,
+                autofix=autofix,
             )
         )
 
@@ -186,13 +191,6 @@ def validate_bool_key(
 
 
 def ensure_dict_empty(d: dict, name: str) -> None:
-    top_level_keys = ["autofix"]
-    for key in top_level_keys:
-        if key in d:
-            raise IPrecommitTomlError(
-                f"The '{key}' key belongs at the top level of the TOML file."
-            )
-
     try:
         key = next(iter(d.keys()))
     except StopIteration:

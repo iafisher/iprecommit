@@ -956,13 +956,13 @@ fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
 """
 
 FAILFAST_WITH_AUTOFIX_PRECOMMIT = """\
-autofix = true
 fail_fast = false
 
 [[pre_commit]]
 name = "NewlineAtEOF"
 cmd = ["iprecommit-newline-at-eof"]
 fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
+autofix = true
 fail_fast = true
 
 [[pre_commit]]

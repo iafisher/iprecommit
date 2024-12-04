@@ -233,10 +233,6 @@ PRECOMMIT_TEMPLATE = """\
 # This file configures Git hooks for the project.
 # Documentation: https://github.com/iafisher/iprecommit
 
-# Set 'autofix' to 'true' to automatically run 'iprecommit fix' if a fixable
-# check fails.
-autofix = false
-
 # Set 'fail_fast' to 'true' to abort the run after the first failing check.
 # You can also set 'fail_fast' on individual checks.
 fail_fast = false
@@ -249,14 +245,17 @@ cmd = ["iprecommit-no-forbidden-strings", "--paths"]
 name = "NewlineAtEndOfFile"
 cmd = ["iprecommit-newline-at-eof"]
 fix_cmd = ["iprecommit-newline-at-eof", "--fix"]
-# 'fail_fast = true' works nicely with 'autofix = true' at the top level.
-fail_fast = false
+# Uncomment the next two lines to have this check auto-fix and retry immediately on failure.
+# autofix = true
+# fail_fast = true
 
 # [[pre_commit]]
 # name = "PythonFormat"
 # cmd = ["black", "--check"]
 # filters = ["*.py"]
 # fix_cmd = ["black"]
+# autofix = true
+# fail_fast = true
 
 # [[pre_commit]]
 # name = "ProjectTests"
