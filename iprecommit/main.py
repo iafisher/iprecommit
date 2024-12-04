@@ -62,6 +62,9 @@ def main() -> None:
     )
     add_config_file_arg(argparser_run)
     add_unstaged_and_all_flags(argparser_run)
+    argparser_run.add_argument(
+        "--fail-fast", action="store_true", help="Stop at the first failing check."
+    )
 
     argparser_fix = _create_subparser(
         subparsers, "fix", help="Apply fixes to failing checks."
@@ -112,7 +115,12 @@ def main_pre_commit(args) -> None:
 
     config = tomlconfig.parse(args.config)
     checks = Checks(config)
-    checks.run_pre_commit(fix_mode=False, unstaged=args.unstaged, all_files=args.all)
+    checks.run_pre_commit(
+        fix_mode=False,
+        unstaged=args.unstaged,
+        all_files=args.all,
+        fail_fast=args.fail_fast,
+    )
 
 
 def main_fix(args) -> None:

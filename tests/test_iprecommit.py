@@ -800,6 +800,7 @@ class TestEndToEnd(Base):
         expected_stdout = S(
             """\
             usage: iprecommit run [-h] [--config CONFIG] [--unstaged | --all]
+                                  [--fail-fast]
 
             Manually run the pre-commit hook.
 
@@ -809,6 +810,7 @@ class TestEndToEnd(Base):
                                precommit.toml]
               --unstaged       Also run on unstaged files.
               --all            Run on all files in the repository.
+              --fail-fast      Stop at the first failing check.
             """
         )
         self.assertEqual(expected_stdout, S(proc.stdout))

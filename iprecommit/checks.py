@@ -22,7 +22,12 @@ class Checks:
         self.config = config
 
     def run_pre_commit(
-        self, *, fix_mode: bool, unstaged: bool, all_files: bool
+        self,
+        *,
+        fix_mode: bool,
+        unstaged: bool,
+        all_files: bool,
+        fail_fast: bool = False,
     ) -> None:
         assert not (unstaged and all_files)
 
@@ -47,7 +52,7 @@ class Checks:
             self._run_pre_commit_fix(all_changed_paths, unstaged=unstaged)
         else:
             if self.config.autofix:
-                self._run_pre_commit_check(all_changed_paths)
+                self._run_pre_commit_check(all_changed_paths, fail_fast=fail_fast)
 
                 if self.num_failed_checks > 0 and self.failed_fixable_checks:
                     print()
@@ -59,13 +64,15 @@ class Checks:
                     print()
                     print()
                     self._print_block_status("retrying after autofix")
-                    self._run_pre_commit_check(all_changed_paths)
+                    self._run_pre_commit_check(all_changed_paths, fail_fast=fail_fast)
             else:
-                self._run_pre_commit_check(all_changed_paths)
+                self._run_pre_commit_check(all_changed_paths, fail_fast=fail_fast)
 
         self._summary("Commit")
 
-    def _run_pre_commit_check(self, all_changed_paths: List[Path]) -> None:
+    def _run_pre_commit_check(
+        self, all_changed_paths: List[Path], *, fail_fast: bool
+    ) -> None:
         for i, check in enumerate(self.config.pre_commit_checks):
             name = get_check_name(check)
 
@@ -86,7 +93,7 @@ class Checks:
                 if check.fix_cmd:
                     self.failed_fixable_checks = True
 
-                if self.config.fail_fast or check.fail_fast:
+                if self.config.fail_fast or check.fail_fast or fail_fast:
                     n = len(self.config.pre_commit_checks) - (i + 1)
                     if n > 0:
                         s = "" if n == 1 else "s"
