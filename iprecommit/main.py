@@ -177,6 +177,7 @@ def main_install(args):
     precommit_path = (
         Path(args.path) if args.path is not None else Path("precommit.toml")
     )
+    did_i_write_precommit_file = False
     if not precommit_path.exists():
         write_template = lambda: precommit_path.write_text(PRECOMMIT_TEMPLATE)
 
@@ -197,6 +198,8 @@ def main_install(args):
         else:
             write_template()
 
+        did_i_write_precommit_file = True
+
     git_root = Path(".").absolute()
     iprecommit_path = get_iprecommit_path(git_root)
 
@@ -211,18 +214,25 @@ def main_install(args):
         iprecommit_path=iprecommit_path,
         args="run" + extra_args,
     )
+    print(f"Created hook: {pre_commit_hook_path}")
     _write_script(
         commit_msg_hook_path,
         GIT_HOOK_TEMPLATE,
         iprecommit_path=iprecommit_path,
         args='run-commit-msg --commit-msg "$1"' + extra_args,
     )
+    print(f"Created hook: {commit_msg_hook_path}")
     _write_script(
         pre_push_hook_path,
         GIT_HOOK_TEMPLATE,
         iprecommit_path=iprecommit_path,
         args='run-pre-push --remote "$1"' + extra_args,
     )
+    print(f"Created hook: {pre_push_hook_path}")
+
+    if did_i_write_precommit_file:
+        print()
+        print("Created precommit.toml from template. Edit it to add your own checks.")
 
 
 def get_iprecommit_path(git_root: Path) -> str:
