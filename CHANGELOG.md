@@ -7,6 +7,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/iprecommit/issues).
 
+## [0.7.0] - 2024-12-13
+- Bug fix: Installation process is more robust.
+
 ## [0.6.3] - 2024-12-03
 - Bug fix: Negative filters (e.g., `["!*.md"]`) now work correctly.
 - `iprecommit run` and `iprecommit fix` now take a `--skip` flag to optionally skip checks. You can also set `skip = true` in `precommit.toml`.
