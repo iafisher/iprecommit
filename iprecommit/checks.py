@@ -46,10 +46,9 @@ class Checks:
                 )
             )
         else:
-            all_changed_paths = (
-                githelper.get_changed_paths(include_unstaged=unstaged)
-                + githelper.get_untracked_files()
-            )
+            all_changed_paths = githelper.get_changed_paths(
+                include_unstaged=unstaged
+            ) + (githelper.get_untracked_files() if unstaged else [])
 
         if fix_mode:
             self._run_pre_commit_fix(

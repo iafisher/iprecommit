@@ -772,6 +772,46 @@ class TestEndToEnd(Base):
         self.assertEqual(expected_stdout, proc.stdout)
         self.assertEqual(0, proc.returncode)
 
+    def test_new_untracked_file_with_fixes(self):
+        # REGRESSION TEST: iprecommit should ignore untracked files even if they have problems.
+        self._create_repo(precommit_text=PYTHON_FORMAT_PRECOMMIT)
+
+        create_and_stage_file("example.txt", "Lorem ipsum\n")
+        Path("bad_python_format.py").write_text("x   = 5\n")
+
+        proc = iprecommit_run()
+        expected_stdout = S(
+            """\
+            [iprecommit] black --check: skipped
+
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(0, proc.returncode)
+
+    def test_new_untracked_file_and_unstaged_flag(self):
+        self._create_repo(precommit_text=PYTHON_FORMAT_PRECOMMIT)
+
+        create_and_stage_file("example.txt", "Lorem ipsum\n")
+        Path("bad_python_format.py").write_text("x   = 5\n")
+
+        proc = iprecommit_run("--unstaged")
+        expected_stdout = S(
+            """\
+            [iprecommit] black --check: running
+            would reformat bad_python_format.py
+
+            Oh no! 💥 💔 💥
+            1 file would be reformatted.
+            [iprecommit] black --check: failed
+
+
+            1 failed. Commit aborted.
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(1, proc.returncode)
+
     def test_help_text(self):
         proc = run_shell([".venv/bin/iprecommit", "--help"], capture_stdout=True)
         expected_stdout = S(
