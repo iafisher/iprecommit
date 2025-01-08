@@ -38,7 +38,9 @@ class Base(unittest.TestCase):
     def tearDownClass(cls):
         cls.tmpdir_obj.cleanup()
 
-    def _create_repo(self, precommit_text=None, install_hook=True, path=None):
+    def _create_repo(
+        self, precommit_text=None, install_hook=True, path=None, clean=False
+    ):
         os.chdir(self.tmpdir)
 
         run_shell(["git", "init"])
@@ -56,6 +58,10 @@ class Base(unittest.TestCase):
                 + (["--path", path] if path is not None else [])
             )
             print("test: installed pre-commit hook")
+
+        if clean:
+            run_shell(["git", "add", "."], check=True)
+            run_shell(["git", "commit", "-m", "init commit"], check=True)
 
 
 def run_shell(args, check=True, capture_stdout=False, capture_stderr=False):
