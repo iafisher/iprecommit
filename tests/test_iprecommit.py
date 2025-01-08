@@ -33,6 +33,27 @@ class TestEndToEnd(Base):
         self.assertEqual(expected_stdout, proc.stdout)
         self.assertNotEqual(0, proc.returncode)
 
+    def test_no_files_staged(self):
+        self._create_repo(clean=True)
+
+        proc = iprecommit_run()
+        expected_stdout = S(
+            """\
+            No files are staged in Git. Stage some files, or re-run with --unstaged or --all.
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
+
+        proc = iprecommit_run("--unstaged")
+        expected_stdout = S(
+            """\
+            No files are changed (staged or unstaged) in Git. Change some files, or re-run with --all.
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertNotEqual(0, proc.returncode)
+
     def test_skip_check(self):
         self._create_repo()
         stage_do_not_submit_file()

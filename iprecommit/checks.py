@@ -50,6 +50,19 @@ class Checks:
                 include_unstaged=unstaged
             ) + (githelper.get_untracked_files() if unstaged else [])
 
+        if len(all_changed_paths) == 0:
+            if unstaged:
+                print(
+                    "No files are changed (staged or unstaged) in Git. Change some files, or re-run with --all."
+                )
+            elif all_files:
+                print("The repository is empty. Add some files and re-run.")
+            else:
+                print(
+                    "No files are staged in Git. Stage some files, or re-run with --unstaged or --all."
+                )
+            sys.exit(1)
+
         if fix_mode:
             self._run_pre_commit_fix(
                 all_changed_paths, checks=checks, unstaged=unstaged
