@@ -421,8 +421,15 @@ class TestEndToEnd(Base):
             os.chdir(self.tmpdir)
             run_shell(["git", "remote", "add", "origin", bare_repo_dir])
 
+            # Git init might create default branch name as main or master
+            # depending on computer settings
             proc = run_shell(
-                ["git", "push", "-u", "origin", "master"],
+                ["git", "config", "init.defaultBranch"], check=True, capture_stdout=True
+            )
+            branch_name = proc.stdout.strip()
+
+            proc = run_shell(
+                ["git", "push", "-u", "origin", branch_name],
                 check=False,
                 capture_stdout=True,
             )
