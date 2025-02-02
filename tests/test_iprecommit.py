@@ -70,6 +70,24 @@ class TestEndToEnd(Base):
         self.assertEqual(expected_stdout, proc.stdout)
         self.assertEqual(0, proc.returncode)
 
+    def test_skip_check_via_environment_variable(self):
+        self._create_repo()
+        stage_do_not_submit_file()
+
+        os.environ["IPRECOMMIT_SKIP"] = "NoForbiddenStrings,NewlineAtEndOfFile"
+        proc = iprecommit_run()
+        del os.environ["IPRECOMMIT_SKIP"]
+        expected_stdout = S(
+            """\
+            [iprecommit] NoForbiddenStrings: skipped
+
+            [iprecommit] NewlineAtEndOfFile: skipped
+
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(0, proc.returncode)
+
     def test_fail_fast(self):
         self._create_repo(TOP_LEVEL_FAILFAST_PRECOMMIT)
         stage_do_not_submit_file()

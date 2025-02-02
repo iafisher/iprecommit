@@ -4,11 +4,13 @@ A dead-simple tool to manage pre-commit hooks for Git.
 
 ```toml
 [[pre_commit]]
+name = "PythonFormat"
 cmd = ["black", "--check"]
 filters = ["*.py"]
 fix_cmd = ["black"]
 
 [[pre_commit]]
+name = "UnitTests"
 cmd = ["./run_tests"]
 pass_files = false
 ```
@@ -72,7 +74,13 @@ Reasons you might prefer pre-commit:
 - Husky will stop at the first failing check, while `iprecommit` will run all checks (unless `fail_fast` is set).
 
 ### How do I disable a failing check?
-Set `skip = true` in the `precommit.toml` file, or pass `--skip <name>` to `iprecommit run`.
+Set `IPRECOMMIT_SKIP` to a comma-separated list of checks to skip, e.g.:
+
+```shell
+$ IPRECOMMIT_SKIP="Check1,Check2" git commit -m '...'
+```
+
+To persistently skip a check, set `skip = true` in the `precommit.toml` file.
 
 
 ## User guide

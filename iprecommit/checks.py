@@ -1,5 +1,6 @@
 import contextlib
 import fnmatch
+import os
 import shlex
 import subprocess
 import sys
@@ -32,7 +33,8 @@ class Checks:
     ) -> None:
         assert not (unstaged and all_files)
 
-        checks = self._get_checks_to_run(skip)
+        skip_from_envvar = _parse_skip_envvar()
+        checks = self._get_checks_to_run(skip + skip_from_envvar)
 
         if all_files:
             all_changed_paths = list(
@@ -288,6 +290,14 @@ class Checks:
         print(f"{cyan('[iprecommit]')} {line}")
         if flush:
             sys.stdout.flush()
+
+
+def _parse_skip_envvar():
+    val = os.environ.get("IPRECOMMIT_SKIP")
+    if val is None:
+        return []
+    else:
+        return [s.strip() for s in val.split(",")]
 
 
 def get_check_name(check: Union[PreCommitCheck, PrePushCheck, CommitMsgCheck]) -> str:
