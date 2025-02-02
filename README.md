@@ -62,6 +62,15 @@ Reasons you might prefer pre-commit:
 - You like pre-commit's [more extensive configuration options](https://pre-commit.com/#creating-new-hooks).
 - You need one of the [Git hooks that pre-commit supports](https://pre-commit.com/#supported-git-hooks) and `iprecommit` doesn't.
 
+### Why not Husky?
+[Husky](https://typicode.github.io/husky/) is a pre-commit tool that is popular in the JavaScript ecosystem.
+
+`iprecommit` has a few features that Husky doesn't:
+
+- `iprecommit` can pass only changed files to your checks.
+- `iprecommit` checks can auto-fix problems (for instance, reformatting code).
+- Husky will stop at the first failing check, while `iprecommit` will run all checks (unless `fail_fast` is set).
+
 ### How do I disable a failing check?
 Set `skip = true` in the `precommit.toml` file, or pass `--skip <name>` to `iprecommit run`.
 
