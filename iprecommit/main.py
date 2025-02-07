@@ -61,8 +61,18 @@ def main() -> None:
         argparser.add_argument(
             "--skip",
             action="append",
+            metavar="CHECK",
             default=[],
             help="Skip the given check (repeatable).",
+        )
+
+    def add_only_flag(argparser):
+        argparser.add_argument(
+            "--only",
+            action="append",
+            metavar="CHECK",
+            default=[],
+            help="Run only the given check (repeatable).",
         )
 
     argparser_run = _create_subparser(
@@ -74,6 +84,7 @@ def main() -> None:
         "--fail-fast", action="store_true", help="Stop at the first failing check."
     )
     add_skip_flag(argparser_run)
+    add_only_flag(argparser_run)
 
     argparser_fix = _create_subparser(
         subparsers, "fix", help="Apply fixes to failing checks."
@@ -81,6 +92,7 @@ def main() -> None:
     add_config_file_arg(argparser_fix)
     add_unstaged_and_all_flags(argparser_fix)
     add_skip_flag(argparser_fix)
+    add_only_flag(argparser_fix)
 
     argparser_run_commit_msg = _create_subparser(
         subparsers, "run-commit-msg", help="Manually run the commit-msg hook."
@@ -131,6 +143,7 @@ def main_pre_commit(args) -> None:
         all_files=args.all,
         fail_fast=args.fail_fast,
         skip=args.skip,
+        only=args.only,
     )
 
 
@@ -140,7 +153,11 @@ def main_fix(args) -> None:
     config = tomlconfig.parse(args.config)
     checks = Checks(config)
     checks.run_pre_commit(
-        fix_mode=True, unstaged=args.unstaged, all_files=args.all, skip=args.skip
+        fix_mode=True,
+        unstaged=args.unstaged,
+        all_files=args.all,
+        skip=args.skip,
+        only=args.only,
     )
 
 

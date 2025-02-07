@@ -54,6 +54,22 @@ class TestEndToEnd(Base):
         self.assertEqual(expected_stdout, proc.stdout)
         self.assertNotEqual(0, proc.returncode)
 
+    def test_only_check(self):
+        self._create_repo()
+        stage_do_not_submit_file()
+
+        proc = iprecommit_run("--only", "NewlineAtEndOfFile")
+        expected_stdout = S(
+            """\
+            [iprecommit] NoForbiddenStrings: skipped
+
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: passed
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(0, proc.returncode)
+
     def test_skip_check(self):
         self._create_repo()
         stage_do_not_submit_file()
@@ -859,6 +875,8 @@ class TestEndToEnd(Base):
         self.assertEqual(1, proc.returncode)
 
     def test_help_text(self):
+        self.maxDiff = None
+
         proc = run_shell([".venv/bin/iprecommit", "--help"], capture_stdout=True)
         expected_stdout = S(
             """\
@@ -920,7 +938,7 @@ class TestEndToEnd(Base):
         expected_stdout = S(
             """\
             usage: iprecommit run [-h] [--config CONFIG] [--unstaged | --all]
-                                  [--fail-fast] [--skip SKIP]
+                                  [--fail-fast] [--skip CHECK] [--only CHECK]
 
             Manually run the pre-commit hook.
 
@@ -931,7 +949,8 @@ class TestEndToEnd(Base):
               --unstaged       Also run on unstaged files.
               --all            Run on all files in the repository.
               --fail-fast      Stop at the first failing check.
-              --skip SKIP      Skip the given check (repeatable).
+              --skip CHECK     Skip the given check (repeatable).
+              --only CHECK     Run only the given check (repeatable).
             """
         )
         self.assertEqual(expected_stdout, S(proc.stdout))
@@ -940,7 +959,7 @@ class TestEndToEnd(Base):
         expected_stdout = S(
             """\
             usage: iprecommit fix [-h] [--config CONFIG] [--unstaged | --all]
-                                  [--skip SKIP]
+                                  [--skip CHECK] [--only CHECK]
 
             Apply fixes to failing checks.
 
@@ -950,7 +969,8 @@ class TestEndToEnd(Base):
                                precommit.toml]
               --unstaged       Also run on unstaged files.
               --all            Run on all files in the repository.
-              --skip SKIP      Skip the given check (repeatable).
+              --skip CHECK     Skip the given check (repeatable).
+              --only CHECK     Run only the given check (repeatable).
             """
         )
         self.assertEqual(expected_stdout, S(proc.stdout))

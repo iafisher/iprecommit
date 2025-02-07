@@ -5,7 +5,7 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
-from typing import Iterable, List, Tuple, Union
+from typing import Iterable, List, NoReturn, Tuple, Union
 
 from . import githelper, tomlconfig
 from .common import IPrecommitError, cyan, green, red, yellow
@@ -30,11 +30,14 @@ class Checks:
         all_files: bool,
         fail_fast: bool = False,
         skip: List[str],
+        only: List[str],
     ) -> None:
         assert not (unstaged and all_files)
 
         skip_from_envvar = _parse_skip_envvar()
-        checks = self._get_checks_to_run(skip + skip_from_envvar)
+        checks = self._get_checks_to_run(
+            only_list=only, skip_list=skip + skip_from_envvar
+        )
 
         if all_files:
             all_changed_paths = list(
@@ -244,23 +247,49 @@ class Checks:
 
         return proc.returncode == 0
 
-    def _get_checks_to_run(self, skip_list: List[str]) -> List[PreCommitCheck]:
-        skip_set = set(name.lower() for name in skip_list)
+    def _get_checks_to_run(
+        self, only_list: List[str], skip_list: List[str]
+    ) -> List[PreCommitCheck]:
+        if len(only_list) > 0 and len(skip_list) > 0:
+            raise IPrecommitError("either --skip or --only can be passed, but not both")
+
         checks = self.config.pre_commit_checks[:]
-        for name in skip_set:
-            found = False
+
+        def raise_unknown_check_error(name: str) -> NoReturn:
+            options = "\n".join(sorted(f"  - {check.name}" for check in checks))
+            raise IPrecommitError(
+                f"{name!r} is not the name of a known checks. Options:\n\n{options}\n"
+            )
+
+        if len(skip_list) > 0:
+            skip_set = set(name.lower() for name in skip_list)
+            for name in skip_set:
+                found = False
+                for check in checks:
+                    if name == check.name.lower():
+                        check.skip = True
+                        found = True
+
+                if not found:
+                    raise_unknown_check_error(name)
+
+            return checks
+        elif len(only_list) > 0:
+            only_set = {name.lower(): name for name in only_list}
             for check in checks:
-                if name == check.name.lower():
+                check_name = check.name.lower()
+                if check_name in only_set:
+                    only_set.pop(check_name)
+                else:
                     check.skip = True
-                    found = True
 
-            if not found:
-                options = "\n".join(sorted(f"  - {check.name}" for check in checks))
-                raise IPrecommitError(
-                    f"{name!r} is not the name of a known checks. Options:\n\n{options}\n"
-                )
+            if len(only_set) > 0:
+                _, any_example = only_set.popitem()
+                raise_unknown_check_error(any_example)
 
-        return checks
+            return checks
+        else:
+            return checks
 
     def _failed(self) -> bool:
         return self.num_failed_checks > 0
