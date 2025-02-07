@@ -225,11 +225,26 @@ def main_install(args):
     else:
         extra_args = ""
 
+    # The pre-commit check may be invoked in an environment with a restricted `PATH`, e.g. from a
+    # Git GUI program. `get_iprecommit_path` handles finding the path to the `iprecommit` program
+    # itself, but we still need to be able to find the default checks, like
+    # `iprecommit-no-forbidden-strings`. We try to do so here and add its directory to the `PATH`
+    # used by the pre-commit check.
+    #
+    # https://github.com/iafisher/iprecommit/issues/72
+    iprecommit_extras_path = shutil.which("iprecommit-no-forbidden-strings")
+    if iprecommit_extras_path is not None:
+        iprecommit_extras_dir = os.path.split(iprecommit_extras_path)[0]
+        export_path = f'export PATH="$PATH:{iprecommit_extras_dir}"'
+    else:
+        export_path = ""
+
     _write_script(
         pre_commit_hook_path,
         GIT_HOOK_TEMPLATE,
         iprecommit_path=iprecommit_path,
         args="run" + extra_args,
+        export_path=export_path,
     )
     print(f"Created hook: {pre_commit_hook_path}")
     _write_script(
@@ -237,6 +252,7 @@ def main_install(args):
         GIT_HOOK_TEMPLATE,
         iprecommit_path=iprecommit_path,
         args='run-commit-msg --commit-msg "$1"' + extra_args,
+        export_path=export_path,
     )
     print(f"Created hook: {commit_msg_hook_path}")
     _write_script(
@@ -244,6 +260,7 @@ def main_install(args):
         GIT_HOOK_TEMPLATE,
         iprecommit_path=iprecommit_path,
         args='run-pre-push --remote "$1"' + extra_args,
+        export_path=export_path,
     )
     print(f"Created hook: {pre_push_hook_path}")
 
@@ -348,6 +365,8 @@ GIT_HOOK_TEMPLATE = """\
 
 set -e
 
+%(export_path)s
+
 if [ -x "%(iprecommit_path)s" ]; then
   "%(iprecommit_path)s" %(args)s
 elif command -v iprecommit >/dev/null 2>&1; then
@@ -368,10 +387,18 @@ fi
 """
 
 
-def _write_script(path: Path, text: str, *, iprecommit_path: Path, args: str) -> None:
+def _write_script(
+    path: Path, text: str, *, iprecommit_path: Path, args: str, export_path: str
+) -> None:
     replace_file(
         path,
-        text % dict(iprecommit_path=iprecommit_path, version=get_version(), args=args),
+        text
+        % dict(
+            iprecommit_path=iprecommit_path,
+            version=get_version(),
+            args=args,
+            export_path=export_path,
+        ),
     )
     perm = path.stat().st_mode
     path.chmod(perm | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
