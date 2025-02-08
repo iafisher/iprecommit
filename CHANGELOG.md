@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 Numbers in parentheses after entries refer to issues in the [GitHub issue tracker](https://github.com/iafisher/iprecommit/issues).
 
+## [0.7.2] - 2025-02-07
+- `iprecommit run` and `iprecommit fix` now take a `--only` flag to only run a subset of checks.
+- The `IPRECOMMIT_SKIP` environment variable can be used to skip checks.
+- The hook script that `iprecommit install` produces will now find `iprecommit-*` helper scripts more robustly.
+- If the `IPRECOMMIT_DEBUG` environment variable is set to anything other than 0, `iprecommit` will print information about the user's environment for troubleshooting.
+
 ## [0.7.1] - 2025-01-04
 - Bug fix: `iprecommit` erroneously examined newly-created untracked files, even when the `--unstaged` flag was not passed.
 
