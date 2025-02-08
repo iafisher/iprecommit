@@ -3,6 +3,7 @@ import importlib.metadata
 import os
 import shutil
 import stat
+import subprocess
 import sys
 import uuid
 from pathlib import Path
@@ -116,24 +117,29 @@ def main() -> None:
 
 
 def _main(argparser, args) -> None:
+    git_root = find_git_root()
+
+    if in_debug_mode():
+        print_debugging_info(args, git_root)
+
     if args.subcmd == "install":
-        main_install(args)
+        main_install(args, git_root)
     elif args.subcmd == "run":
-        main_pre_commit(args)
+        main_pre_commit(args, git_root)
     elif args.subcmd == "fix":
-        main_fix(args)
+        main_fix(args, git_root)
     elif args.subcmd == "run-commit-msg":
-        main_commit_msg(args)
+        main_commit_msg(args, git_root)
     elif args.subcmd == "run-pre-push":
-        main_pre_push(args)
+        main_pre_push(args, git_root)
     elif args.subcmd == "uninstall":
-        main_uninstall(args)
+        main_uninstall(args, git_root)
     else:
         argparser.print_usage()
 
 
-def main_pre_commit(args) -> None:
-    change_to_git_root()
+def main_pre_commit(args, git_root: Path) -> None:
+    os.chdir(git_root)
 
     config = tomlconfig.parse(args.config)
     checks = Checks(config)
@@ -147,8 +153,47 @@ def main_pre_commit(args) -> None:
     )
 
 
-def main_fix(args) -> None:
-    change_to_git_root()
+def in_debug_mode():
+    v = os.environ.get("IPRECOMMIT_DEBUG")
+    return v is not None and v != "0"
+
+
+def print_debugging_info(args, git_root) -> None:
+    print_err = lambda *args, **kwargs: print(*args, file=sys.stderr, **kwargs)
+
+    try:
+        print_err("debug: iprecommit version:", get_version())
+    except Exception as e:
+        print_err("debug: failed to get iprecommit version:", e)
+
+    try:
+        print_err("debug: git version:", get_git_version())
+    except Exception as e:
+        print_err("debug: failed to get git version:", e)
+
+    try:
+        git_config = get_git_config()
+    except Exception as e:
+        print_err("debug: failed to get git config:", e)
+    else:
+        for key, value in git_config:
+            if key.startswith("core."):
+                print_err(f"debug: git config: {key}={value}")
+
+    print_err("debug: env: PATH=" + os.environ.get("PATH", ""))
+
+    for key, val in os.environ.items():
+        if key.startswith("GIT_"):
+            print_err(f"debug: env: {key}={val}")
+
+    print_err("debug: git root:", git_root)
+
+    for key, val in vars(args).items():
+        print_err(f"debug: arg: {key}={val}")
+
+
+def main_fix(args, git_root: Path) -> None:
+    os.chdir(git_root)
 
     config = tomlconfig.parse(args.config)
     checks = Checks(config)
@@ -161,16 +206,16 @@ def main_fix(args) -> None:
     )
 
 
-def main_commit_msg(args) -> None:
-    change_to_git_root()
+def main_commit_msg(args, git_root: Path) -> None:
+    os.chdir(git_root)
 
     config = tomlconfig.parse(args.config)
     checks = Checks(config)
     checks.run_commit_msg(Path(args.commit_msg))
 
 
-def main_pre_push(args) -> None:
-    change_to_git_root()
+def main_pre_push(args, git_root: Path) -> None:
+    os.chdir(git_root)
 
     config = tomlconfig.parse(args.config)
     checks = Checks(config)
@@ -180,8 +225,8 @@ def main_pre_push(args) -> None:
 ENV_TOML_TEMPLATE = "IPRECOMMIT_TOML_TEMPLATE"
 
 
-def main_install(args):
-    change_to_git_root()
+def main_install(args, git_root: Path) -> None:
+    os.chdir(git_root)
 
     # check this early so that we bail before make other changes like creating precommit.toml
     pre_commit_hook_path = Path(".git/hooks/pre-commit")
@@ -388,7 +433,7 @@ fi
 
 
 def _write_script(
-    path: Path, text: str, *, iprecommit_path: Path, args: str, export_path: str
+    path: Path, text: str, *, iprecommit_path: str, args: str, export_path: str
 ) -> None:
     replace_file(
         path,
@@ -412,8 +457,9 @@ def _check_overwrite(path: Path, *, force: bool) -> None:
             bail(f"{path} already exists. Re-run with --force to overwrite.")
 
 
-def main_uninstall(args):
-    change_to_git_root()
+def main_uninstall(args, git_root: Path) -> None:
+    os.chdir(git_root)
+
     p = Path(".git/hooks/pre-commit")
     if not p.exists():
         bail("No pre-commit hook exists.")
@@ -429,17 +475,29 @@ def main_uninstall(args):
     os.remove(p)
 
 
-def change_to_git_root() -> None:
+def find_git_root() -> Path:
     d = Path(".").absolute()
     while True:
         if (d / ".git").exists():
-            os.chdir(d)
-            return
+            return d
 
         dn = d.parent
         if d == dn:
             raise IPrecommitError("iprecommit must be run in a Git repository.")
         d = dn
+
+
+def get_git_version():
+    return subprocess.run(
+        ["git", "--version"], check=True, text=True, capture_output=True
+    ).stdout.strip()
+
+
+def get_git_config():
+    stdout = subprocess.run(
+        ["git", "config", "--list"], check=True, text=True, capture_output=True
+    ).stdout
+    return [line.split("=", maxsplit=1) for line in stdout.splitlines()]
 
 
 def get_version():
