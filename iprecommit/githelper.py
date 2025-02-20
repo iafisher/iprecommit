@@ -45,12 +45,20 @@ def get_diff_for_empty_commit() -> str:
     return result.stdout.strip()
 
 
+def any_staged_changes() -> bool:
+    result = subprocess.run(
+        ["git", "diff", "--cached", "--name-only"], capture_output=True
+    )
+    return len(result.stdout) > 0
+
+
 def get_changed_paths(
     *, include_unstaged: bool, since: Optional[str] = None
 ) -> List[Path]:
     added_paths = _filter_paths("A", include_unstaged=include_unstaged, since=since)
     modified_paths = _filter_paths("M", include_unstaged=include_unstaged, since=since)
-    return added_paths + modified_paths
+    renamed_paths = _filter_paths("R", include_unstaged=include_unstaged, since=since)
+    return added_paths + modified_paths + renamed_paths
 
 
 def get_deleted_paths(*, include_unstaged: bool) -> List[Path]:

@@ -39,7 +39,7 @@ class TestEndToEnd(Base):
         proc = iprecommit_run()
         expected_stdout = S(
             """\
-            No files are staged in Git. Stage some files, or re-run with --unstaged or --all.
+            iprecommit: No files are staged in Git. Stage some files, or re-run iprecommit with --unstaged or --all.
             """
         )
         self.assertEqual(expected_stdout, proc.stdout)
@@ -48,7 +48,7 @@ class TestEndToEnd(Base):
         proc = iprecommit_run("--unstaged")
         expected_stdout = S(
             """\
-            No files are changed (staged or unstaged) in Git. Change some files, or re-run with --all.
+            iprecommit: No files are changed (staged or unstaged) in Git. Change some files, or re-run iprecommit with --all.
             """
         )
         self.assertEqual(expected_stdout, proc.stdout)
@@ -174,6 +174,47 @@ class TestEndToEnd(Base):
         )
         self.assertEqual(expected_stdout, proc.stdout)
         self.assertNotEqual(0, proc.returncode)
+
+    def test_only_renamed_file(self):
+        # Regression test for https://github.com/iafisher/iprecommit/issues/73
+        self._create_repo()
+        p = Path("example.txt")
+        create_and_commit_file(p, "...\n")
+
+        run_shell(["git", "mv", "example.txt", "example2.txt"], check=True)
+
+        proc = iprecommit_run()
+        expected_stdout = S(
+            """\
+            [iprecommit] NoForbiddenStrings: running
+            [iprecommit] NoForbiddenStrings: passed
+
+            [iprecommit] NewlineAtEndOfFile: running
+            [iprecommit] NewlineAtEndOfFile: passed
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(0, proc.returncode)
+
+    def test_only_deleted_file(self):
+        # Regression test for https://github.com/iafisher/iprecommit/issues/73
+        self._create_repo()
+        p = Path("example.txt")
+        create_and_commit_file(p, "...\n")
+
+        run_shell(["git", "rm", "example.txt"], check=True)
+
+        proc = iprecommit_run()
+        expected_stdout = S(
+            """\
+            [iprecommit] NoForbiddenStrings: skipped
+
+            [iprecommit] NewlineAtEndOfFile: skipped
+
+            """
+        )
+        self.assertEqual(expected_stdout, proc.stdout)
+        self.assertEqual(0, proc.returncode)
 
     def test_failed_git_commit(self):
         self._create_repo()
