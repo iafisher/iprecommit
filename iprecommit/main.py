@@ -122,20 +122,21 @@ def _main(argparser, args) -> None:
     if in_debug_mode():
         print_debugging_info(args, git_root)
 
-    if args.subcmd == "install":
+    subcmd = getattr(args, "subcmd", "")
+    if subcmd == "install":
         main_install(args, git_root)
-    elif args.subcmd == "run":
+    elif subcmd == "run":
         main_pre_commit(args, git_root)
-    elif args.subcmd == "fix":
+    elif subcmd == "fix":
         main_fix(args, git_root)
-    elif args.subcmd == "run-commit-msg":
+    elif subcmd == "run-commit-msg":
         main_commit_msg(args, git_root)
-    elif args.subcmd == "run-pre-push":
+    elif subcmd == "run-pre-push":
         main_pre_push(args, git_root)
-    elif args.subcmd == "uninstall":
+    elif subcmd == "uninstall":
         main_uninstall(args, git_root)
     else:
-        argparser.print_usage()
+        argparser.print_help()
 
 
 def main_pre_commit(args, git_root: Path) -> None:
