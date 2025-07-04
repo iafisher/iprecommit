@@ -50,33 +50,12 @@ class Checks:
                     - set(githelper.get_deleted_paths(include_unstaged=True))
                 )
             )
-
-            if len(all_changed_paths) == 0:
-                print("iprecommit: The repository is empty. Add some files and re-run.")
-                sys.exit(1)
         elif unstaged:
             all_changed_paths = githelper.get_changed_paths(include_unstaged=True) + (
                 githelper.get_untracked_files()
             )
-
-            if len(all_changed_paths) == 0:
-                print(
-                    "iprecommit: No files are changed (staged or unstaged) in Git. "
-                    + "Change some files, or re-run iprecommit with --all."
-                )
-                sys.exit(1)
         else:
             all_changed_paths = githelper.get_changed_paths(include_unstaged=False)
-            # We check this condition instead of `len(all_changed_paths) == 0` because deleted
-            # files won't show up in `all_changed_paths` even though they are staged changes.
-            #
-            # https://github.com/iafisher/iprecommit/issues/73
-            if not githelper.any_staged_changes():
-                print(
-                    "iprecommit: No files are staged in Git. "
-                    + "Stage some files, or re-run iprecommit with --unstaged or --all."
-                )
-                sys.exit(1)
 
         if fix_mode:
             self._run_pre_commit_fix(
